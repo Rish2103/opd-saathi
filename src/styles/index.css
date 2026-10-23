@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-canvas: #f4f7fa;
+  --bg-surface: #ffffff;
+  --bg-subtle: #e8eef5;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --brand-primary: #0b2545;
+  --brand-teal: #0d6e6e;
+  --status-serving: #15803d;
+  --status-next: #b45309;
+  --status-emergency: #b91c1c;
+  --border-strong: #94a3b8;
+  --focus-ring: #ffbf47;
+  --base-font-scale: 1;
+  --min-touch-target: 48px;
+}
+
+/* Assisted Mode increases font scale, touch targets, and border contrast */
+[data-assisted='true'] {
+  --base-font-scale: 1.15;
+  --min-touch-target: 56px;
+  --border-strong: #0f172a;
+}
+
+html {
+  font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, -apple-system, sans-serif;
+  font-size: calc(16px * var(--base-font-scale));
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+/* Prevent clipping of Devanagari top/bottom matras */
+[lang='hi'],
+.font-devanagari {
+  font-family: 'Noto Sans Devanagari', 'Noto Sans', system-ui, sans-serif;
+  line-height: 1.65;
+  letter-spacing: 0 !important;
+}
+
+.font-token {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* High-visibility NHS-inspired keyboard focus ring */
+*:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--text-primary);
+}
+
+/* Minimum touch target helper */
+.touch-target {
+  min-height: var(--min-touch-target);
+  min-width: var(--min-touch-target);
+}
+
+/* Native dialog backdrop styling */
+dialog::backdrop {
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+/* Print stylesheet for token slip */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
