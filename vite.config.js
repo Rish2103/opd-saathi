@@ -23,6 +23,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['server/test/**/*.test.js', 'src/test/**/*.test.js'],
+    include: ['server/test/**/*.test.{js,jsx}', 'src/test/**/*.test.{js,jsx}'],
   },
 });

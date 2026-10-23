@@ -3,7 +3,7 @@
 **Project:** OPD Saathi (ओपीडी साथी) — Smart Queue Management & Accessible Navigation for Government Hospitals  
 **Event:** CachedInfo HackCache '26  
 **Original Baseline Reference:** [`OPD_Saathi_Technical_Plan.md`](file:///d:/HackCached/OPD_Saathi_Technical_Plan.md) (preserved unmodified)  
-**Last Updated:** 23 October 2026 (Phase 0 Baseline)
+**Last Updated:** 24 October 2026 (Phase 1 Working Core Application — Checkpoints A–E Complete)
 
 ---
 
@@ -42,7 +42,7 @@
    - Ticket capability tokens are derived via `HMAC-SHA256(TICKET_TOKEN_SECRET, "${ticket.id}:${ticket.request_id}")` encoded as 64-char lowercase `hex`.
    - Only `access_token_hash = SHA256(rawAccessToken)` (64-char lowercase `hex`) is stored in PostgreSQL; validation uses `crypto.timingSafeEqual` on decoded byte buffers.
    - Idempotent retry recovery (`POST /api/tickets` with the same UUID v4 `requestId`) serialises via `pg_advisory_xact_lock(hashtext('req:' || requestId))`, verifies that **all original payload fields** (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`) match, and only re-issues `accessToken` within a **10-minute window** from `created_at` while `status === 'WAITING'`.
-   - Capability tokens are **never** placed in QR codes, URLs, public lookup responses, or logs. QR codes encode only `/find-slip?code=OPD-GEN-001`.
+   - Capability tokens are **never** placed in QR codes, URLs, public lookup responses, or logs. QR codes encode only `/my-turn?code=OPD-GEN-001` and public lookup uses `GET /api/slips/:publicCode`.
 5. **Department-Day Queue Serialisation Lock:**
    - All queue mutations acquire `pg_advisory_xact_lock(hashtext('queue:' || department_id::text || ':' || queue_date::text))` inside a transaction before reading/locking `queue_counters` or `tickets` rows, backed by the partial unique index `idx_tickets_single_active`.
 6. **Explicit `TAIL_REQUEUE` Policy via `queue_sort_order`:**
@@ -90,8 +90,9 @@ Status Legend:
 | **Phase 0.4: SQL Migration (`001_init.sql`) & Seed (`seed.js`)** | **P0** | `Locally Tested` | Schema DDL & idempotent seed script syntax/unit verified |
 | **Phase 0.5: `/api/health` & Strict Production TLS Guard** | **P0** | `Locally Tested` | `npm test` (`server/test/health.test.js`) passing |
 | **Phase 0.6: Live Supabase DB & Render Public Deployment** | **P0** | `Proposed` | Awaiting user's Supabase `DATABASE_URL`, `DATABASE_CA_CERT`, and Render connection |
-| **Phase 1: Core Queue/Ticket API, UI Primitives (DS-1) & Registration** | **P0** | `Proposed` | Next milestone after Phase 0 review |
-| **Phase 2: OPD Slip, My Turn & Real-Time Socket.IO Sync** | **P0** | `Proposed` | Deferred until Phase 1 complete |
-| **Phase 3: Staff Dashboard, Public Board & Urgent Flags** | **P0** | `Proposed` | Deferred until Phase 2 complete |
-| **Phase 4: 3-Floor Hospital Navigation & Emergency Flows** | **P0** | `Proposed` | Deferred until Phase 3 complete |
-| **Phase 5: P1 Stretch (PWA Offline Cache, Tamil, SVG Map, Voice)** | **P1** | `Proposed` | Deferred until all P0 gates & submission artefacts pass |
+| **Phase 1 Checkpoint A: Backend Queue, Ticket Engine, Navigation & Socket.IO** | **P0** | `Locally Tested` | `server/services/queueService.js`, `shared/navigation/pathfinder.js`, `server/sockets/index.js` (`39/39` tests pass) |
+| **Phase 1 Checkpoint B: Patient Registration & Digital OPD Slip UI** | **P0** | `Locally Tested` | Bilingual (`EN`/`HI`) + Assisted Mode, 3-step registration with `sessionStorage` idempotent recovery, `SlipView.jsx` with QR, Read Aloud & Print |
+| **Phase 1 Checkpoint C: Staff Session Auth & Queue Controls** | **P0** | `Locally Tested` | `StaffView.jsx` PIN login, `Call Next`, `Start`, `Complete`, `No-Show`, `Cancel`, `Requeue to Tail`, Doctor Status & Urgent Flags |
+| **Phase 1 Checkpoint D: Live `My Turn`, 3-Floor Navigation & Pre-Reg Emergency** | **P0** | `Locally Tested` | `MyTurnView.jsx` (`GET /api/slips/:publicCode` + $\le 3$ ahead alert), `NavigationView.jsx` (`Avoid Stairs`), `EmergencyModal.jsx` |
+| **Phase 1 Checkpoint E: End-to-End Verification & Teammate Handoff** | **P0** | `Locally Tested` | `npm run build` + `npm test` (`39/39` passing across 3 suites) on branch `feature/phase-1-core-flow` |
+| **Phase 2+: P1 Stretch (PWA Offline Cache, Tamil, SVG Map, Voice, Multi-Counter)** | **P1** | `Proposed` | Ready for parallel teammate branches (`feature/navigation-polish`, `feature/staff-dashboard-polish`, `feature/accessibility-i18n`) |
