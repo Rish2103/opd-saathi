@@ -1,9 +1,13 @@
+import fs from 'node:fs';
 import http from 'node:http';
+import path from 'node:path';
+import bcrypt from 'bcryptjs';
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { Server as SocketIoServer } from 'socket.io';
 import { io as createClientSocket } from 'socket.io-client';
 import { createApp } from '../app.js';
+import { loadEnvConfig } from '../config/env.js';
 import { configureSocketIo } from '../sockets/index.js';
 import { createQueueService } from '../services/queueService.js';
 import { findAccessibleRoute } from '../../shared/navigation/pathfinder.js';
@@ -548,4 +552,81 @@ describe('Phase 1 Checkpoint A & E — 10-Route Hospital Navigation Matrix (Mult
       }
     }
   );
+});
+
+describe('Phase 1.1 — Staff PIN Hardening & Zero Frontend Secret Exposure', () => {
+  function collectSourceFiles(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...collectSourceFiles(fullPath));
+      } else if (/\.(js|jsx|ts|tsx|css|html)$/.test(entry.name)) {
+        files.push(fullPath);
+      }
+    }
+    return files;
+  }
+
+  it('never exposes a staff PIN or demo PIN value anywhere in frontend source (src/)', () => {
+    const srcDir = path.resolve(process.cwd(), 'src');
+    const files = collectSourceFiles(srcDir);
+    expect(files.length).toBeGreaterThan(0);
+
+    for (const filePath of files) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      expect(content).not.toMatch(/PIN:\s*1234/i);
+      expect(content).not.toMatch(/पिन:\s*1234/i);
+      expect(content).not.toContain('STAFF_DEMO_PIN_HASH');
+      expect(content).not.toContain('TICKET_TOKEN_SECRET');
+      expect(content).not.toContain('SESSION_SECRET');
+    }
+  });
+
+  it('enforces environment-controlled staff PIN and rejects weak/default PINs in production', async () => {
+    // 1. Production with missing STAFF_DEMO_PIN_HASH -> fails closed
+    const prodMissingEnv = loadEnvConfig({
+      NODE_ENV: 'production',
+      SESSION_SECRET: 'a'.repeat(64),
+      TICKET_TOKEN_SECRET: 'b'.repeat(64)
+    });
+    expect(prodMissingEnv.staffDemoPinHash).toBe('');
+    expect(prodMissingEnv.staffPinConfigError).toBe('STAFF_AUTH_UNCONFIGURED');
+
+    // 2. Production with weak default PIN ('1234') -> fails closed
+    const weakHash = bcrypt.hashSync('1234', 8);
+    const prodWeakEnv = loadEnvConfig({
+      NODE_ENV: 'production',
+      SESSION_SECRET: 'a'.repeat(64),
+      TICKET_TOKEN_SECRET: 'b'.repeat(64),
+      STAFF_DEMO_PIN_HASH: weakHash
+    });
+    expect(prodWeakEnv.staffDemoPinHash).toBe('');
+    expect(prodWeakEnv.staffPinConfigError).toBe('INSECURE_STAFF_PIN_CONFIG');
+
+    const prodWeakApp = createApp({
+      isProduction: true,
+      staffPinHash: weakHash,
+      disableRateLimits: true
+    });
+    const weakLoginRes = await request(prodWeakApp)
+      .post('/api/staff/session')
+      .send({ pin: '1234' });
+    expect(weakLoginRes.status).toBe(503);
+    expect(weakLoginRes.body.error.code).toBe('INSECURE_STAFF_PIN_CONFIG');
+
+    // 3. Production with strong custom PIN hash -> succeeds
+    const strongHash = bcrypt.hashSync('849207', 8);
+    const prodStrongApp = createApp({
+      isProduction: true,
+      staffPinHash: strongHash,
+      disableRateLimits: true
+    });
+    const strongLoginRes = await request(prodStrongApp)
+      .post('/api/staff/session')
+      .send({ pin: '849207' });
+    expect(strongLoginRes.status).toBe(200);
+    expect(strongLoginRes.body.authenticated).toBe(true);
+  });
 });

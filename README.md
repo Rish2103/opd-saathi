@@ -7,10 +7,24 @@
 
 ---
 
-## 1. Documentation & Source of Truth
+## 1. Current Implementation Status (Phase 1.1 Release Readiness)
+
+- **`main` (`4646bfb`):** Stable Phase 0 baseline (documentation suite, PostgreSQL schema/seed scripts, Express/Vite single-origin skeleton, strict TLS health check).
+- **`feature/phase-1-core-flow`:** Complete Phase 1 working core application + Phase 1.1 security hardening and teammate handoff:
+  - **Patient Registration & Digital OPD Slip:** Bilingual (`EN`/`HI`) + Assisted Mode (`Large Text`), 3-step registration with `sessionStorage` idempotent retry recovery (`10`-minute window), QR code (`/my-turn?code=OPD-GEN-001`), SpeechSynthesis Read Aloud, and Print layout.
+  - **Live Queue Board & `My Turn` Tracker:** Public lookup (`GET /api/slips/:publicCode`) with rate limiting, Socket.IO room invalidations (`queue:<deptId>`, `ticket:<id>`), and $\le 3$ ahead / `CALLED` alerts.
+  - **3-Floor Accessible Hospital Navigation:** Shared 19-node graph (`shared/navigation/hospitalGraph.json`), bidirectional Dijkstra pathfinding, and `Avoid Stairs` lift/ramp filter.
+  - **Pre-Registration Emergency & Triage Help:** Persistent Emergency bar (`108` / `112`), Room 101 Ground Floor Casualty routing, and `POST /api/help-requests` alerting staff (`staff:all`) for human assessment.
+  - **Staff PIN Desk & Queue Controls:** Environment-controlled PIN authentication (`STAFF_DEMO_PIN_HASH`), `httpOnly` sessions, CSRF `Origin` checks, `Call Next`, `Start`, `Complete`, `No-Show`, `Cancel`, `Requeue to Tail` (`TAIL_REQUEUE`), and Doctor Status/Delay broadcast.
+  - **Verification:** `42/42` automated tests passing (`npm test` + `npm run test:db`) and zero Vite production build errors (`npm run build`).
+
+---
+
+## 2. Documentation & Source of Truth
 
 - **[`PROJECT_BIBLE.md`](./PROJECT_BIBLE.md):** Canonical index of approved decisions, shared enums, database invariants, and milestone status.
-- **[`OPD_Saathi_Technical_Plan.md`](./OPD_Saathi_Technical_Plan.md):** Original baseline technical plan (preserved for reference).
+- **[`docs/TEAM_HANDOFF.md`](./docs/TEAM_HANDOFF.md):** **Start here for teammates** — component ownership, frozen contracts, parallel branches, and PR checklist.
+- **[`OPD_Saathi_Technical_Plan.md`](./OPD_Saathi_Technical_Plan.md):** Original baseline technical plan (preserved unmodified).
 - **Detailed Specifications (`docs/`):**
   - [`docs/PRD.md`](./docs/PRD.md) — Persona (Kamla, 62), user journeys, P0 vs P1 scope.
   - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — Single-origin Render + Supabase topology & data flow.
@@ -27,12 +41,12 @@
 
 ---
 
-## 2. Quick Start for Teammates
+## 3. Quick Start & Local Setup
 
 ### Prerequisites
-- **Node.js:** `>=20.0.0` (tested on `v24.20.0`)
+- **Node.js:** `>=20.0.0` (verified on `v24.20.0`)
 - **npm:** `>=10.0.0`
-- **Database:** Supabase PostgreSQL project (or local PostgreSQL `>=15` for local testing)
+- **Database:** Supabase PostgreSQL project (or local PostgreSQL `>=15`). When `DATABASE_URL` is unset in non-production environments, the server runs using its advisory-locked local development store so frontend and integration work can proceed offline.
 
 ### 1. Clone & Install
 ```powershell
@@ -55,12 +69,12 @@ Populate `.env` with:
   ```powershell
   node -e "console.log('SESSION_SECRET=' + require('crypto').randomBytes(32).toString('hex')); console.log('TICKET_TOKEN_SECRET=' + require('crypto').randomBytes(32).toString('hex'));"
   ```
-- `STAFF_DEMO_PIN_HASH`: Bcrypt hash of your synthetic demo PIN:
+- `STAFF_DEMO_PIN_HASH`: Bcrypt hash of your chosen staff desk PIN (production rejects missing hashes and weak defaults like `1234` or `0000`):
   ```powershell
-  node -e "require('bcryptjs').hash('1234', 10).then(h => console.log('STAFF_DEMO_PIN_HASH=' + h))"
+  node -e "require('bcryptjs').hash('<YOUR_STRONG_STAFF_PIN>', 10).then(h => console.log('STAFF_DEMO_PIN_HASH=' + h))"
   ```
 
-### 3. Run Database Migrations & Seed Data
+### 3. Run Database Migrations & Seed Data (When `DATABASE_URL` Is Configured)
 ```powershell
 npm run db:migrate
 npm run db:seed
@@ -73,31 +87,30 @@ npm run dev
 - **Frontend (Vite):** `http://localhost:5173` (proxies `/api` and `/socket.io` to `:3000`)
 - **Backend API & Health:** `http://localhost:3000/api/health`
 
-### 5. Build, Test & Production Smoke Check
+### 5. Build, Test & Database Concurrency Verification
 ```powershell
 npm test
+npm run test:db
 npm run build
 npm start
 ```
 
 ---
 
-## 3. Team Collaboration & Branch Workflow
+## 4. Branching & Pull-Request Workflow
 
-- **`main` is the protected integration branch.** Always pull latest `main` before creating a feature branch:
-  ```powershell
-  git checkout main
-  git pull origin main
-  git checkout -b feat/<your-feature>
-  ```
-- Run `npm test` and `npm run build` before opening a pull request or merging into `main`.
-- Consult [`PROJECT_BIBLE.md`](./PROJECT_BIBLE.md) and [`docs/API.md`](./docs/API.md) before modifying shared contracts.
+See [`docs/TEAM_HANDOFF.md`](./docs/TEAM_HANDOFF.md) for the full team guide.
+
+1. **`main` is the protected integration branch.**
+2. **`feature/phase-1-core-flow` is the working Phase 1 baseline.**
+3. Teammates should create isolated feature branches (`feature/navigation-polish`, `feature/staff-dashboard-polish`, `feature/accessibility-i18n`) from the baseline, verify `npm test` and `npm run build`, and open a Pull Request before merging.
 
 ---
 
-## 4. Render Deployment Summary
+## 5. Render Deployment Summary
 
-1. Create a **Render Web Service** connected to your public GitHub repository (`opd-saathi`, branch `main`).
+A [`render.yaml`](./render.yaml) Blueprint is included at the repository root.
+1. Create a **Render Web Service** connected to your GitHub repository (`opd-saathi`).
 2. Set **Build Command:** `npm ci && npm run build`
 3. Set **Start Command:** `npm start`
 4. Set **Health Check Path:** `/api/health`

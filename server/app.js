@@ -7,7 +7,7 @@ import express from 'express';
 import session from 'express-session';
 import helmet from 'helmet';
 import { z } from 'zod';
-import { env } from './config/env.js';
+import { env, isWeakProductionPinHash } from './config/env.js';
 import { checkDbHealth, getPool } from './db/pool.js';
 import { apiNotFoundHandler, errorHandler } from './middleware/errorHandler.js';
 import {
@@ -108,9 +108,11 @@ export function createApp(options = {}) {
   const app = express();
   const runHealthCheck = options.dbHealthCheck ?? checkDbHealth;
   const queueService = options.queueService ?? defaultQueueService;
+  const isProduction = options.isProduction ?? env.isProduction;
   const sessionMiddleware =
     options.sessionMiddleware ?? createSessionMiddleware(env);
-  const staffPinHash = options.staffPinHash ?? env.staffDemoPinHash;
+  const staffPinHash =
+    options.staffPinHash !== undefined ? options.staffPinHash : env.staffDemoPinHash;
   const skipLimits = Boolean(options.disableRateLimits);
 
   const maybeLimit = (limiter) =>
@@ -308,6 +310,17 @@ export function createApp(options = {}) {
             error: {
               code: 'STAFF_AUTH_UNCONFIGURED',
               message: 'STAFF_DEMO_PIN_HASH is not configured on the server.',
+              requestId: req.correlationId ?? null
+            }
+          });
+        }
+
+        if (isProduction && isWeakProductionPinHash(staffPinHash)) {
+          return res.status(503).json({
+            error: {
+              code: 'INSECURE_STAFF_PIN_CONFIG',
+              message:
+                'Production staff authentication refused: STAFF_DEMO_PIN_HASH uses a forbidden weak or default PIN.',
               requestId: req.correlationId ?? null
             }
           });

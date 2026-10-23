@@ -25,6 +25,7 @@
 | [`docs/MAP_NAVIGATION.md`](file:///d:/HackCached/docs/MAP_NAVIGATION.md) | 3-floor `hospitalGraph.json` schema, 19 canonical node IDs, bidirectional Dijkstra pathfinder, and 10-route matrix. |
 | [`docs/PHASE_MAP.md`](file:///d:/HackCached/docs/PHASE_MAP.md) | Deadline-safe timeline, 2–3 member role split, Git branch workflow, and feature drop hierarchy. |
 | [`docs/IMPLEMENTATION.md`](file:///d:/HackCached/docs/IMPLEMENTATION.md) | Local setup, database migration/seeding, team handoff guide, and Render + Supabase deployment runbook. |
+| [`docs/TEAM_HANDOFF.md`](file:///d:/HackCached/docs/TEAM_HANDOFF.md) | Teammate onboarding, component responsibilities, frozen API/DB contracts, parallel branch assignments, and PR checklist. |
 | [`docs/EDGE_CASES.md`](file:///d:/HackCached/docs/EDGE_CASES.md) | Lost-response recovery, concurrent race handling, `TAIL_REQUEUE` stability, stale socket recovery, hardware fallbacks. |
 | [`docs/AUTH_SECURITY.md`](file:///d:/HackCached/docs/AUTH_SECURITY.md) | Staff PIN sessions, `trust proxy`, CSRF/Origin checks, `TICKET_TOKEN_SECRET` HMAC lifecycle, TLS, and log redaction. |
 
@@ -94,5 +95,5 @@ Status Legend:
 | **Phase 1 Checkpoint B: Patient Registration & Digital OPD Slip UI** | **P0** | `Locally Tested` | Bilingual (`EN`/`HI`) + Assisted Mode, 3-step registration with `sessionStorage` idempotent recovery, `SlipView.jsx` with QR, Read Aloud & Print |
 | **Phase 1 Checkpoint C: Staff Session Auth & Queue Controls** | **P0** | `Locally Tested` | `StaffView.jsx` PIN login, `Call Next`, `Start`, `Complete`, `No-Show`, `Cancel`, `Requeue to Tail`, Doctor Status & Urgent Flags |
 | **Phase 1 Checkpoint D: Live `My Turn`, 3-Floor Navigation & Pre-Reg Emergency** | **P0** | `Locally Tested` | `MyTurnView.jsx` (`GET /api/slips/:publicCode` + $\le 3$ ahead alert), `NavigationView.jsx` (`Avoid Stairs`), `EmergencyModal.jsx` |
-| **Phase 1 Checkpoint E: End-to-End Verification & Teammate Handoff** | **P0** | `Locally Tested` | `npm run build` + `npm test` (`39/39` passing across 3 suites) on branch `feature/phase-1-core-flow` |
+| **Phase 1 Checkpoint E: End-to-End Verification & Teammate Handoff** | **P0** | `Locally Tested` | `npm run build` + `npm test` (`42/42` passing across 4 suites) + `docs/TEAM_HANDOFF.md` on branch `feature/phase-1-core-flow` |
 | **Phase 2+: P1 Stretch (PWA Offline Cache, Tamil, SVG Map, Voice, Multi-Counter)** | **P1** | `Proposed` | Ready for parallel teammate branches (`feature/navigation-polish`, `feature/staff-dashboard-polish`, `feature/accessibility-i18n`) |

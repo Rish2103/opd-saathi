@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: opd-saathi
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+      - key: DATABASE_SSL_MODE
+        value: verify-full
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_CA_CERT
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TICKET_TOKEN_SECRET
+        generateValue: true
+      - key: STAFF_DEMO_PIN_HASH
+        sync: false

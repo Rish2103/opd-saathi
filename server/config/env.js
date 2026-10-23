@@ -11,6 +11,42 @@ const DEV_FALLBACK_TICKET_SECRET =
   'dev-only-ticket-token-secret-separate-from-session-abcdef012345';
 const DEV_FALLBACK_PIN_HASH = bcrypt.hashSync('1234', 8);
 
+const FORBIDDEN_PRODUCTION_PINS = [
+  '1234',
+  '0000',
+  '1111',
+  '9999',
+  '123456',
+  'admin',
+  'password'
+];
+
+/**
+ * Checks whether a bcrypt hash corresponds to a known weak/default PIN
+ * that must never be permitted in production.
+ */
+export function isWeakProductionPinHash(pinHash) {
+  if (!pinHash || typeof pinHash !== 'string') {
+    return true;
+  }
+  try {
+    return FORBIDDEN_PRODUCTION_PINS.some((weakPin) =>
+      bcrypt.compareSync(weakPin, pinHash)
+    );
+  } catch {
+    return true;
+  }
+}
+
+export function isSafeProductionSecret(secret) {
+  return (
+    typeof secret === 'string' &&
+    secret.length >= 32 &&
+    !secret.startsWith('replace-with-') &&
+    !secret.startsWith('dev-only-')
+  );
+}
+
 /**
  * Resolves the CA certificate PEM string from DATABASE_CA_CERT (inline PEM or base64)
  * or DATABASE_CA_CERT_PATH (file path).
@@ -61,10 +97,37 @@ export function loadEnvConfig(envObj = process.env) {
   const rawTicketSecret = (envObj.TICKET_TOKEN_SECRET || '').trim();
   const ticketTokenSecretPrevious = (envObj.TICKET_TOKEN_SECRET_PREVIOUS || '').trim();
   const rawPinHash = (envObj.STAFF_DEMO_PIN_HASH || '').trim();
+  const rawPlainPin = (envObj.STAFF_DEMO_PIN || '').trim();
 
-  const sessionSecret = rawSessionSecret || (isProduction ? '' : DEV_FALLBACK_SESSION_SECRET);
-  const ticketTokenSecret = rawTicketSecret || (isProduction ? '' : DEV_FALLBACK_TICKET_SECRET);
-  const staffDemoPinHash = rawPinHash || (isProduction ? '' : DEV_FALLBACK_PIN_HASH);
+  const sessionSecret = isProduction
+    ? isSafeProductionSecret(rawSessionSecret)
+      ? rawSessionSecret
+      : ''
+    : rawSessionSecret || DEV_FALLBACK_SESSION_SECRET;
+
+  const ticketTokenSecret = isProduction
+    ? isSafeProductionSecret(rawTicketSecret) && rawTicketSecret !== rawSessionSecret
+      ? rawTicketSecret
+      : ''
+    : rawTicketSecret || DEV_FALLBACK_TICKET_SECRET;
+
+  let staffDemoPinHash = '';
+  let staffPinConfigError = null;
+
+  if (isProduction) {
+    if (!rawPinHash) {
+      staffPinConfigError = 'STAFF_AUTH_UNCONFIGURED';
+    } else if (isWeakProductionPinHash(rawPinHash)) {
+      staffPinConfigError = 'INSECURE_STAFF_PIN_CONFIG';
+    } else {
+      staffDemoPinHash = rawPinHash;
+    }
+  } else {
+    staffDemoPinHash =
+      rawPinHash ||
+      (rawPlainPin ? bcrypt.hashSync(rawPlainPin, 8) : DEV_FALLBACK_PIN_HASH);
+  }
+
   const demoMode = (envObj.DEMO_MODE || 'true').toLowerCase() !== 'false';
 
   return {
@@ -78,6 +141,7 @@ export function loadEnvConfig(envObj = process.env) {
     ticketTokenSecret,
     ticketTokenSecretPrevious,
     staffDemoPinHash,
+    staffPinConfigError,
     demoMode
   };
 }
