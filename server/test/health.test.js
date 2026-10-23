@@ -40,7 +40,7 @@ describe('Phase 0 Foundation — Health Endpoint & Strict API 404', () => {
       expect.objectContaining({
         status: 'degraded',
         service: 'opd-saathi',
-        phase: 'phase-0-foundation',
+        phase: 'phase-1-core-flow',
         db: {
           connected: false,
           status: 'db_unconfigured',

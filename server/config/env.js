@@ -1,8 +1,15 @@
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
 dotenv.config();
+
+const DEV_FALLBACK_SESSION_SECRET =
+  'dev-only-session-secret-not-for-production-use-0123456789abcdef';
+const DEV_FALLBACK_TICKET_SECRET =
+  'dev-only-ticket-token-secret-separate-from-session-abcdef012345';
+const DEV_FALLBACK_PIN_HASH = bcrypt.hashSync('1234', 8);
 
 /**
  * Resolves the CA certificate PEM string from DATABASE_CA_CERT (inline PEM or base64)
@@ -50,10 +57,14 @@ export function loadEnvConfig(envObj = process.env) {
 
   const caCert = resolveCaCertificate(envObj);
 
-  const sessionSecret = (envObj.SESSION_SECRET || '').trim();
-  const ticketTokenSecret = (envObj.TICKET_TOKEN_SECRET || '').trim();
+  const rawSessionSecret = (envObj.SESSION_SECRET || '').trim();
+  const rawTicketSecret = (envObj.TICKET_TOKEN_SECRET || '').trim();
   const ticketTokenSecretPrevious = (envObj.TICKET_TOKEN_SECRET_PREVIOUS || '').trim();
-  const staffDemoPinHash = (envObj.STAFF_DEMO_PIN_HASH || '').trim();
+  const rawPinHash = (envObj.STAFF_DEMO_PIN_HASH || '').trim();
+
+  const sessionSecret = rawSessionSecret || (isProduction ? '' : DEV_FALLBACK_SESSION_SECRET);
+  const ticketTokenSecret = rawTicketSecret || (isProduction ? '' : DEV_FALLBACK_TICKET_SECRET);
+  const staffDemoPinHash = rawPinHash || (isProduction ? '' : DEV_FALLBACK_PIN_HASH);
   const demoMode = (envObj.DEMO_MODE || 'true').toLowerCase() !== 'false';
 
   return {
@@ -67,7 +78,7 @@ export function loadEnvConfig(envObj = process.env) {
     ticketTokenSecret,
     ticketTokenSecretPrevious,
     staffDemoPinHash,
-    demoMode,
+    demoMode
   };
 }
 

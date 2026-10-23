@@ -1,0 +1,436 @@
+{
+  "hospitalName_en": "City District Hospital",
+  "hospitalName_hi": "सिटी जिला अस्पताल (City District Hospital)",
+  "floors": [
+    {
+      "floorNumber": 1,
+      "name_en": "Floor 1 (Ground Floor)",
+      "name_hi": "तल 1 (भूतल)"
+    },
+    {
+      "floorNumber": 2,
+      "name_en": "Floor 2 (First Floor — General & Paediatric OPD)",
+      "name_hi": "तल 2 (प्रथम तल — सामान्य एवं बाल रोग ओपीडी)"
+    },
+    {
+      "floorNumber": 3,
+      "name_en": "Floor 3 (Second Floor — Specialty OPD)",
+      "name_hi": "तल 3 (द्वितीय तल — स्पेशलिटी ओपीडी)"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "main_entrance",
+      "floor": 1,
+      "type": "entrance",
+      "name_en": "Main Entrance & Ramp",
+      "name_hi": "मुख्य प्रवेश द्वार और रैंप",
+      "landmark_en": "Near security booth & wheelchair bay",
+      "landmark_hi": "सुरक्षा कक्ष और व्हीलचेयर स्थान के पास"
+    },
+    {
+      "id": "registration_desk",
+      "floor": 1,
+      "type": "help_desk",
+      "name_en": "Registration & Help Desk",
+      "name_hi": "पंजीकरण और सहायता केंद्र",
+      "landmark_en": "Blue Counter 1–3, Ground Hall",
+      "landmark_hi": "नीला काउंटर 1–3, भूतल हॉल"
+    },
+    {
+      "id": "emergency_casualty",
+      "floor": 1,
+      "type": "emergency",
+      "name_en": "Emergency / Casualty (Room 101)",
+      "name_hi": "आपातकालीन / कैजुअल्टी (कमरा 101)",
+      "landmark_en": "Red sign to the right of Main Entrance",
+      "landmark_hi": "मुख्य प्रवेश द्वार के दाईं ओर लाल बोर्ड"
+    },
+    {
+      "id": "waiting_f1",
+      "floor": 1,
+      "type": "waiting",
+      "name_en": "Ground Floor Waiting Area",
+      "name_hi": "भूतल प्रतीक्षा क्षेत्र",
+      "landmark_en": "Opposite Registration Counters",
+      "landmark_hi": "पंजीकरण काउंटर के सामने"
+    },
+    {
+      "id": "pharmacy_f1",
+      "floor": 1,
+      "type": "facility",
+      "name_en": "Hospital Pharmacy (Counter 4)",
+      "name_hi": "अस्पताल फार्मेसी (काउंटर 4)",
+      "landmark_en": "Green sign near Drinking Water point",
+      "landmark_hi": "पेयजल केंद्र के पास हरा बोर्ड"
+    },
+    {
+      "id": "lift_main_f1",
+      "floor": 1,
+      "type": "lift",
+      "name_en": "Main Patient Lift (Floor 1)",
+      "name_hi": "मुख्य रोगी लिफ्ट (तल 1)",
+      "landmark_en": "Beside Ground Floor Waiting Area",
+      "landmark_hi": "भूतल प्रतीक्षा क्षेत्र के बगल में"
+    },
+    {
+      "id": "stairs_main_f1",
+      "floor": 1,
+      "type": "stairs",
+      "name_en": "Central Staircase (Floor 1)",
+      "name_hi": "केंद्रीय सीढ़ियाँ (तल 1)",
+      "landmark_en": "Next to Main Lift lobby",
+      "landmark_hi": "मुख्य लिफ्ट लॉबी के पास"
+    },
+    {
+      "id": "lift_main_f2",
+      "floor": 2,
+      "type": "lift",
+      "name_en": "Main Patient Lift (Floor 2)",
+      "name_hi": "मुख्य रोगी लिफ्ट (तल 2)",
+      "landmark_en": "Opens into Floor 2 OPD Waiting Hall",
+      "landmark_hi": "तल 2 ओपीडी प्रतीक्षा हॉल के सामने"
+    },
+    {
+      "id": "stairs_main_f2",
+      "floor": 2,
+      "type": "stairs",
+      "name_en": "Central Staircase (Floor 2)",
+      "name_hi": "केंद्रीय सीढ़ियाँ (तल 2)",
+      "landmark_en": "East end of Floor 2 corridor",
+      "landmark_hi": "तल 2 गलियारे के पूर्वी छोर पर"
+    },
+    {
+      "id": "waiting_f2",
+      "floor": 2,
+      "type": "waiting",
+      "name_en": "Floor 2 OPD Waiting Hall",
+      "name_hi": "तल 2 ओपीडी प्रतीक्षा हॉल",
+      "landmark_en": "Yellow seating zone outside Lift",
+      "landmark_hi": "लिफ्ट के बाहर पीला बैठने का क्षेत्र"
+    },
+    {
+      "id": "room_204_med",
+      "floor": 2,
+      "type": "clinic",
+      "name_en": "Room 204 — General Medicine OPD",
+      "name_hi": "कमरा 204 — सामान्य चिकित्सा ओपीडी",
+      "landmark_en": "Left corridor from Floor 2 Lift",
+      "landmark_hi": "तल 2 लिफ्ट से बाएँ गलियारे में"
+    },
+    {
+      "id": "room_208_ped",
+      "floor": 2,
+      "type": "clinic",
+      "name_en": "Room 208 — Paediatrics OPD",
+      "name_hi": "कमरा 208 — बाल रोग ओपीडी",
+      "landmark_en": "Child mural wall, Floor 2 West",
+      "landmark_hi": "बच्चों के चित्र वाली दीवार, तल 2 पश्चिम"
+    },
+    {
+      "id": "lab_f2",
+      "floor": 2,
+      "type": "diagnostic",
+      "name_en": "Room 212 — Central Pathology Lab",
+      "name_hi": "कमरा 212 — केंद्रीय पैथोलॉजी लैब",
+      "landmark_en": "Sample collection window, Floor 2",
+      "landmark_hi": "नमूना संग्रह खिड़की, तल 2"
+    },
+    {
+      "id": "xray_f2",
+      "floor": 2,
+      "type": "diagnostic",
+      "name_en": "Room 215 — Digital X-Ray & Imaging",
+      "name_hi": "कमरा 215 — डिजिटल एक्स-रे कक्ष",
+      "landmark_en": "Amber caution light, end of Floor 2",
+      "landmark_hi": "पीली चेतावनी लाइट, तल 2 का अंत"
+    },
+    {
+      "id": "lift_main_f3",
+      "floor": 3,
+      "type": "lift",
+      "name_en": "Main Patient Lift (Floor 3)",
+      "name_hi": "मुख्य रोगी लिफ्ट (तल 3)",
+      "landmark_en": "Opens into Floor 3 Specialty Hall",
+      "landmark_hi": "तल 3 स्पेशलिटी हॉल के सामने"
+    },
+    {
+      "id": "stairs_main_f3",
+      "floor": 3,
+      "type": "stairs",
+      "name_en": "Central Staircase (Floor 3)",
+      "name_hi": "केंद्रीय सीढ़ियाँ (तल 3)",
+      "landmark_en": "East end of Floor 3 corridor",
+      "landmark_hi": "तल 3 गलियारे के पूर्वी छोर पर"
+    },
+    {
+      "id": "waiting_f3",
+      "floor": 3,
+      "type": "waiting",
+      "name_en": "Floor 3 Specialty Waiting Area",
+      "name_hi": "तल 3 स्पेशलिटी प्रतीक्षा क्षेत्र",
+      "landmark_en": "Outside Room 302–305",
+      "landmark_hi": "कमरा 302–305 के बाहर"
+    },
+    {
+      "id": "room_302_ort",
+      "floor": 3,
+      "type": "clinic",
+      "name_en": "Room 302 — Orthopaedics & Joint Care",
+      "name_hi": "कमरा 302 — हड्डी एवं जोड़ रोग ओपीडी",
+      "landmark_en": "Immediately left of Floor 3 Lift",
+      "landmark_hi": "तल 3 लिफ्ट के ठीक बाईं ओर"
+    },
+    {
+      "id": "room_305_eye",
+      "floor": 3,
+      "type": "clinic",
+      "name_en": "Room 305 — Ophthalmology (Eye OPD)",
+      "name_hi": "कमरा 305 — नेत्र रोग ओपीडी",
+      "landmark_en": "Eye chart signboard, Floor 3 Right",
+      "landmark_hi": "नेत्र चार्ट बोर्ड, तल 3 दाईं ओर"
+    }
+  ],
+  "edges": [
+    {
+      "from": "main_entrance",
+      "to": "registration_desk",
+      "distanceMeters": 18,
+      "durationSeconds": 25,
+      "mode": "ramp",
+      "accessible": true,
+      "direction_en": "Enter via the gentle access ramp and walk straight ahead to Blue Counter 1–3 (Registration & Help Desk).",
+      "direction_hi": "मुख्य रैंप से अंदर आएं और सीधे नीले काउंटर 1–3 (पंजीकरण और सहायता केंद्र) तक चलें।",
+      "reverse_direction_en": "Walk straight from the Registration Counters toward the Main Entrance glass doors and ramp.",
+      "reverse_direction_hi": "पंजीकरण काउंटर से सीधे मुख्य प्रवेश द्वार और रैंप की ओर चलें।"
+    },
+    {
+      "from": "main_entrance",
+      "to": "emergency_casualty",
+      "distanceMeters": 12,
+      "durationSeconds": 15,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Turn immediately right after the Main Entrance following the red Emergency line to Room 101 (Casualty).",
+      "direction_hi": "मुख्य प्रवेश द्वार के तुरंत बाद दाईं ओर मुड़ें और लाल आपातकालीन पट्टी के साथ कमरा 101 (कैजुअल्टी) में जाएं।",
+      "reverse_direction_en": "Exit Room 101 (Casualty) and turn left to reach the Main Entrance.",
+      "reverse_direction_hi": "कमरा 101 (कैजुअल्टी) से बाहर निकलें और मुख्य प्रवेश द्वार के लिए बाईं ओर मुड़ें।"
+    },
+    {
+      "from": "registration_desk",
+      "to": "waiting_f1",
+      "distanceMeters": 14,
+      "durationSeconds": 20,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Turn around from the Registration Counter to reach the Ground Floor Waiting Area benches.",
+      "direction_hi": "पंजीकरण काउंटर से पीछे मुड़कर भूतल प्रतीक्षा क्षेत्र की सीटों तक जाएं।",
+      "reverse_direction_en": "Walk across the Ground Hall from the Waiting Area to Blue Counter 1–3 (Registration).",
+      "reverse_direction_hi": "प्रतीक्षा क्षेत्र से हॉल पार करके नीले काउंटर 1–3 (पंजीकरण) तक जाएं।"
+    },
+    {
+      "from": "waiting_f1",
+      "to": "pharmacy_f1",
+      "distanceMeters": 22,
+      "durationSeconds": 30,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Follow the green floor stripe past the Drinking Water station to Counter 4 (Hospital Pharmacy).",
+      "direction_hi": "पेयजल केंद्र के पास से हरी पट्टी के साथ काउंटर 4 (अस्पताल फार्मेसी) तक चलें।",
+      "reverse_direction_en": "Walk back along the green floor stripe from Pharmacy Counter 4 to the Ground Floor Waiting Area.",
+      "reverse_direction_hi": "फार्मेसी काउंटर 4 से हरी पट्टी के साथ वापस भूतल प्रतीक्षा क्षेत्र में आएं।"
+    },
+    {
+      "from": "waiting_f1",
+      "to": "lift_main_f1",
+      "distanceMeters": 15,
+      "durationSeconds": 20,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Walk to the silver doors of the Main Patient Lift beside the Ground Floor Waiting Area.",
+      "direction_hi": "भूतल प्रतीक्षा क्षेत्र के बगल में स्थित मुख्य रोगी लिफ्ट के दरवाजे तक जाएं।",
+      "reverse_direction_en": "Step out of the Main Patient Lift (Floor 1) into the Ground Floor Waiting Area.",
+      "reverse_direction_hi": "मुख्य रोगी लिफ्ट (तल 1) से बाहर भूतल प्रतीक्षा क्षेत्र में आएं।"
+    },
+    {
+      "from": "waiting_f1",
+      "to": "stairs_main_f1",
+      "distanceMeters": 16,
+      "durationSeconds": 22,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Walk past the Lift lobby to the Central Staircase entrance on Floor 1.",
+      "direction_hi": "लिफ्ट लॉबी के पास केंद्रीय सीढ़ियों (तल 1) के प्रवेश द्वार तक जाएं।",
+      "reverse_direction_en": "Walk from the Central Staircase (Floor 1) into the Ground Floor Waiting Area.",
+      "reverse_direction_hi": "केंद्रीय सीढ़ियों (तल 1) से भूतल प्रतीक्षा क्षेत्र में आएं।"
+    },
+    {
+      "from": "lift_main_f1",
+      "to": "lift_main_f2",
+      "distanceMeters": 8,
+      "durationSeconds": 35,
+      "mode": "lift",
+      "accessible": true,
+      "direction_en": "Take the Main Patient Lift up from Floor 1 (Ground) to Floor 2.",
+      "direction_hi": "मुख्य रोगी लिफ्ट से तल 1 (भूतल) से ऊपर तल 2 पर जाएं।",
+      "reverse_direction_en": "Take the Main Patient Lift down from Floor 2 to Floor 1 (Ground).",
+      "reverse_direction_hi": "मुख्य रोगी लिफ्ट से तल 2 से नीचे तल 1 (भूतल) पर आएं।"
+    },
+    {
+      "from": "lift_main_f2",
+      "to": "lift_main_f3",
+      "distanceMeters": 8,
+      "durationSeconds": 35,
+      "mode": "lift",
+      "accessible": true,
+      "direction_en": "Take the Main Patient Lift up from Floor 2 to Floor 3.",
+      "direction_hi": "मुख्य रोगी लिफ्ट से तल 2 से ऊपर तल 3 पर जाएं।",
+      "reverse_direction_en": "Take the Main Patient Lift down from Floor 3 to Floor 2.",
+      "reverse_direction_hi": "मुख्य रोगी लिफ्ट से तल 3 से नीचे तल 2 पर आएं।"
+    },
+    {
+      "from": "stairs_main_f1",
+      "to": "stairs_main_f2",
+      "distanceMeters": 18,
+      "durationSeconds": 45,
+      "mode": "stairs",
+      "accessible": false,
+      "direction_en": "Climb the Central Staircase from Floor 1 up to Floor 2 (22 steps, handrail on both sides).",
+      "direction_hi": "केंद्रीय सीढ़ियों से तल 1 से ऊपर तल 2 पर चढ़ें (22 सीढ़ियाँ, दोनों तरफ रेलिंग)।",
+      "reverse_direction_en": "Walk down the Central Staircase from Floor 2 to Floor 1 (Ground).",
+      "reverse_direction_hi": "केंद्रीय सीढ़ियों से तल 2 से नीचे तल 1 (भूतल) पर उतरें।"
+    },
+    {
+      "from": "stairs_main_f2",
+      "to": "stairs_main_f3",
+      "distanceMeters": 18,
+      "durationSeconds": 45,
+      "mode": "stairs",
+      "accessible": false,
+      "direction_en": "Climb the Central Staircase from Floor 2 up to Floor 3 (22 steps).",
+      "direction_hi": "केंद्रीय सीढ़ियों से तल 2 से ऊपर तल 3 पर चढ़ें (22 सीढ़ियाँ)।",
+      "reverse_direction_en": "Walk down the Central Staircase from Floor 3 to Floor 2.",
+      "reverse_direction_hi": "केंद्रीय सीढ़ियों से तल 3 से नीचे तल 2 पर उतरें।"
+    },
+    {
+      "from": "lift_main_f2",
+      "to": "waiting_f2",
+      "distanceMeters": 10,
+      "durationSeconds": 15,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Exit the Floor 2 Lift directly into the Floor 2 OPD Waiting Hall (yellow seating zone).",
+      "direction_hi": "तल 2 लिफ्ट से बाहर सीधे तल 2 ओपीडी प्रतीक्षा हॉल (पीला बैठने का क्षेत्र) में आएं।",
+      "reverse_direction_en": "Walk from the Floor 2 OPD Waiting Hall to the Main Patient Lift (Floor 2).",
+      "reverse_direction_hi": "तल 2 ओपीडी प्रतीक्षा हॉल से मुख्य रोगी लिफ्ट (तल 2) तक जाएं।"
+    },
+    {
+      "from": "stairs_main_f2",
+      "to": "waiting_f2",
+      "distanceMeters": 14,
+      "durationSeconds": 20,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Walk west from the Floor 2 Staircase landing into the Floor 2 OPD Waiting Hall.",
+      "direction_hi": "तल 2 सीढ़ियों से पश्चिम की ओर चलकर तल 2 ओपीडी प्रतीक्षा हॉल में आएं।",
+      "reverse_direction_en": "Walk east from the Floor 2 OPD Waiting Hall to the Central Staircase (Floor 2).",
+      "reverse_direction_hi": "तल 2 ओपीडी प्रतीक्षा हॉल से पूर्व की ओर केंद्रीय सीढ़ियों (तल 2) तक जाएं।"
+    },
+    {
+      "from": "waiting_f2",
+      "to": "room_204_med",
+      "distanceMeters": 20,
+      "durationSeconds": 28,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Turn left from the Floor 2 Waiting Hall along the blue wall band to Room 204 (General Medicine OPD).",
+      "direction_hi": "तल 2 प्रतीक्षा हॉल से बाईं ओर नीली दीवार पट्टी के साथ कमरा 204 (सामान्य चिकित्सा ओपीडी) तक जाएं।",
+      "reverse_direction_en": "Exit Room 204 (General Medicine OPD) and walk back to the Floor 2 Waiting Hall.",
+      "reverse_direction_hi": "कमरा 204 (सामान्य चिकित्सा ओपीडी) से बाहर निकलकर वापस तल 2 प्रतीक्षा हॉल में आएं।"
+    },
+    {
+      "from": "waiting_f2",
+      "to": "room_208_ped",
+      "distanceMeters": 26,
+      "durationSeconds": 35,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Walk down the West Wing corridor past the colorful Child Mural Wall to Room 208 (Paediatrics OPD).",
+      "direction_hi": "पश्चिमी गलियारे में बच्चों के चित्र वाली दीवार के पास कमरा 208 (बाल रोग ओपीडी) तक जाएं।",
+      "reverse_direction_en": "Exit Room 208 (Paediatrics OPD) and walk east back to the Floor 2 Waiting Hall.",
+      "reverse_direction_hi": "कमरा 208 (बाल रोग ओपीडी) से बाहर निकलकर वापस तल 2 प्रतीक्षा हॉल में आएं।"
+    },
+    {
+      "from": "waiting_f2",
+      "to": "lab_f2",
+      "distanceMeters": 24,
+      "durationSeconds": 32,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Follow the teal diagnostic signs on Floor 2 to Room 212 (Central Pathology Lab).",
+      "direction_hi": "तल 2 पर जांच संकेतों का अनुसरण करते हुए कमरा 212 (केंद्रीय पैथोलॉजी लैब) तक जाएं।",
+      "reverse_direction_en": "Walk back from Room 212 (Central Pathology Lab) to the Floor 2 Waiting Hall.",
+      "reverse_direction_hi": "कमरा 212 (केंद्रीय पैथोलॉजी लैब) से वापस तल 2 प्रतीक्षा हॉल में आएं।"
+    },
+    {
+      "from": "lab_f2",
+      "to": "xray_f2",
+      "distanceMeters": 16,
+      "durationSeconds": 22,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Continue 16 meters past the Pathology Lab toward the amber light at Room 215 (Digital X-Ray).",
+      "direction_hi": "पैथोलॉजी लैब से 16 मीटर आगे पीली लाइट वाले कमरा 215 (डिजिटल एक्स-रे) तक चलें।",
+      "reverse_direction_en": "Walk back from Room 215 (Digital X-Ray) to Room 212 (Central Pathology Lab).",
+      "reverse_direction_hi": "कमरा 215 (डिजिटल एक्स-रे) से वापस कमरा 212 (केंद्रीय पैथोलॉजी लैब) तक आएं।"
+    },
+    {
+      "from": "lift_main_f3",
+      "to": "waiting_f3",
+      "distanceMeters": 10,
+      "durationSeconds": 15,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Step out of the Floor 3 Lift into the Floor 3 Specialty Waiting Area.",
+      "direction_hi": "तल 3 लिफ्ट से बाहर तल 3 स्पेशलिटी प्रतीक्षा क्षेत्र में आएं।",
+      "reverse_direction_en": "Walk from the Floor 3 Specialty Waiting Area into the Main Patient Lift (Floor 3).",
+      "reverse_direction_hi": "तल 3 स्पेशलिटी प्रतीक्षा क्षेत्र से मुख्य रोगी लिफ्ट (तल 3) में जाएं।"
+    },
+    {
+      "from": "stairs_main_f3",
+      "to": "waiting_f3",
+      "distanceMeters": 14,
+      "durationSeconds": 20,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Walk west from the Floor 3 Staircase landing into the Floor 3 Specialty Waiting Area.",
+      "direction_hi": "तल 3 सीढ़ियों से पश्चिम की ओर तल 3 स्पेशलिटी प्रतीक्षा क्षेत्र में आएं।",
+      "reverse_direction_en": "Walk east from the Floor 3 Specialty Waiting Area to the Central Staircase (Floor 3).",
+      "reverse_direction_hi": "तल 3 स्पेशलिटी प्रतीक्षा क्षेत्र से पूर्व की ओर केंद्रीय सीढ़ियों (तल 3) तक जाएं।"
+    },
+    {
+      "from": "waiting_f3",
+      "to": "room_302_ort",
+      "distanceMeters": 14,
+      "durationSeconds": 20,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Turn immediately left from the Floor 3 Waiting Area to Room 302 (Orthopaedics & Joint Care OPD).",
+      "direction_hi": "तल 3 प्रतीक्षा क्षेत्र से तुरंत बाईं ओर मुड़कर कमरा 302 (हड्डी एवं जोड़ रोग ओपीडी) में जाएं।",
+      "reverse_direction_en": "Exit Room 302 (Orthopaedics OPD) back into the Floor 3 Specialty Waiting Area.",
+      "reverse_direction_hi": "कमरा 302 (हड्डी रोग ओपीडी) से बाहर निकलकर तल 3 स्पेशलिटी प्रतीक्षा क्षेत्र में आएं।"
+    },
+    {
+      "from": "waiting_f3",
+      "to": "room_305_eye",
+      "distanceMeters": 22,
+      "durationSeconds": 30,
+      "mode": "corridor",
+      "accessible": true,
+      "direction_en": "Turn right from the Floor 3 Waiting Area toward the illuminated Eye Chart board at Room 305 (Ophthalmology OPD).",
+      "direction_hi": "तल 3 प्रतीक्षा क्षेत्र से दाईं ओर नेत्र चार्ट बोर्ड के सामने कमरा 305 (नेत्र रोग ओपीडी) तक जाएं।",
+      "reverse_direction_en": "Exit Room 305 (Ophthalmology OPD) and walk back to the Floor 3 Specialty Waiting Area.",
+      "reverse_direction_hi": "कमरा 305 (नेत्र रोग ओपीडी) से बाहर निकलकर वापस तल 3 प्रतीक्षा क्षेत्र में आएं।"
+    }
+  ]
+}
