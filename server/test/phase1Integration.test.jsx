@@ -1,5 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import fs from 'node:fs';
+import path from 'node:path';
 import http from 'node:http';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Server as SocketIoServer } from 'socket.io';
@@ -8,6 +10,7 @@ import { createApp } from '../app.js';
 import { configureSocketIo } from '../sockets/index.js';
 import { createQueueService } from '../services/queueService.js';
 import { TRANSLATIONS } from '../../src/i18n/translations.js';
+import tailwindConfig from '../../tailwind.config.js';
 import SlipView from '../../src/components/SlipView.jsx';
 import MyTurnView from '../../src/components/MyTurnView.jsx';
 import NavigationView from '../../src/components/NavigationView.jsx';
@@ -222,6 +225,141 @@ describe('Phase 1 — Frontend UI Components & Bilingual Rendering', () => {
     expect(htmlAuthenticated).toContain('Call Next Waiting Patient');
     expect(htmlAuthenticated).toContain('Doctor Availability &amp; Delay Broadcast');
   });
+
+  it('renders MyTurnView empty state when no token is loaded yet', () => {
+    const htmlEmpty = renderToStaticMarkup(
+      <MyTurnView
+        lang="en"
+        t={TRANSLATIONS.en}
+        lookupCode=""
+        setLookupCode={() => {}}
+        trackedSlip={null}
+        loading={false}
+        error={null}
+        lastVerifiedAt={null}
+        connectionState="live"
+        savedLocalSlip={null}
+        onLookupCode={() => {}}
+        onRegisterNew={() => {}}
+        onOpenDirections={() => {}}
+      />
+    );
+    expect(htmlEmpty).toContain('data-testid="my-turn-empty-state"');
+    expect(htmlEmpty).toContain('No OPD Token Loaded Yet');
+    expect(htmlEmpty).toContain('data-testid="my-turn-empty-register-btn"');
+  });
+
+  it('prevents white-on-white or blank buttons across all views and defines all Tailwind design tokens', () => {
+    const colors = tailwindConfig?.theme?.extend?.colors || {};
+    expect(colors.brand?.primary).toBe('#0B2545');
+    expect(colors.brand?.teal).toBe('#0D6E6E');
+    expect(colors.status?.serving).toBe('#15803D');
+    expect(colors.status?.next).toBe('#B45309');
+    expect(colors.status?.emergency).toBe('#B91C1C');
+    expect(colors['border-strong']).toBe('#94A3B8');
+    expect(tailwindConfig?.theme?.extend?.boxShadow?.card).toBeTruthy();
+
+    // Check compiled CSS bundle if dist/assets exists
+    const distAssetsDir = path.resolve(process.cwd(), 'dist', 'assets');
+    if (fs.existsSync(distAssetsDir)) {
+      const cssFiles = fs
+        .readdirSync(distAssetsDir)
+        .filter((file) => file.endsWith('.css'));
+      if (cssFiles.length > 0) {
+        const cssContent = fs.readFileSync(
+          path.join(distAssetsDir, cssFiles[0]),
+          'utf8'
+        );
+        expect(cssContent).toContain('.bg-brand-primary{');
+        expect(cssContent).toContain('.text-brand-primary{');
+        expect(cssContent).toContain('.border-brand-primary{');
+        expect(cssContent).toContain('.bg-status-serving{');
+        expect(cssContent).toContain('.text-status-serving{');
+        expect(cssContent).toContain('.bg-status-next{');
+        expect(cssContent).toContain('.border-border-strong{');
+        expect(cssContent).toContain('.shadow-card{');
+      }
+    }
+
+    // Render all major views in EN & HI and verify every <button> has visible text and valid contrast classes
+    const viewsHtml = [
+      renderToStaticMarkup(<App disableSockets={true} />),
+      renderToStaticMarkup(
+        <SlipView
+          lang="en"
+          t={TRANSLATIONS.en}
+          slip={sampleSlip}
+          onOpenMyTurn={() => {}}
+          onOpenDirections={() => {}}
+          onRegisterNew={() => {}}
+        />
+      ),
+      renderToStaticMarkup(
+        <MyTurnView
+          lang="hi"
+          t={TRANSLATIONS.hi}
+          lookupCode="OPD-GEN-001"
+          setLookupCode={() => {}}
+          trackedSlip={sampleSlip}
+          loading={false}
+          error={null}
+          lastVerifiedAt="10:30:00 AM"
+          connectionState="live"
+          savedLocalSlip={sampleSlip}
+          onLookupCode={() => {}}
+          onRegisterNew={() => {}}
+          onOpenDirections={() => {}}
+        />
+      ),
+      renderToStaticMarkup(
+        <NavigationView
+          lang="hi"
+          t={TRANSLATIONS.hi}
+          routeQuery={{
+            fromNodeId: 'registration_desk',
+            toNodeId: 'room_204_med',
+            avoidStairs: true
+          }}
+          setRouteQuery={() => {}}
+        />
+      ),
+      renderToStaticMarkup(
+        <StaffView
+          lang="en"
+          t={TRANSLATIONS.en}
+          departments={[sampleSlip.department]}
+          staffAuth={{ authenticated: true, loginAt: '2026-10-24T00:00:00.000Z' }}
+          setStaffAuth={() => {}}
+          socketRef={{ current: null }}
+        />
+      ),
+      renderToStaticMarkup(
+        <EmergencyModal
+          dialogRef={{ current: null }}
+          lang="hi"
+          t={TRANSLATIONS.hi}
+          onClose={() => {}}
+          onNavigateToEmergency={() => {}}
+        />
+      )
+    ];
+
+    const buttonRegex = /<button\b([^>]*)>([\s\S]*?)<\/button>/gi;
+    for (const html of viewsHtml) {
+      let match;
+      while ((match = buttonRegex.exec(html)) !== null) {
+        const attrs = match[1] || '';
+        const innerHtml = match[2] || '';
+        const textContent = innerHtml.replace(/<[^>]+>/g, '').trim();
+        expect(textContent.length).toBeGreaterThan(0);
+
+        // Ensure no button has a light surface background paired with white text
+        const hasLightBg = /\bbg-(white|surface|canvas|subtle)\b/.test(attrs);
+        const hasWhiteText = /\btext-white\b/.test(attrs);
+        expect(hasLightBg && hasWhiteText).toBe(false);
+      }
+    }
+  });
 });
 
 describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => {
@@ -352,5 +490,217 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
     const updatedEvent = await ticketUpdatedPromise;
     expect(updatedEvent.ticketId).toBe(regBody.ticket.id);
     expect(updatedEvent.status).toBe('CALLED');
+  });
+
+  it('completes the full 12-step patient, staff, emergency, navigation, and edge-case workflow', async () => {
+    const socket = await connectSocket();
+
+    // Step 10 (Pre-Registration): Patient triggers Emergency Help BEFORE registering a ticket
+    const preRegHelpRes = await fetch(`${baseUrl}/api/help-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        locationLabel: 'Main Entrance & Ramp',
+        requestType: 'URGENT_ASSESSMENT_REQUEST'
+      })
+    });
+    expect(preRegHelpRes.status).toBe(201);
+    const preRegHelpBody = await preRegHelpRes.json();
+    expect(preRegHelpBody.helpRequest.status).toBe('NEW');
+    expect(preRegHelpBody.helpRequest.ticket_id).toBeNull();
+
+    // Step 1: Check initial public board (empty queue state)
+    const initialBoardRes = await fetch(`${baseUrl}/api/queues/public-board`);
+    expect(initialBoardRes.status).toBe(200);
+    const initialBoard = await initialBoardRes.json();
+    expect(initialBoard.queues.every((q) => q.waitingCount === 0)).toBe(true);
+
+    // Step 3 & 4: Register two patients in General Medicine
+    const p1Res = await fetch(`${baseUrl}/api/tickets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: '88888888-8888-4888-8888-888888888801',
+        departmentId: 'general-medicine',
+        visitType: 'FIRST_VISIT',
+        preferredLang: 'en',
+        avoidStairs: true
+      })
+    });
+    expect(p1Res.status).toBe(201);
+    const p1 = await p1Res.json();
+    expect(p1.ticket.publicCode).toBe('OPD-GEN-001');
+
+    const p2Res = await fetch(`${baseUrl}/api/tickets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: '88888888-8888-4888-8888-888888888802',
+        departmentId: 'general-medicine',
+        visitType: 'FOLLOW_UP',
+        preferredLang: 'hi',
+        avoidStairs: false
+      })
+    });
+    expect(p2Res.status).toBe(201);
+    const p2 = await p2Res.json();
+    expect(p2.ticket.publicCode).toBe('OPD-GEN-002');
+
+    // Step 5: Verify QR lookup path contains only publicCode and never leaks accessToken
+    expect(p1.ticket.qrLookupPath).toBe('/my-turn?code=OPD-GEN-001');
+    expect(p1.ticket.qrLookupPath).not.toContain(p1.accessToken);
+
+    // Step 6 & 7: Separate-session public lookup without cookies or capability headers
+    const slipLookupRes = await fetch(`${baseUrl}/api/slips/OPD-GEN-002`);
+    expect(slipLookupRes.status).toBe(200);
+    const slipLookup = await slipLookupRes.json();
+    expect(slipLookup.slip.publicCode).toBe('OPD-GEN-002');
+    expect(slipLookup.slip.queue.peopleAheadWaiting).toBe(1);
+    expect(slipLookup.slip.queue.estimatedWaitMinutes).toBeGreaterThan(0);
+    expect(slipLookup.slip.route.found).toBe(true);
+    expect(slipLookup.slip.accessToken).toBeUndefined();
+
+    // Step 11: Toggle Avoid Stairs in navigation and verify route changes between stairs and lift
+    const routeStairsRes = await fetch(
+      `${baseUrl}/api/routes?from=registration_desk&to=room_204_med&avoidStairs=false`
+    );
+    const routeStairs = await routeStairsRes.json();
+    expect(routeStairs.route.found).toBe(true);
+    expect(routeStairs.route.steps.some((s) => s.mode === 'stairs')).toBe(true);
+
+    const routeLiftRes = await fetch(
+      `${baseUrl}/api/routes?from=registration_desk&to=room_204_med&avoidStairs=true`
+    );
+    const routeLift = await routeLiftRes.json();
+    expect(routeLift.route.found).toBe(true);
+    expect(routeLift.route.steps.some((s) => s.mode === 'lift')).toBe(true);
+    expect(routeLift.route.steps.some((s) => s.mode === 'stairs')).toBe(false);
+
+    // Step 8 & 9: Staff PIN login, queue state transitions, requeue to tail, and help request resolution
+    const badLoginRes = await fetch(`${baseUrl}/api/staff/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: '0000' })
+    });
+    expect(badLoginRes.status).toBe(401);
+
+    const staffLoginRes = await fetch(`${baseUrl}/api/staff/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: '1234' })
+    });
+    expect(staffLoginRes.status).toBe(200);
+    const staffCookie = staffLoginRes.headers.get('set-cookie');
+
+    // Call Next -> calls OPD-GEN-001
+    const call1Res = await fetch(
+      `${baseUrl}/api/staff/queues/general-medicine/call-next`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(call1Res.status).toBe(200);
+
+    // Mark OPD-GEN-001 as NO_SHOW, then Requeue to Tail (places it behind OPD-GEN-002!)
+    const noShowRes = await fetch(
+      `${baseUrl}/api/staff/tickets/${p1.ticket.id}/no-show`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(noShowRes.status).toBe(200);
+
+    const requeueRes = await fetch(
+      `${baseUrl}/api/staff/tickets/${p1.ticket.id}/requeue`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(requeueRes.status).toBe(200);
+    const requeuedTicket = (await requeueRes.json()).ticket;
+    expect(requeuedTicket.status).toBe('WAITING');
+    expect(requeuedTicket.requeuedCount).toBe(1);
+    expect(requeuedTicket.queue.peopleAheadWaiting).toBe(1); // Now behind OPD-GEN-002
+
+    // Call Next -> now calls OPD-GEN-002, then Start Consultation -> Complete
+    const call2Res = await fetch(
+      `${baseUrl}/api/staff/queues/general-medicine/call-next`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(call2Res.status).toBe(200);
+    const called2 = (await call2Res.json()).ticket;
+    expect(called2.publicCode).toBe('OPD-GEN-002');
+
+    const startRes = await fetch(
+      `${baseUrl}/api/staff/tickets/${p2.ticket.id}/start`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(startRes.status).toBe(200);
+
+    const completeRes = await fetch(
+      `${baseUrl}/api/staff/tickets/${p2.ticket.id}/complete`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(completeRes.status).toBe(200);
+
+    // Step 12: Doctor status UNAVAILABLE -> ETA status becomes UNAVAILABLE_ASK_HELP_DESK
+    const docStatusRes = await fetch(
+      `${baseUrl}/api/staff/departments/general-medicine/doctor-status`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({ status: 'UNAVAILABLE', delayMinutes: 0 })
+      }
+    );
+    expect(docStatusRes.status).toBe(200);
+
+    const p1AfterDocUnavailable = await (
+      await fetch(`${baseUrl}/api/slips/OPD-GEN-001`)
+    ).json();
+    expect(p1AfterDocUnavailable.slip.queue.etaStatus).toBe(
+      'UNAVAILABLE_ASK_HELP_DESK'
+    );
+    expect(p1AfterDocUnavailable.slip.queue.estimatedWaitMinutes).toBeNull();
+
+    // Acknowledge and Resolve pre-registration help request
+    const ackHelpRes = await fetch(
+      `${baseUrl}/api/staff/urgent-flags/${preRegHelpBody.helpRequest.id}/acknowledge`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(ackHelpRes.status).toBe(200);
+
+    const resolveHelpRes = await fetch(
+      `${baseUrl}/api/staff/urgent-flags/${preRegHelpBody.helpRequest.id}/resolve`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        body: JSON.stringify({})
+      }
+    );
+    expect(resolveHelpRes.status).toBe(200);
+
+    socket.disconnect();
   });
 });

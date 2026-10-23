@@ -61,7 +61,13 @@ export const TRANSLATIONS = {
       estWait: 'Est. Wait',
       noActiveToken: 'None Called Yet',
       mins: 'min',
-      registerHere: 'Select Department'
+      registerHere: 'Select Department',
+      emptyQueueBadge: 'System Live & Ready',
+      emptyQueueTitle: 'No Patients Currently Waiting — Immediate Turn Available',
+      emptyQueueDesc:
+        'All OPD consultation rooms are open and ready. Register a new token below to be first in line for your department.',
+      emptyQueueCta: 'Register First OPD Token',
+      deptOpenImmediate: '0 Waiting · Open for immediate turn'
     },
     register: {
       title: 'Outpatient (OPD) Token Registration',
@@ -127,7 +133,11 @@ export const TRANSLATIONS = {
       alertNearTitle: 'GET READY — YOUR TURN IS APPROACHING!',
       alertNearDesc:
         '3 or fewer patients are ahead of you. Please move towards the department waiting area.',
-      requeuedNote: 'Requeued to tail count:'
+      requeuedNote: 'Requeued to tail count:',
+      emptyTitle: 'No OPD Token Loaded Yet',
+      emptyDesc:
+        'Enter an OPD token code above (for example, OPD-GEN-001) to check real-time queue status from any device, or register a new token.',
+      emptyRegisterBtn: 'Register New OPD Token'
     },
     navigate: {
       title: 'Indoor Hospital Directions (3 Floors)',
@@ -259,7 +269,13 @@ export const TRANSLATIONS = {
       estWait: 'अनुमानित समय',
       noActiveToken: 'कोई कॉल नहीं',
       mins: 'मिनट',
-      registerHere: 'विभाग चुनें'
+      registerHere: 'विभाग चुनें',
+      emptyQueueBadge: 'सिस्टम चालू और तैयार है',
+      emptyQueueTitle: 'अभी किसी भी विभाग में कतार नहीं है — तुरंत बारी उपलब्ध है',
+      emptyQueueDesc:
+        'सभी ओपीडी परामर्श कक्ष खुले हैं। अपने विभाग में सबसे पहले नंबर पाने के लिए नीचे नया टोकन पंजीकृत करें।',
+      emptyQueueCta: 'पहला ओपीडी टोकन लें',
+      deptOpenImmediate: '0 प्रतीक्षा · तुरंत नंबर उपलब्ध'
     },
     register: {
       title: 'ओपीडी (OPD) टोकन पंजीकरण',
@@ -325,7 +341,11 @@ export const TRANSLATIONS = {
       alertNearTitle: 'तैयार रहें — आपकी बारी आने वाली है!',
       alertNearDesc:
         'आपसे आगे केवल 3 या उससे कम मरीज हैं। कृपया विभाग के प्रतीक्षा क्षेत्र के पास पहुंचें।',
-      requeuedNote: 'पुनः कतार में जोड़े जाने की संख्या:'
+      requeuedNote: 'पुनः कतार में जोड़े जाने की संख्या:',
+      emptyTitle: 'अभी कोई ओपीडी टोकन नहीं चुना गया है',
+      emptyDesc:
+        'किसी भी फोन से वास्तविक समय में कतार की स्थिति देखने के लिए ऊपर टोकन कोड (जैसे OPD-GEN-001) दर्ज करें, या नया टोकन पंजीकृत करें।',
+      emptyRegisterBtn: 'नया ओपीडी टोकन लें'
     },
     navigate: {
       title: 'अस्पताल के अंदर का रास्ता (3 तल)',

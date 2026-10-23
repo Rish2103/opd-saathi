@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Search,
   Stethoscope,
+  UserPlus,
   Wifi,
   WifiOff
 } from 'lucide-react';
@@ -23,6 +24,7 @@ export default function MyTurnView({
   connectionState,
   savedLocalSlip,
   onLookupCode,
+  onRegisterNew,
   onOpenDirections
 }) {
   const [newlyCrossedAlert, setNewlyCrossedAlert] = useState(false);
@@ -183,6 +185,33 @@ export default function MyTurnView({
           className="p-4 rounded-xl bg-red-50 border-2 border-status-emergency text-status-emergency font-bold text-sm"
         >
           {error}
+        </div>
+      )}
+
+      {!trackedSlip && !error && (
+        <div
+          data-testid="my-turn-empty-state"
+          className="p-6 rounded-xl bg-canvas border-2 border-border-strong text-center space-y-3"
+        >
+          <div className="font-bold text-base sm:text-lg text-ink-primary">
+            {t.myTurn.emptyTitle}
+          </div>
+          <p className="text-xs sm:text-sm text-ink-secondary max-w-xl mx-auto">
+            {t.myTurn.emptyDesc}
+          </p>
+          {onRegisterNew && (
+            <div className="pt-1">
+              <button
+                type="button"
+                data-testid="my-turn-empty-register-btn"
+                onClick={onRegisterNew}
+                className="touch-target inline-flex items-center gap-2 rounded-xl bg-brand-primary text-white font-bold px-5 py-2.5 text-xs sm:text-sm shadow-sm"
+              >
+                <UserPlus className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>{t.myTurn.emptyRegisterBtn}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -10,10 +10,21 @@
   --text-secondary: #334155;
   --text-muted: #475569;
   --brand-primary: #0b2545;
+  --brand-navy: #0b2545;
   --brand-teal: #0d6e6e;
+  --brand-teal-hover: #095252;
+  --brand-teal-soft: #e6f4f4;
   --status-serving: #15803d;
   --status-next: #b45309;
   --status-emergency: #b91c1c;
+  --status-emergency-bg: #fef2f2;
+  --status-emergency-border: #f87171;
+  --status-warning: #b45309;
+  --status-warning-bg: #fffbeb;
+  --status-warning-border: #fbbf24;
+  --status-success: #15803d;
+  --status-success-bg: #f0fdf4;
+  --status-success-border: #4ade80;
   --border-strong: #94a3b8;
   --focus-ring: #ffbf47;
   --base-font-scale: 1;
@@ -25,6 +36,10 @@
   --base-font-scale: 1.15;
   --min-touch-target: 56px;
   --border-strong: #0f172a;
+}
+
+[data-assisted='true'] .border-border-strong {
+  border-color: var(--border-strong);
 }
 
 html {

@@ -487,6 +487,20 @@ export default function App({ disableSockets = false }) {
   const selectedRegDept =
     departments.find((d) => d.slug === regDeptSlug) || departments[0] || null;
 
+  const boardItems =
+    publicBoard.queues?.length > 0 ? publicBoard.queues : departments;
+  const totalWaitingAcrossHospital = boardItems.reduce(
+    (sum, item) => sum + Number(item.waitingCount ?? 0),
+    0
+  );
+  const anyServingAcrossHospital = boardItems.some((item) =>
+    Boolean(item.nowServingCode)
+  );
+  const isHospitalQueueEmpty =
+    boardItems.length > 0 &&
+    totalWaitingAcrossHospital === 0 &&
+    !anyServingAcrossHospital;
+
   return (
     <div
       data-assisted={assistedMode ? 'true' : 'false'}
@@ -530,12 +544,14 @@ export default function App({ disableSockets = false }) {
             <button
               type="button"
               onClick={() => setActiveView('home')}
-              className="text-left hidden md:block focus:outline-none"
+              className="text-left focus:outline-none px-1"
             >
-              <div className="font-bold text-lg text-brand-primary leading-tight">
+              <div className="font-bold text-base sm:text-lg text-brand-primary leading-tight">
                 {t.brandTitle}
               </div>
-              <div className="text-xs text-ink-secondary">{t.brandSubtitle}</div>
+              <div className="text-xs text-ink-secondary hidden sm:block">
+                {t.brandSubtitle}
+              </div>
             </button>
 
             {/* Accessibility & Language Controls */}
@@ -633,7 +649,7 @@ export default function App({ disableSockets = false }) {
                     setRegStep(1);
                     setActiveView('register');
                   }}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-white text-brand-primary font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm"
+                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
                 >
                   <UserPlus className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaRegister}</span>
@@ -643,7 +659,7 @@ export default function App({ disableSockets = false }) {
                   type="button"
                   data-testid="home-cta-my-turn"
                   onClick={() => setActiveView('my-turn')}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm"
+                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-white/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
                 >
                   <Activity className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaMyTurn}</span>
@@ -651,8 +667,9 @@ export default function App({ disableSockets = false }) {
 
                 <button
                   type="button"
+                  data-testid="home-cta-navigate"
                   onClick={() => setActiveView('navigate')}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-4 py-3.5 text-sm sm:text-base"
+                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
                 >
                   <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaRoute}</span>
@@ -660,8 +677,9 @@ export default function App({ disableSockets = false }) {
 
                 <button
                   type="button"
+                  data-testid="home-cta-staff"
                   onClick={() => setActiveView('staff')}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-4 py-3.5 text-sm sm:text-base"
+                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
                 >
                   <ShieldCheck className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaStaff}</span>
@@ -751,11 +769,41 @@ export default function App({ disableSockets = false }) {
                 </button>
               </div>
 
+              {isHospitalQueueEmpty && (
+                <div
+                  data-testid="empty-queue-banner"
+                  className="p-4 sm:p-5 rounded-xl bg-brand-tealSoft border-2 border-brand-teal flex flex-wrap items-center justify-between gap-4"
+                >
+                  <div className="space-y-1 max-w-3xl">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-status-serving text-white text-xs font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{t.home.emptyQueueBadge}</span>
+                    </div>
+                    <h3 className="font-bold text-base sm:text-lg text-brand-primary pt-0.5">
+                      {t.home.emptyQueueTitle}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-ink-secondary">
+                      {t.home.emptyQueueDesc}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-testid="empty-queue-register-btn"
+                    onClick={() => {
+                      setRegStep(1);
+                      setActiveView('register');
+                    }}
+                    className="touch-target inline-flex items-center gap-2 rounded-xl bg-brand-primary text-white font-bold px-4 py-3 text-xs sm:text-sm shadow-sm"
+                  >
+                    <UserPlus className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>{t.home.emptyQueueCta}</span>
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {(publicBoard.queues?.length > 0
-                  ? publicBoard.queues
-                  : departments
-                ).map((item) => {
+                {boardItems.map((item) => {
                   const slug = item.slug;
                   const prefix = item.tokenPrefix || item.token_prefix;
                   const roomLabel = item.room_label;
@@ -763,6 +811,7 @@ export default function App({ disableSockets = false }) {
                   const name = lang === 'hi' ? item.name_hi : item.name_en;
                   const nowServing = item.nowServingCode || t.home.noActiveToken;
                   const waiting = item.waitingCount ?? 0;
+                  const isDeptEmpty = waiting === 0 && !item.nowServingCode;
 
                   return (
                     <article
@@ -781,23 +830,39 @@ export default function App({ disableSockets = false }) {
                         <h3 className="font-bold text-base text-ink-primary">{name}</h3>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-surface border border-border-strong text-center">
-                        <div>
-                          <div className="text-[11px] font-bold uppercase text-ink-muted">
-                            {t.home.nowServing}
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-surface border border-border-strong text-center">
+                          <div>
+                            <div className="text-[11px] font-bold uppercase text-ink-muted">
+                              {t.home.nowServing}
+                            </div>
+                            <div className="font-token font-bold text-sm sm:text-base text-status-serving mt-0.5">
+                              {nowServing}
+                            </div>
                           </div>
-                          <div className="font-token font-bold text-base text-status-serving mt-0.5">
-                            {nowServing}
+                          <div className="border-l border-border-strong">
+                            <div className="text-[11px] font-bold uppercase text-ink-muted">
+                              {t.home.waitingCount}
+                            </div>
+                            <div className="font-token font-bold text-base text-ink-primary mt-0.5">
+                              {waiting}
+                            </div>
                           </div>
                         </div>
-                        <div className="border-l border-border-strong">
-                          <div className="text-[11px] font-bold uppercase text-ink-muted">
-                            {t.home.waitingCount}
+
+                        {isDeptEmpty ? (
+                          <div
+                            data-testid={`dept-empty-status-${slug}`}
+                            className="px-2.5 py-1.5 rounded-lg bg-green-50 border border-status-serving text-status-serving text-xs font-bold text-center"
+                          >
+                            {t.home.deptOpenImmediate}
                           </div>
-                          <div className="font-token font-bold text-base text-ink-primary mt-0.5">
-                            {waiting}
+                        ) : (
+                          <div className="px-2.5 py-1.5 rounded-lg bg-subtle border border-border-strong text-ink-secondary text-xs font-bold text-center">
+                            {t.home.estWait}: ~{item.estimatedWaitMinutes ?? waiting * 7}{' '}
+                            {t.home.mins}
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       <button
@@ -807,7 +872,7 @@ export default function App({ disableSockets = false }) {
                           setRegStep(2);
                           setActiveView('register');
                         }}
-                        className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-teal text-white font-bold px-3 py-2.5 text-xs sm:text-sm"
+                        className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-teal hover:bg-brand-tealHover text-white font-bold px-3 py-2.5 text-xs sm:text-sm transition"
                       >
                         <span>{t.home.registerHere}</span>
                         <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -1149,6 +1214,10 @@ export default function App({ disableSockets = false }) {
             connectionState={connectionState}
             savedLocalSlip={savedTicketState?.ticket || null}
             onLookupCode={handleLookupCode}
+            onRegisterNew={() => {
+              setRegStep(1);
+              setActiveView('register');
+            }}
             onOpenDirections={({ fromNodeId, toNodeId, avoidStairs }) => {
               setRouteQuery({
                 fromNodeId: fromNodeId || 'registration_desk',

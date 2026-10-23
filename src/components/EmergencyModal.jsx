@@ -76,10 +76,11 @@ export default function EmergencyModal({
         <button
           type="button"
           onClick={onClose}
-          className="touch-target inline-flex items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 text-white px-3 py-1.5 text-sm font-bold"
+          className="touch-target inline-flex items-center justify-center gap-1 rounded-lg bg-[#8f1515] hover:bg-[#731010] border border-white/40 text-white px-3 py-1.5 text-xs sm:text-sm font-bold"
           aria-label={t.emergency.closeBtn}
         >
-          <X className="w-5 h-5" aria-hidden="true" />
+          <X className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span>{t.emergency.closeBtn}</span>
         </button>
       </div>
 
