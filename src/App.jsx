@@ -17,6 +17,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Stethoscope,
+  Trash2,
   UserPlus
 } from 'lucide-react';
 import { TRANSLATIONS } from './i18n/translations.js';
@@ -26,8 +27,9 @@ import MyTurnView from './components/MyTurnView.jsx';
 import NavigationView from './components/NavigationView.jsx';
 import StaffView from './components/StaffView.jsx';
 
-const STORAGE_ACTIVE_TICKET_KEY = 'opd_active_ticket_v1';
-const SESSION_PENDING_REG_KEY = 'opd_pending_registration_v1';
+export const STORAGE_SAVED_SLIPS_KEY = 'opd_saved_slips_v1';
+export const STORAGE_ACTIVE_TICKET_KEY = 'opd_active_ticket_v1';
+export const SESSION_PENDING_REG_KEY = 'opd_pending_registration_v1';
 
 function generateClientUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -40,7 +42,143 @@ function generateClientUuid() {
   });
 }
 
-function getInitialViewFromLocation() {
+export function normalizeClientPhone(rawPhone) {
+  if (typeof rawPhone !== 'string' && typeof rawPhone !== 'number') {
+    return null;
+  }
+  let cleaned = String(rawPhone)
+    .trim()
+    .replace(/[\s\-().]/g, '');
+
+  if (cleaned.startsWith('+91')) {
+    cleaned = cleaned.slice(3);
+  } else if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+    cleaned = cleaned.slice(1);
+  }
+
+  if (!/^[6-9]\d{9}$/.test(cleaned)) {
+    return null;
+  }
+  return cleaned;
+}
+
+export function buildSavedSlipEntry(bundle, existingEntry = null) {
+  if (!bundle || !bundle.ticket) return null;
+  const ticket = bundle.ticket;
+  const preservedPatientSummary =
+    ticket.patientSummary || existingEntry?.patientSummary || existingEntry?.ticket?.patientSummary || null;
+  const preservedAccessToken =
+    bundle.accessToken ?? existingEntry?.accessToken ?? null;
+  const avoidStairs = Boolean(
+    ticket.avoidStairs ?? existingEntry?.avoidStairs ?? true
+  );
+
+  const mergedTicket = {
+    ...existingEntry?.ticket,
+    ...ticket,
+    avoidStairs,
+    ...(preservedPatientSummary ? { patientSummary: preservedPatientSummary } : {})
+  };
+
+  return {
+    ticketId: mergedTicket.id,
+    publicCode: mergedTicket.publicCode,
+    departmentSlug:
+      mergedTicket.department?.slug || existingEntry?.departmentSlug || '',
+    departmentName_en:
+      mergedTicket.department?.name_en || existingEntry?.departmentName_en || '',
+    departmentName_hi:
+      mergedTicket.department?.name_hi || existingEntry?.departmentName_hi || '',
+    roomLabel:
+      mergedTicket.department?.room_label || existingEntry?.roomLabel || '',
+    floorNumber:
+      mergedTicket.department?.floor_number ?? existingEntry?.floorNumber ?? 1,
+    destinationNodeId:
+      mergedTicket.department?.destination_node_id ||
+      existingEntry?.destinationNodeId ||
+      'room_204_med',
+    status: mergedTicket.status || 'WAITING',
+    queueDate: mergedTicket.queueDate || existingEntry?.queueDate || '',
+    avoidStairs,
+    createdAt:
+      mergedTicket.createdAt || existingEntry?.createdAt || new Date().toISOString(),
+    accessToken: preservedAccessToken,
+    patientSummary: preservedPatientSummary,
+    idempotentReplay: Boolean(
+      bundle.idempotentReplay ?? existingEntry?.idempotentReplay ?? false
+    ),
+    ticket: mergedTicket
+  };
+}
+
+export function loadSavedSlipsFromStorage() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const rawList = window.localStorage.getItem(STORAGE_SAVED_SLIPS_KEY);
+    let parsedList = [];
+    if (rawList) {
+      const parsed = JSON.parse(rawList);
+      if (Array.isArray(parsed)) {
+        parsedList = parsed
+          .map((item) =>
+            item?.ticket ? buildSavedSlipEntry(item, item) : null
+          )
+          .filter(Boolean);
+      }
+    }
+
+    // Migrate legacy single-slip storage if present
+    const legacyRaw = window.localStorage.getItem(STORAGE_ACTIVE_TICKET_KEY);
+    if (legacyRaw) {
+      try {
+        const legacyBundle = JSON.parse(legacyRaw);
+        const migrated = buildSavedSlipEntry(legacyBundle);
+        if (
+          migrated &&
+          !parsedList.some(
+            (e) =>
+              e.ticketId === migrated.ticketId ||
+              e.publicCode === migrated.publicCode
+          )
+        ) {
+          parsedList = [migrated, ...parsedList];
+        }
+      } catch {
+        // ignore malformed legacy entry
+      }
+    }
+
+    return parsedList;
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedSlipsToStorage(slips) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_SAVED_SLIPS_KEY, JSON.stringify(slips));
+    if (slips.length > 0) {
+      window.localStorage.setItem(
+        STORAGE_ACTIVE_TICKET_KEY,
+        JSON.stringify({
+          ticket: slips[0].ticket,
+          accessToken: slips[0].accessToken,
+          idempotentReplay: slips[0].idempotentReplay
+        })
+      );
+    } else {
+      window.localStorage.removeItem(STORAGE_ACTIVE_TICKET_KEY);
+    }
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+function getInitialViewFromLocation(overrideView = null) {
+  if (overrideView) return { view: overrideView, code: '' };
   if (typeof window === 'undefined') return { view: 'home', code: '' };
   const params = new URLSearchParams(window.location.search);
   const codeParam = (params.get('code') || '').trim().toUpperCase();
@@ -64,8 +202,13 @@ function getInitialViewFromLocation() {
   return { view: 'home', code: '' };
 }
 
-export default function App({ disableSockets = false }) {
-  const initialNav = getInitialViewFromLocation();
+export default function App({
+  disableSockets = false,
+  initialView = null,
+  initialSavedSlips = null,
+  initialRegStep = 1
+}) {
+  const initialNav = getInitialViewFromLocation(initialView);
 
   const [lang, setLang] = useState('en');
   const [assistedMode, setAssistedMode] = useState(false);
@@ -76,31 +219,54 @@ export default function App({ disableSockets = false }) {
   const [publicBoard, setPublicBoard] = useState({ queues: [], queueDate: null });
   const [boardLoading, setBoardLoading] = useState(false);
 
-  // Active ticket saved on this device ({ ticket, accessToken, idempotentReplay })
-  const [savedTicketState, setSavedTicketState] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_ACTIVE_TICKET_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+  // Persistent list of saved OPD slips on this device
+  const [savedSlips, setSavedSlips] = useState(() => {
+    if (Array.isArray(initialSavedSlips)) {
+      return initialSavedSlips
+        .map((item) => (item?.ticket ? buildSavedSlipEntry(item, item) : null))
+        .filter(Boolean);
     }
+    return loadSavedSlipsFromStorage();
   });
 
-  // Registration Wizard State
-  const [regStep, setRegStep] = useState(1);
+  const [selectedSlipId, setSelectedSlipId] = useState(() => {
+    const initialList = Array.isArray(initialSavedSlips)
+      ? initialSavedSlips
+      : loadSavedSlipsFromStorage();
+    return initialList[0]?.ticketId || initialList[0]?.ticket?.id || null;
+  });
+
+  const activeSavedEntry =
+    savedSlips.find(
+      (entry) =>
+        entry.ticketId === selectedSlipId || entry.publicCode === selectedSlipId
+    ) ||
+    savedSlips[0] ||
+    null;
+
+  // Registration Wizard State (Preserved across steps & back navigation)
+  const [regStep, setRegStep] = useState(initialRegStep);
   const [regDeptSlug, setRegDeptSlug] = useState('general-medicine');
+  const [regPatientName, setRegPatientName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regAge, setRegAge] = useState('');
+  const [regGender, setRegGender] = useState('PREFER_NOT_TO_SAY');
+  const [regRegistrationNumber, setRegRegistrationNumber] = useState('');
   const [regVisitType, setRegVisitType] = useState('FIRST_VISIT');
   const [regAvoidStairs, setRegAvoidStairs] = useState(true);
+  const [regFieldErrors, setRegFieldErrors] = useState({});
   const [regSubmitting, setRegSubmitting] = useState(false);
   const [regError, setRegError] = useState(null);
+  const [duplicateTicketInfo, setDuplicateTicketInfo] = useState(null);
   const [pendingRetryRequestId, setPendingRetryRequestId] = useState(null);
 
   // My Turn Live Tracker State
   const [lookupCode, setLookupCode] = useState(
-    initialNav.code || savedTicketState?.ticket?.publicCode || ''
+    initialNav.code || activeSavedEntry?.publicCode || ''
   );
-  const [trackedSlip, setTrackedSlip] = useState(savedTicketState?.ticket || null);
+  const [trackedSlip, setTrackedSlip] = useState(
+    activeSavedEntry?.ticket || null
+  );
   const [myTurnLoading, setMyTurnLoading] = useState(false);
   const [myTurnError, setMyTurnError] = useState(null);
   const [lastVerifiedAt, setLastVerifiedAt] = useState(null);
@@ -110,8 +276,10 @@ export default function App({ disableSockets = false }) {
   const [routeQuery, setRouteQuery] = useState({
     fromNodeId: 'registration_desk',
     toNodeId:
-      savedTicketState?.ticket?.department?.destination_node_id || 'room_204_med',
-    avoidStairs: true
+      activeSavedEntry?.destinationNodeId ||
+      activeSavedEntry?.ticket?.department?.destination_node_id ||
+      'room_204_med',
+    avoidStairs: Boolean(activeSavedEntry?.avoidStairs ?? true)
   });
 
   // Staff Session State
@@ -122,7 +290,66 @@ export default function App({ disableSockets = false }) {
 
   const emergencyDialogRef = useRef(null);
   const socketRef = useRef(null);
+  const savedSlipsRef = useRef(savedSlips);
+  savedSlipsRef.current = savedSlips;
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  // Upsert a slip into savedSlips without overwriting other saved slips
+  const upsertSavedSlip = useCallback((bundle, selectAsActive = true) => {
+    if (!bundle?.ticket) return;
+    setSavedSlips((prev) => {
+      const idx = prev.findIndex(
+        (item) =>
+          item.ticketId === bundle.ticket.id ||
+          item.publicCode === bundle.ticket.publicCode
+      );
+      let next;
+      if (idx >= 0) {
+        const merged = buildSavedSlipEntry(bundle, prev[idx]);
+        next = [...prev];
+        next[idx] = merged;
+      } else {
+        const created = buildSavedSlipEntry(bundle, null);
+        next = [created, ...prev];
+      }
+      persistSavedSlipsToStorage(next);
+      return next;
+    });
+
+    if (selectAsActive) {
+      setSelectedSlipId(bundle.ticket.id || bundle.ticket.publicCode);
+    }
+  }, []);
+
+  // Remove a saved slip from local browser storage only (does NOT cancel server ticket)
+  const handleRemoveSavedSlip = useCallback(
+    (ticketIdOrCode) => {
+      setSavedSlips((prev) => {
+        const next = prev.filter(
+          (item) =>
+            item.ticketId !== ticketIdOrCode &&
+            item.publicCode !== ticketIdOrCode
+        );
+        persistSavedSlipsToStorage(next);
+
+        if (
+          selectedSlipId === ticketIdOrCode ||
+          !next.some(
+            (item) =>
+              item.ticketId === selectedSlipId ||
+              item.publicCode === selectedSlipId
+          )
+        ) {
+          const fallback = next[0] || null;
+          setSelectedSlipId(fallback ? fallback.ticketId : null);
+          setTrackedSlip(fallback ? fallback.ticket : null);
+          setLookupCode(fallback ? fallback.publicCode : '');
+        }
+        return next;
+      });
+    },
+    [selectedSlipId]
+  );
 
   // Fetch initial metadata (departments, navigation nodes, public board, staff session)
   const fetchInitialData = useCallback(async () => {
@@ -190,7 +417,7 @@ export default function App({ disableSockets = false }) {
     }
   }, []);
 
-  // Canonical Public Lookup or Capability Lookup for My Turn / Active Slip
+  // Canonical Public Lookup or Capability Lookup for My Turn / Saved Slips
   const handleLookupCode = useCallback(
     async (codeToFetch) => {
       const normalized = String(codeToFetch || '')
@@ -202,52 +429,134 @@ export default function App({ disableSockets = false }) {
       setMyTurnError(null);
 
       try {
-        // If this matches our saved device ticket and we have its capability token,
-        // we can also verify via /api/tickets/:id or /api/slips/:publicCode
-        const res = await fetch(`/api/slips/${encodeURIComponent(normalized)}`, {
-          headers: { Accept: 'application/json' }
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(
-            data?.error?.message || `Could not find token ${normalized}.`
+        // Check if this code matches a saved slip with a capability token on this device
+        const matchingSaved = savedSlipsRef.current.find(
+          (item) => item.publicCode === normalized
+        );
+
+        let slipData = null;
+        if (matchingSaved?.ticketId && matchingSaved?.accessToken) {
+          const capRes = await fetch(
+            `/api/tickets/${encodeURIComponent(matchingSaved.ticketId)}`,
+            {
+              headers: {
+                Accept: 'application/json',
+                'X-Ticket-Token': matchingSaved.accessToken
+              }
+            }
           );
+          if (capRes.ok) {
+            const capJson = await capRes.json();
+            slipData = capJson.ticket;
+          }
         }
 
-        setTrackedSlip(data.slip);
+        if (!slipData) {
+          const res = await fetch(`/api/slips/${encodeURIComponent(normalized)}`, {
+            headers: { Accept: 'application/json' }
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(
+              data?.error?.message || `Could not find token ${normalized}.`
+            );
+          }
+          slipData = data.slip;
+        }
+
+        setTrackedSlip(slipData);
         setLastVerifiedAt(new Date().toLocaleTimeString());
 
-        // If this is the same ticket saved on our device, keep savedTicketState.ticket fresh too
-        setSavedTicketState((prev) => {
-          if (prev?.ticket?.publicCode === data.slip.publicCode) {
-            const updated = { ...prev, ticket: data.slip };
-            try {
-              window.localStorage.setItem(
-                STORAGE_ACTIVE_TICKET_KEY,
-                JSON.stringify(updated)
-              );
-            } catch {
-              // ignore storage quota errors
-            }
-            return updated;
-          }
-          return prev;
-        });
+        // If this ticket exists in savedSlips, update it in place without overwriting other slips
+        if (
+          savedSlipsRef.current.some(
+            (item) =>
+              item.publicCode === slipData.publicCode ||
+              item.ticketId === slipData.id
+          )
+        ) {
+          upsertSavedSlip({ ticket: slipData }, false);
+        }
       } catch (err) {
         setMyTurnError(err.message || 'Failed to look up token status.');
       } finally {
         setMyTurnLoading(false);
       }
     },
-    []
+    [upsertSavedSlip]
+  );
+
+  // Select a saved slip from the switcher
+  const handleSelectSavedSlip = useCallback(
+    (entry) => {
+      if (!entry) return;
+      setSelectedSlipId(entry.ticketId || entry.publicCode);
+      if (entry.ticket) {
+        setTrackedSlip(entry.ticket);
+      }
+      if (entry.publicCode) {
+        setLookupCode(entry.publicCode);
+        handleLookupCode(entry.publicCode);
+      }
+      setRouteQuery((prev) => ({
+        ...prev,
+        toNodeId:
+          entry.destinationNodeId ||
+          entry.ticket?.department?.destination_node_id ||
+          prev.toNodeId,
+        avoidStairs: Boolean(
+          entry.avoidStairs ?? entry.ticket?.avoidStairs ?? true
+        )
+      }));
+    },
+    [handleLookupCode]
+  );
+
+  // Self-cancel an active ticket using its capability token
+  const handleCancelActiveSlip = useCallback(
+    async (ticketId) => {
+      const targetEntry = savedSlipsRef.current.find(
+        (item) => item.ticketId === ticketId
+      );
+      if (!targetEntry?.accessToken) return;
+
+      const res = await fetch(
+        `/api/tickets/${encodeURIComponent(ticketId)}/cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-Ticket-Token': targetEntry.accessToken
+          },
+          body: JSON.stringify({})
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ticket) {
+          upsertSavedSlip(
+            {
+              ticket: data.ticket,
+              accessToken: targetEntry.accessToken,
+              idempotentReplay: false
+            },
+            true
+          );
+          setTrackedSlip(data.ticket);
+          refreshPublicBoard();
+        }
+      }
+    },
+    [upsertSavedSlip, refreshPublicBoard]
   );
 
   // Auto-load initial code if URL had ?code=OPD-...
   useEffect(() => {
     if (initialNav.code) {
       handleLookupCode(initialNav.code);
-    } else if (savedTicketState?.ticket?.publicCode) {
-      handleLookupCode(savedTicketState.ticket.publicCode);
+    } else if (activeSavedEntry?.publicCode) {
+      handleLookupCode(activeSavedEntry.publicCode);
     }
   }, [initialNav.code, handleLookupCode]);
 
@@ -271,14 +580,14 @@ export default function App({ disableSockets = false }) {
           departmentId: trackedSlip.department.id
         });
       }
-      if (
-        savedTicketState?.ticket?.id &&
-        savedTicketState?.accessToken
-      ) {
-        socket.emit('subscribe:ticket', {
-          ticketId: savedTicketState.ticket.id,
-          accessToken: savedTicketState.accessToken
-        });
+      // Subscribe to all active saved tickets on this device that have capability tokens
+      for (const entry of savedSlipsRef.current) {
+        if (entry.ticketId && entry.accessToken) {
+          socket.emit('subscribe:ticket', {
+            ticketId: entry.ticketId,
+            accessToken: entry.accessToken
+          });
+        }
       }
     });
 
@@ -297,7 +606,7 @@ export default function App({ disableSockets = false }) {
     const handleRealtimeInvalidate = () => {
       refreshPublicBoard();
       const codeToRefresh =
-        trackedSlip?.publicCode || savedTicketState?.ticket?.publicCode;
+        trackedSlip?.publicCode || activeSavedEntry?.publicCode;
       if (codeToRefresh) {
         handleLookupCode(codeToRefresh);
       }
@@ -316,9 +625,9 @@ export default function App({ disableSockets = false }) {
     disableSockets,
     trackedSlip?.department?.id,
     trackedSlip?.publicCode,
-    savedTicketState?.ticket?.id,
-    savedTicketState?.ticket?.publicCode,
-    savedTicketState?.accessToken,
+    activeSavedEntry?.ticketId,
+    activeSavedEntry?.publicCode,
+    activeSavedEntry?.accessToken,
     refreshPublicBoard,
     handleLookupCode
   ]);
@@ -336,9 +645,16 @@ export default function App({ disableSockets = false }) {
         Date.now() - Number(parsed.createdAt || 0) < 10 * 60 * 1000
       ) {
         setPendingRetryRequestId(parsed.requestId);
-        setRegDeptSlug(parsed.payload.departmentId);
-        setRegVisitType(parsed.payload.visitType);
-        setRegAvoidStairs(Boolean(parsed.payload.avoidStairs));
+        if (parsed.payload.departmentId) setRegDeptSlug(parsed.payload.departmentId);
+        if (parsed.payload.patientName) setRegPatientName(parsed.payload.patientName);
+        if (parsed.payload.phone) setRegPhone(parsed.payload.phone);
+        if (parsed.payload.age !== undefined) setRegAge(String(parsed.payload.age));
+        if (parsed.payload.gender) setRegGender(parsed.payload.gender);
+        if (parsed.payload.registrationNumber) {
+          setRegRegistrationNumber(parsed.payload.registrationNumber);
+        }
+        if (parsed.payload.visitType) setRegVisitType(parsed.payload.visitType);
+        setRegAvoidStairs(Boolean(parsed.payload.avoidStairs ?? true));
       } else {
         window.sessionStorage.removeItem(SESSION_PENDING_REG_KEY);
       }
@@ -347,20 +663,70 @@ export default function App({ disableSockets = false }) {
     }
   }, []);
 
+  function validateStep2Fields() {
+    const errors = {};
+    const trimmedName = regPatientName.trim().replace(/\s+/g, ' ');
+    if (trimmedName.length < 2 || trimmedName.length > 80) {
+      errors.patientName = t.register.validationNameRequired;
+    }
+
+    const normalizedPhone = normalizeClientPhone(regPhone);
+    if (!normalizedPhone) {
+      errors.phone = t.register.validationPhoneInvalid;
+    }
+
+    const parsedAge = Number(regAge);
+    if (
+      regAge === '' ||
+      !Number.isInteger(parsedAge) ||
+      parsedAge < 0 ||
+      parsedAge > 120
+    ) {
+      errors.age = t.register.validationAgeInvalid;
+    }
+
+    setRegFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  function handleContinueFromStep2() {
+    setDuplicateTicketInfo(null);
+    setRegError(null);
+    if (validateStep2Fields()) {
+      setRegStep(3);
+    }
+  }
+
   async function handleConfirmRegistration() {
+    if (!validateStep2Fields()) {
+      setRegStep(2);
+      return;
+    }
+
     setRegSubmitting(true);
     setRegError(null);
+    setDuplicateTicketInfo(null);
 
     try {
-      // Reuse existing pending requestId if retrying identical payload, otherwise create fresh UUID
-      let requestId = pendingRetryRequestId;
+      const normalizedPhone = normalizeClientPhone(regPhone) || regPhone.trim();
+      const trimmedName = regPatientName.trim().replace(/\s+/g, ' ');
+      const numericAge = Number(regAge);
+      const trimmedRegNo = regRegistrationNumber.trim();
+
       const payload = {
         departmentId: regDeptSlug,
+        patientName: trimmedName,
+        phone: normalizedPhone,
+        age: numericAge,
+        gender: regGender || 'PREFER_NOT_TO_SAY',
+        ...(trimmedRegNo ? { registrationNumber: trimmedRegNo } : {}),
         visitType: regVisitType,
         preferredLang: lang,
         avoidStairs: Boolean(regAvoidStairs)
       };
 
+      // Reuse existing pending requestId ONLY if retrying an unacknowledged request with identical payload
+      let requestId = pendingRetryRequestId;
       if (typeof window !== 'undefined') {
         try {
           const existingRaw = window.sessionStorage.getItem(SESSION_PENDING_REG_KEY);
@@ -369,6 +735,9 @@ export default function App({ disableSockets = false }) {
             const p = existing?.payload || {};
             const samePayload =
               p.departmentId === payload.departmentId &&
+              p.patientName === payload.patientName &&
+              p.phone === payload.phone &&
+              Number(p.age) === Number(payload.age) &&
               p.visitType === payload.visitType &&
               p.preferredLang === payload.preferredLang &&
               Boolean(p.avoidStairs) === Boolean(payload.avoidStairs);
@@ -377,7 +746,7 @@ export default function App({ disableSockets = false }) {
             } else {
               requestId = generateClientUuid();
             }
-          } else if (!requestId) {
+          } else {
             requestId = generateClientUuid();
           }
 
@@ -410,13 +779,8 @@ export default function App({ disableSockets = false }) {
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          data?.error?.message || 'Could not complete OPD token registration.'
-        );
-      }
 
-      // Clear pending sessionStorage key after confirmed response
+      // Clear pending sessionStorage key once server responds with a definitive outcome
       if (typeof window !== 'undefined') {
         try {
           window.sessionStorage.removeItem(SESSION_PENDING_REG_KEY);
@@ -426,27 +790,36 @@ export default function App({ disableSockets = false }) {
       }
       setPendingRetryRequestId(null);
 
+      if (!res.ok) {
+        if (
+          res.status === 409 &&
+          data?.error?.code === 'DUPLICATE_ACTIVE_TICKET'
+        ) {
+          setDuplicateTicketInfo(data.error.details?.existingTicket || null);
+          setRegError(data.error.message);
+          return;
+        }
+        throw new Error(
+          data?.error?.message || 'Could not complete OPD token registration.'
+        );
+      }
+
       const newTicketBundle = {
         ticket: data.ticket,
         accessToken: data.accessToken,
         idempotentReplay: Boolean(data.idempotentReplay)
       };
 
-      setSavedTicketState(newTicketBundle);
+      upsertSavedSlip(newTicketBundle, true);
       setTrackedSlip(data.ticket);
       setLookupCode(data.ticket.publicCode);
+      setRouteQuery({
+        fromNodeId: 'registration_desk',
+        toNodeId:
+          data.ticket.department?.destination_node_id || 'room_204_med',
+        avoidStairs: Boolean(data.ticket.avoidStairs ?? regAvoidStairs ?? true)
+      });
       setLastVerifiedAt(new Date().toLocaleTimeString());
-
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem(
-            STORAGE_ACTIVE_TICKET_KEY,
-            JSON.stringify(newTicketBundle)
-          );
-        } catch {
-          // ignore
-        }
-      }
 
       refreshPublicBoard();
       setActiveView('slip');
@@ -457,6 +830,29 @@ export default function App({ disableSockets = false }) {
       );
     } finally {
       setRegSubmitting(false);
+    }
+  }
+
+  async function handleOpenDuplicateExistingSlip() {
+    if (!duplicateTicketInfo) return;
+    const existingSaved = savedSlips.find(
+      (item) =>
+        item.ticketId === duplicateTicketInfo.id ||
+        item.publicCode === duplicateTicketInfo.publicCode
+    );
+    if (existingSaved) {
+      handleSelectSavedSlip(existingSaved);
+      setDuplicateTicketInfo(null);
+      setRegError(null);
+      setActiveView('slip');
+      return;
+    }
+
+    if (duplicateTicketInfo.publicCode) {
+      await handleLookupCode(duplicateTicketInfo.publicCode);
+      setDuplicateTicketInfo(null);
+      setRegError(null);
+      setActiveView('slip');
     }
   }
 
@@ -500,6 +896,11 @@ export default function App({ disableSockets = false }) {
     boardItems.length > 0 &&
     totalWaitingAcrossHospital === 0 &&
     !anyServingAcrossHospital;
+
+  const normalizedPreviewPhone = normalizeClientPhone(regPhone);
+  const maskedPreviewPhone = normalizedPreviewPhone
+    ? `******${normalizedPreviewPhone.slice(-4)}`
+    : regPhone;
 
   return (
     <div
@@ -589,9 +990,12 @@ export default function App({ disableSockets = false }) {
               { id: 'register', label: t.nav.register, icon: UserPlus },
               {
                 id: 'slip',
-                label: savedTicketState?.ticket
-                  ? `${t.nav.slip} (${savedTicketState.ticket.publicCode})`
-                  : t.nav.slip,
+                label:
+                  savedSlips.length > 1
+                    ? `${t.nav.slip} (${savedSlips.length})`
+                    : activeSavedEntry?.publicCode
+                      ? `${t.nav.slip} (${activeSavedEntry.publicCode})`
+                      : t.nav.slip,
                 icon: FileText
               },
               { id: 'my-turn', label: t.nav.myTurn, icon: Activity },
@@ -687,41 +1091,127 @@ export default function App({ disableSockets = false }) {
               </div>
             </section>
 
-            {/* Saved Active Slip Banner */}
-            {savedTicketState?.ticket && (
-              <section className="p-4 sm:p-5 rounded-xl bg-green-50 border-2 border-status-serving flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="text-xs font-bold uppercase text-status-serving">
-                    {t.home.activeSlipBanner}
+            {/* Persistent Multi-Slip Manager on Home Screen */}
+            {savedSlips.length > 0 && (
+              <section
+                aria-label={t.slip.mySlipsSwitcherTitle}
+                data-testid="home-saved-slips-section"
+                className="p-4 sm:p-5 rounded-xl bg-green-50 border-2 border-status-serving space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-bold uppercase text-status-serving">
+                      {t.home.activeSlipBanner} ({savedSlips.length})
+                    </div>
+                    <div className="font-bold text-base sm:text-lg text-ink-primary">
+                      {t.slip.mySlipsSwitcherTitle}
+                    </div>
                   </div>
-                  <div className="font-token text-xl sm:text-2xl font-bold text-ink-primary mt-0.5">
-                    {savedTicketState.ticket.publicCode} ·{' '}
-                    {lang === 'hi'
-                      ? savedTicketState.ticket.department?.name_hi
-                      : savedTicketState.ticket.department?.name_en}{' '}
-                    ({savedTicketState.ticket.department?.room_label})
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setActiveView('slip')}
-                    className="touch-target px-4 py-2.5 rounded-lg bg-brand-primary text-white font-bold text-xs sm:text-sm"
+                    className="touch-target px-4 py-2 rounded-lg bg-brand-primary text-white font-bold text-xs sm:text-sm"
                   >
                     {t.home.viewActiveSlip}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLookupCode(savedTicketState.ticket.publicCode);
-                      handleLookupCode(savedTicketState.ticket.publicCode);
-                      setActiveView('my-turn');
-                    }}
-                    className="touch-target px-4 py-2.5 rounded-lg bg-status-serving text-white font-bold text-xs sm:text-sm"
-                  >
-                    {t.nav.myTurn}
-                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {savedSlips.map((entry) => {
+                    const isSelected =
+                      activeSavedEntry?.ticketId === entry.ticketId &&
+                      activeSavedEntry?.publicCode === entry.publicCode;
+                    const deptName =
+                      lang === 'hi'
+                        ? entry.departmentName_hi || entry.departmentName_en
+                        : entry.departmentName_en;
+                    const isActiveStatus = [
+                      'WAITING',
+                      'CALLED',
+                      'IN_CONSULTATION'
+                    ].includes(entry.status);
+                    const categoryLabel = isActiveStatus
+                      ? t.slip.mySlipsActiveTag
+                      : entry.status === 'COMPLETED'
+                        ? t.slip.mySlipsCompletedTag
+                        : t.slip.mySlipsInactiveTag;
+
+                    return (
+                      <div
+                        key={entry.ticketId || entry.publicCode}
+                        data-testid={`home-saved-slip-${entry.publicCode}`}
+                        className={`p-3.5 rounded-xl bg-surface border-2 flex flex-col justify-between gap-3 ${
+                          isSelected
+                            ? 'border-brand-primary shadow-sm'
+                            : 'border-border-strong'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-token text-xl font-bold text-brand-primary">
+                              {entry.publicCode}
+                            </div>
+                            <div className="text-xs sm:text-sm font-bold text-ink-primary">
+                              {deptName} ({entry.roomLabel})
+                            </div>
+                            {entry.patientSummary?.fullName && (
+                              <div className="text-xs text-ink-secondary mt-0.5">
+                                {entry.patientSummary.fullName}
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                              isActiveStatus
+                                ? 'bg-green-50 text-status-serving border-status-serving'
+                                : 'bg-subtle text-ink-secondary border-border-strong'
+                            }`}
+                          >
+                            {categoryLabel} · {t.statuses?.[entry.status] || entry.status}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border-strong/60">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              data-testid={`home-open-slip-${entry.publicCode}`}
+                              onClick={() => {
+                                handleSelectSavedSlip(entry);
+                                setActiveView('slip');
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-brand-primary text-white font-bold text-xs"
+                            >
+                              {t.nav.slip}
+                            </button>
+                            <button
+                              type="button"
+                              data-testid={`home-track-slip-${entry.publicCode}`}
+                              onClick={() => {
+                                handleSelectSavedSlip(entry);
+                                setActiveView('my-turn');
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-status-serving text-white font-bold text-xs"
+                            >
+                              {t.nav.myTurn}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            data-testid={`home-remove-slip-${entry.publicCode}`}
+                            onClick={() =>
+                              handleRemoveSavedSlip(entry.ticketId || entry.publicCode)
+                            }
+                            className="px-2.5 py-1.5 rounded-lg bg-subtle text-ink-secondary hover:text-status-emergency font-bold text-xs inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>{t.slip.removeFromDeviceBtn}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -869,6 +1359,8 @@ export default function App({ disableSockets = false }) {
                         type="button"
                         onClick={() => {
                           setRegDeptSlug(slug);
+                          setDuplicateTicketInfo(null);
+                          setRegError(null);
                           setRegStep(2);
                           setActiveView('register');
                         }}
@@ -914,7 +1406,13 @@ export default function App({ disableSockets = false }) {
                   <button
                     key={s.num}
                     type="button"
-                    onClick={() => setRegStep(s.num)}
+                    onClick={() => {
+                      if (s.num === 3 && !validateStep2Fields()) {
+                        setRegStep(2);
+                        return;
+                      }
+                      setRegStep(s.num);
+                    }}
                     className={`touch-target rounded-lg px-3 py-2 text-xs sm:text-sm font-bold border-2 text-left transition ${
                       regStep === s.num
                         ? 'bg-brand-primary text-white border-brand-primary'
@@ -955,6 +1453,8 @@ export default function App({ disableSockets = false }) {
                         data-testid={`dept-card-${dept.slug}`}
                         onClick={() => {
                           setRegDeptSlug(dept.slug);
+                          setDuplicateTicketInfo(null);
+                          setRegError(null);
                           setRegStep(2);
                         }}
                         className={`text-left rounded-xl p-4 sm:p-5 border-2 transition flex flex-col justify-between gap-3 ${
@@ -1004,9 +1504,181 @@ export default function App({ disableSockets = false }) {
               </div>
             )}
 
-            {/* Step 2: Visit Type & Avoid Stairs Accessibility Preference */}
+            {/* Step 2: Patient Details, Visit Type & Avoid Stairs Accessibility Preference */}
             {regStep === 2 && (
-              <div className="space-y-5">
+              <div className="space-y-6">
+                {/* Patient Identity Details Section */}
+                <div className="p-4 sm:p-5 rounded-xl bg-canvas border-2 border-border-strong space-y-4">
+                  <div className="space-y-1 border-b border-border-strong pb-3">
+                    <h3 className="font-bold text-base sm:text-lg text-brand-primary flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-brand-teal shrink-0" aria-hidden="true" />
+                      <span>{t.register.patientSectionTitle}</span>
+                    </h3>
+                    <p className="text-xs sm:text-sm text-ink-secondary">
+                      {t.register.patientSectionSubtitle}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Full Name */}
+                    <div>
+                      <label
+                        htmlFor="reg-patient-name"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                      >
+                        {t.register.patientNameLabel}
+                      </label>
+                      <input
+                        id="reg-patient-name"
+                        data-testid="reg-patient-name-input"
+                        type="text"
+                        required
+                        maxLength={80}
+                        value={regPatientName}
+                        onChange={(e) => {
+                          setRegPatientName(e.target.value);
+                          if (regFieldErrors.patientName) {
+                            setRegFieldErrors((prev) => ({ ...prev, patientName: null }));
+                          }
+                        }}
+                        placeholder={t.register.patientNamePlaceholder}
+                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 text-sm sm:text-base font-semibold text-ink-primary"
+                      />
+                      {regFieldErrors.patientName && (
+                        <p
+                          role="alert"
+                          data-testid="reg-error-patient-name"
+                          className="text-xs font-bold text-status-emergency mt-1"
+                        >
+                          {regFieldErrors.patientName}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* 10-Digit Mobile Number */}
+                    <div>
+                      <label
+                        htmlFor="reg-patient-phone"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                      >
+                        {t.register.phoneLabel}
+                      </label>
+                      <input
+                        id="reg-patient-phone"
+                        data-testid="reg-phone-input"
+                        type="tel"
+                        inputMode="numeric"
+                        required
+                        maxLength={16}
+                        value={regPhone}
+                        onChange={(e) => {
+                          setRegPhone(e.target.value);
+                          if (regFieldErrors.phone) {
+                            setRegFieldErrors((prev) => ({ ...prev, phone: null }));
+                          }
+                        }}
+                        placeholder={t.register.phonePlaceholder}
+                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-sm sm:text-base font-bold text-ink-primary"
+                      />
+                      <p className="text-[11px] text-ink-secondary mt-1">
+                        {t.register.phoneUnverifiedNote}
+                      </p>
+                      {regFieldErrors.phone && (
+                        <p
+                          role="alert"
+                          data-testid="reg-error-phone"
+                          className="text-xs font-bold text-status-emergency mt-1"
+                        >
+                          {regFieldErrors.phone}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Age (Years) */}
+                    <div>
+                      <label
+                        htmlFor="reg-patient-age"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                      >
+                        {t.register.ageLabel}
+                      </label>
+                      <input
+                        id="reg-patient-age"
+                        data-testid="reg-age-input"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={120}
+                        required
+                        value={regAge}
+                        onChange={(e) => {
+                          setRegAge(e.target.value);
+                          if (regFieldErrors.age) {
+                            setRegFieldErrors((prev) => ({ ...prev, age: null }));
+                          }
+                        }}
+                        placeholder={t.register.agePlaceholder}
+                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-sm sm:text-base font-bold text-ink-primary"
+                      />
+                      {regFieldErrors.age && (
+                        <p
+                          role="alert"
+                          data-testid="reg-error-age"
+                          className="text-xs font-bold text-status-emergency mt-1"
+                        >
+                          {regFieldErrors.age}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Gender (Optional) */}
+                    <div>
+                      <label
+                        htmlFor="reg-patient-gender"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                      >
+                        {t.register.genderLabel}
+                      </label>
+                      <select
+                        id="reg-patient-gender"
+                        data-testid="reg-gender-select"
+                        value={regGender}
+                        onChange={(e) => setRegGender(e.target.value)}
+                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 text-sm sm:text-base font-semibold text-ink-primary"
+                      >
+                        <option value="PREFER_NOT_TO_SAY">{t.register.genderDecline}</option>
+                        <option value="FEMALE">{t.register.genderFemale}</option>
+                        <option value="MALE">{t.register.genderMale}</option>
+                        <option value="OTHER">{t.register.genderOther}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Optional Hospital Registration / UHID Number */}
+                  <div>
+                    <label
+                      htmlFor="reg-hospital-uhid"
+                      className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                    >
+                      {t.register.regNoLabel}
+                    </label>
+                    <input
+                      id="reg-hospital-uhid"
+                      data-testid="reg-uhid-input"
+                      type="text"
+                      maxLength={40}
+                      value={regRegistrationNumber}
+                      onChange={(e) => setRegRegistrationNumber(e.target.value)}
+                      placeholder={t.register.regNoPlaceholder}
+                      className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2 text-sm font-mono text-ink-primary"
+                    />
+                    <p className="text-[11px] text-ink-secondary mt-1">
+                      {t.register.regNoHint}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Visit Type */}
                 <div className="space-y-2">
                   <label className="block font-bold text-sm sm:text-base text-ink-primary">
                     {t.register.visitTypeLabel}
@@ -1030,6 +1702,7 @@ export default function App({ disableSockets = false }) {
                   </div>
                 </div>
 
+                {/* Avoid Stairs Accessibility Preference */}
                 <div className="p-4 sm:p-5 rounded-xl bg-subtle border-2 border-border-strong space-y-2">
                   <label className="inline-flex items-center gap-3 cursor-pointer">
                     <input
@@ -1065,7 +1738,7 @@ export default function App({ disableSockets = false }) {
                   <button
                     type="button"
                     data-testid="reg-step2-continue"
-                    onClick={() => setRegStep(3)}
+                    onClick={handleContinueFromStep2}
                     className="touch-target inline-flex items-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-6 py-2.5 text-sm sm:text-base"
                   >
                     <span>{t.register.nextBtn}</span>
@@ -1084,6 +1757,30 @@ export default function App({ disableSockets = false }) {
                   </h3>
 
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-ink-muted">
+                        {t.register.patientLabel}
+                      </dt>
+                      <dd
+                        data-testid="reg-summary-patient-name"
+                        className="font-bold text-base text-ink-primary mt-0.5"
+                      >
+                        {regPatientName.trim()}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-ink-muted">
+                        {t.register.mobileLabel} · {t.register.ageGenderLabel}
+                      </dt>
+                      <dd className="font-token font-bold text-sm text-ink-primary mt-0.5">
+                        {maskedPreviewPhone} · {regAge} yrs
+                        {regGender && regGender !== 'PREFER_NOT_TO_SAY'
+                          ? ` · ${regGender}`
+                          : ''}
+                      </dd>
+                    </div>
+
                     <div>
                       <dt className="text-xs font-bold uppercase text-ink-muted">
                         {t.register.deptLabel}
@@ -1128,7 +1825,52 @@ export default function App({ disableSockets = false }) {
                   </dl>
                 </div>
 
-                {regError && (
+                {/* Friendly Duplicate Active Ticket Banner */}
+                {duplicateTicketInfo && (
+                  <div
+                    role="alert"
+                    data-testid="duplicate-ticket-banner"
+                    className="p-5 rounded-xl bg-amber-50 border-2 border-status-next text-ink-primary space-y-3"
+                  >
+                    <div className="font-bold text-base sm:text-lg text-status-next">
+                      {t.register.duplicateTitle}:{' '}
+                      <span className="font-token font-black text-brand-primary">
+                        {duplicateTicketInfo.publicCode}
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-ink-primary">
+                      {t.register.duplicateDesc}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        data-testid="open-existing-duplicate-slip-btn"
+                        onClick={handleOpenDuplicateExistingSlip}
+                        className="touch-target inline-flex items-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-4 py-2.5 text-xs sm:text-sm"
+                      >
+                        <FileText className="w-4 h-4" aria-hidden="true" />
+                        <span>
+                          {t.register.duplicateOpenBtn} ({duplicateTicketInfo.publicCode})
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        data-testid="duplicate-change-dept-btn"
+                        onClick={() => {
+                          setDuplicateTicketInfo(null);
+                          setRegError(null);
+                          setRegStep(1);
+                        }}
+                        className="touch-target inline-flex items-center gap-2 rounded-lg border-2 border-brand-primary bg-surface text-brand-primary font-bold px-4 py-2.5 text-xs sm:text-sm"
+                      >
+                        <span>{t.register.duplicateChangeDeptBtn}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {regError && !duplicateTicketInfo && (
                   <div
                     role="alert"
                     className="p-4 rounded-xl bg-red-50 border-2 border-status-emergency text-status-emergency font-bold text-sm"
@@ -1174,8 +1916,13 @@ export default function App({ disableSockets = false }) {
           <SlipView
             lang={lang}
             t={t}
-            slip={savedTicketState?.ticket || trackedSlip}
-            idempotentReplay={Boolean(savedTicketState?.idempotentReplay)}
+            slip={activeSavedEntry?.ticket || trackedSlip}
+            idempotentReplay={Boolean(activeSavedEntry?.idempotentReplay)}
+            savedSlips={savedSlips}
+            activeAccessToken={activeSavedEntry?.accessToken || null}
+            onSelectSavedSlip={handleSelectSavedSlip}
+            onRemoveSavedSlip={handleRemoveSavedSlip}
+            onCancelActiveSlip={handleCancelActiveSlip}
             onOpenMyTurn={(code) => {
               if (code) {
                 setLookupCode(code);
@@ -1183,15 +1930,25 @@ export default function App({ disableSockets = false }) {
               }
               setActiveView('my-turn');
             }}
-            onOpenDirections={({ fromNodeId, toNodeId, avoidStairs }) => {
-              setRouteQuery({
-                fromNodeId: fromNodeId || 'registration_desk',
-                toNodeId: toNodeId || 'room_204_med',
-                avoidStairs: Boolean(avoidStairs)
-              });
+            onOpenDirections={(arg1, arg2) => {
+              if (arg1 && typeof arg1 === 'object') {
+                setRouteQuery({
+                  fromNodeId: arg1.fromNodeId || 'registration_desk',
+                  toNodeId: arg1.toNodeId || 'room_204_med',
+                  avoidStairs: Boolean(arg1.avoidStairs ?? true)
+                });
+              } else {
+                setRouteQuery({
+                  fromNodeId: 'registration_desk',
+                  toNodeId: arg1 || 'room_204_med',
+                  avoidStairs: Boolean(arg2 ?? true)
+                });
+              }
               setActiveView('navigate');
             }}
             onRegisterNew={() => {
+              setDuplicateTicketInfo(null);
+              setRegError(null);
               setRegStep(1);
               setActiveView('register');
             }}
@@ -1212,9 +1969,13 @@ export default function App({ disableSockets = false }) {
             error={myTurnError}
             lastVerifiedAt={lastVerifiedAt}
             connectionState={connectionState}
-            savedLocalSlip={savedTicketState?.ticket || null}
+            savedLocalSlip={activeSavedEntry?.ticket || null}
+            savedSlips={savedSlips}
+            onSelectSavedSlip={handleSelectSavedSlip}
             onLookupCode={handleLookupCode}
             onRegisterNew={() => {
+              setDuplicateTicketInfo(null);
+              setRegError(null);
               setRegStep(1);
               setActiveView('register');
             }}
@@ -1222,7 +1983,7 @@ export default function App({ disableSockets = false }) {
               setRouteQuery({
                 fromNodeId: fromNodeId || 'registration_desk',
                 toNodeId: toNodeId || 'room_204_med',
-                avoidStairs: Boolean(avoidStairs)
+                avoidStairs: Boolean(avoidStairs ?? true)
               });
               setActiveView('navigate');
             }}
@@ -1263,7 +2024,7 @@ export default function App({ disableSockets = false }) {
         lang={lang}
         t={t}
         nodes={hospitalNodes}
-        activeSlip={savedTicketState?.ticket || trackedSlip}
+        activeSlip={activeSavedEntry?.ticket || trackedSlip}
         onClose={closeEmergencyModal}
         onNavigateToEmergency={() => {
           setRouteQuery({

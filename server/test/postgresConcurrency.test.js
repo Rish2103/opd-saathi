@@ -166,6 +166,126 @@ describe('Phase 1.1 — PostgreSQL SQL Transaction & Advisory Lock Contract Veri
     );
     expect(advisoryLockQueries.length).toBe(3);
   });
+
+  it('upserts patient identity and rejects duplicate active ticket in PostgreSQL before incrementing queue_counters', async () => {
+    const executedSql = [];
+    let existingActiveTicketRows = [];
+
+    const fakePgClient = {
+      async query(sql, params) {
+        executedSql.push({ sql: sql.trim(), params });
+
+        if (sql.includes('FROM departments')) {
+          return { rows: [sampleDept] };
+        }
+        if (sql.includes('pg_advisory_xact_lock')) {
+          return { rows: [{ pg_advisory_xact_lock: '' }] };
+        }
+        if (sql.includes('WHERE request_id = $1 FOR UPDATE')) {
+          return { rows: [] };
+        }
+        if (sql.includes('INSERT INTO patients')) {
+          return {
+            rows: [
+              {
+                id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                identity_fingerprint: params[0],
+                full_name: params[1],
+                phone_normalized: params[2],
+                phone_masked: params[3],
+                phone_verified: false,
+                age_years: params[4],
+                gender: params[5],
+                registration_number: params[6]
+              }
+            ]
+          };
+        }
+        if (
+          sql.includes('WHERE patient_id = $1') &&
+          sql.includes("status IN ('WAITING', 'CALLED', 'IN_CONSULTATION')")
+        ) {
+          return { rows: existingActiveTicketRows };
+        }
+        if (sql.includes('INSERT INTO queue_counters')) {
+          return { rows: [{ last_sequence: 1 }] };
+        }
+        if (sql.includes('INSERT INTO tickets')) {
+          const row = {
+            id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            public_code: 'OPD-GEN-001',
+            department_id: sampleDept.id,
+            patient_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            queue_date: '2026-10-24',
+            sequence_no: 1,
+            queue_sort_order: 1,
+            status: 'WAITING',
+            visit_type: 'FIRST_VISIT',
+            preferred_lang: 'en',
+            avoid_stairs: true,
+            requeued_count: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          existingActiveTicketRows = [row];
+          return { rows: [row] };
+        }
+        if (sql.includes('FROM doctor_status')) {
+          return { rows: [{ status: 'AVAILABLE', delay_minutes: 0 }] };
+        }
+        if (sql.includes('COUNT(*)::int AS count')) {
+          return { rows: [{ count: 0 }] };
+        }
+        return { rows: [] };
+      }
+    };
+
+    const pgQueueService = createQueueService({
+      runWithTransaction: async (fn) => fn(fakePgClient)
+    });
+
+    // 1. First registration creates patient + increments queue_counters + creates ticket
+    const first = await pgQueueService.createTicket({
+      requestId: '10000000-0000-4000-8000-000000000001',
+      departmentId: 'general-medicine',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      patientName: 'Ramesh Kumar',
+      phone: '9876543210',
+      age: 62
+    });
+    expect(first.httpStatus).toBe(201);
+    expect(first.ticket.publicCode).toBe('OPD-GEN-001');
+    expect(first.ticket.patientSummary.phoneMasked).toBe('******3210');
+
+    const counterInsertsAfterFirst = executedSql.filter((q) =>
+      q.sql.includes('INSERT INTO queue_counters')
+    );
+    expect(counterInsertsAfterFirst.length).toBe(1);
+
+    // 2. Duplicate registration with new requestId for same patient + department rejects BEFORE queue_counters
+    await expect(
+      pgQueueService.createTicket({
+        requestId: '10000000-0000-4000-8000-000000000002',
+        departmentId: 'general-medicine',
+        visitType: 'FIRST_VISIT',
+        preferredLang: 'en',
+        avoidStairs: true,
+        patientName: 'ramesh   kumar',
+        phone: '+91 98765-43210',
+        age: 62
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'DUPLICATE_ACTIVE_TICKET'
+    });
+
+    const counterInsertsAfterDuplicate = executedSql.filter((q) =>
+      q.sql.includes('INSERT INTO queue_counters')
+    );
+    expect(counterInsertsAfterDuplicate.length).toBe(1); // Did NOT increment queue_counters!
+  });
 });
 
 const hasLiveDatabase = Boolean((process.env.DATABASE_URL || '').trim());
@@ -186,14 +306,20 @@ describe.runIf(hasLiveDatabase)(
           departmentId: 'general-medicine',
           visitType: 'FIRST_VISIT',
           preferredLang: 'en',
-          avoidStairs: true
+          avoidStairs: true,
+          patientName: 'Ramesh Kumar',
+          phone: '9876543210',
+          age: 62
         }),
         liveService.createTicket({
           requestId: sharedReqId,
           departmentId: 'general-medicine',
           visitType: 'FIRST_VISIT',
           preferredLang: 'en',
-          avoidStairs: true
+          avoidStairs: true,
+          patientName: 'Ramesh Kumar',
+          phone: '9876543210',
+          age: 62
         })
       ]);
 
@@ -202,15 +328,18 @@ describe.runIf(hasLiveDatabase)(
       const statuses = [retryA.httpStatus, retryB.httpStatus].sort();
       expect(statuses).toEqual([200, 201]);
 
-      // 2. Simultaneous registrations in the same department
+      // 2. Simultaneous registrations for distinct patients in the same department
       const parallelBatch = await Promise.all(
-        Array.from({ length: 4 }, () =>
+        Array.from({ length: 4 }, (_, idx) =>
           liveService.createTicket({
             requestId: crypto.randomUUID(),
             departmentId: 'orthopedics',
             visitType: 'FIRST_VISIT',
             preferredLang: 'hi',
-            avoidStairs: false
+            avoidStairs: false,
+            patientName: `Patient ${idx + 1}`,
+            phone: `987654320${idx}`,
+            age: 30 + idx
           })
         )
       );

@@ -106,12 +106,127 @@ export function matchesIdempotentPayload(existingTicket, incomingPayload) {
   const incomingLang = incomingPayload.preferredLang ?? 'en';
   const incomingAvoidStairs = Boolean(incomingPayload.avoidStairs ?? false);
 
+  const existingFingerprint =
+    existingTicket.identity_fingerprint ?? existingTicket.identityFingerprint ?? null;
+  const incomingFingerprint = incomingPayload.identityFingerprint ?? null;
+
+  if (existingFingerprint && incomingFingerprint && existingFingerprint !== incomingFingerprint) {
+    return false;
+  }
+
   return (
     existingDept === incomingDept &&
     existingVisitType === incomingVisitType &&
     existingLang === incomingLang &&
     existingAvoidStairs === incomingAvoidStairs
   );
+}
+
+/**
+ * Normalizes a raw Indian mobile phone number into its canonical 10-digit form.
+ * Strips spaces, dashes, parentheses, dots, and leading +91 / 0091 / 91 / 0 prefixes.
+ * Returns null if the number is not a valid 10-digit Indian mobile number (^[6-9]\d{9}$).
+ *
+ * @param {string} rawPhone
+ * @returns {string | null}
+ */
+export function normalizePatientPhone(rawPhone) {
+  if (typeof rawPhone !== 'string' && typeof rawPhone !== 'number') {
+    return null;
+  }
+  let cleaned = String(rawPhone)
+    .trim()
+    .replace(/[\s\-().]/g, '');
+
+  if (cleaned.startsWith('+91')) {
+    cleaned = cleaned.slice(3);
+  } else if (cleaned.startsWith('0091')) {
+    cleaned = cleaned.slice(4);
+  } else if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+    cleaned = cleaned.slice(1);
+  }
+
+  if (!/^[6-9]\d{9}$/.test(cleaned)) {
+    return null;
+  }
+
+  return cleaned;
+}
+
+/**
+ * Normalizes a patient's full name for display/storage by trimming and collapsing
+ * internal whitespace.
+ *
+ * @param {string} rawName
+ * @returns {string}
+ */
+export function normalizePatientName(rawName) {
+  if (typeof rawName !== 'string') {
+    return '';
+  }
+  return rawName.trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Normalizes a patient's full name for deterministic identity comparison
+ * (trimmed, collapsed whitespace, lowercase).
+ *
+ * @param {string} rawName
+ * @returns {string}
+ */
+export function normalizePatientNameForIdentity(rawName) {
+  return normalizePatientName(rawName).toLowerCase();
+}
+
+/**
+ * Derives a keyed HMAC-SHA256 fingerprint for a patient's normalized identity
+ * (phone_normalized + lowercase full_name + age_years) using PATIENT_IDENTITY_SECRET.
+ *
+ * @param {{ phoneNormalized: string, fullName: string, ageYears: number }} identity
+ * @param {string} [secretOverride]
+ * @returns {string} 64-character lowercase hex HMAC-SHA256 digest
+ */
+export function derivePatientIdentityFingerprint(
+  { phoneNormalized, fullName, ageYears },
+  secretOverride
+) {
+  const secret =
+    secretOverride ||
+    env.patientIdentitySecret ||
+    `${env.ticketTokenSecret}:patient-identity-v1`;
+
+  if (!secret || typeof secret !== 'string' || secret.trim().length < 16) {
+    throw new Error('PATIENT_IDENTITY_SECRET must be configured to derive patient fingerprints.');
+  }
+
+  const cleanPhone = normalizePatientPhone(phoneNormalized);
+  const cleanName = normalizePatientNameForIdentity(fullName);
+  const cleanAge = Number.parseInt(String(ageYears), 10);
+
+  if (!cleanPhone || !cleanName || Number.isNaN(cleanAge)) {
+    throw new Error('Valid phoneNormalized, fullName, and ageYears are required for fingerprinting.');
+  }
+
+  return crypto
+    .createHmac('sha256', Buffer.from(secret, 'utf8'))
+    .update(`v1:${cleanPhone}:${cleanName}:${cleanAge}`, 'utf8')
+    .digest('hex');
+}
+
+/**
+ * Masks a 10-digit normalized phone number for protected capability display (e.g. ******3210).
+ *
+ * @param {string} phoneNormalized
+ * @returns {string}
+ */
+export function maskPatientPhone(phoneNormalized) {
+  const clean = normalizePatientPhone(phoneNormalized);
+  if (!clean) {
+    return '**********';
+  }
+  return `******${clean.slice(-4)}`;
 }
 
 /**

@@ -47,7 +47,7 @@ All `/api/*` endpoints return `application/json` and include the `X-Request-Id` 
 - **Purpose:** Minimised non-PII queue board data (`nowServingCode`, `waitingCount`, `estimatedWaitMinutes`, `etaStatus`, `doctorStatus`, `delayMinutes`, `updatedAt`).
 
 ### `POST /api/tickets`
-- **Auth:** Public, Rate-limited (`15 requests / 5 minutes / IP`)
+- **Auth:** Public, Composite Rate-limited (`8 requests / 5 minutes / IP+Identity`, `60 requests / 5 minutes / shared-network IP`)
 - **Request Body (Zod Validated):**
   ```json
   {
@@ -55,25 +55,36 @@ All `/api/*` endpoints return `application/json` and include the `X-Request-Id` 
     "departmentId": "uuid-of-department",
     "visitType": "FIRST_VISIT",
     "preferredLang": "hi",
-    "avoidStairs": true
+    "avoidStairs": true,
+    "patientName": "Kamla Devi",
+    "phone": "9876543210",
+    "age": 65,
+    "gender": "FEMALE",
+    "registrationNumber": "UHID-2026-104"
   }
   ```
-- **Idempotency & Recovery Rules:**
+- **Idempotency, Duplicate Prevention & Recovery Rules:**
   1. Acquires `pg_advisory_xact_lock(hashtext('req:' || requestId))`.
   2. If a ticket with `request_id = requestId` already exists:
-     - Verifies that **all original payload fields** (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`) match the stored ticket (`409 IDEMPOTENCY_PAYLOAD_MISMATCH` if any field differs).
+     - Verifies that **all original payload fields** (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`, and normalized patient identity fingerprint) match the stored ticket (`409 IDEMPOTENCY_PAYLOAD_MISMATCH` if any field differs).
      - Verifies `NOW() - created_at <= INTERVAL '10 minutes'` and `status === 'WAITING'` (`409 IDEMPOTENCY_WINDOW_EXPIRED` if expired).
-     - Recomputes `accessToken` via `TICKET_TOKEN_SECRET` and returns `200 OK` with `{ ticket, accessToken, idempotentReplay: true }`.
-  3. Otherwise allocates the next sequence under the department-day lock and returns `201 Created` with `{ ticket, accessToken, idempotentReplay: false }`.
+     - Recomputes `accessToken` via `TICKET_TOKEN_SECRET` and returns `200 OK` with `{ ticket, accessToken, idempotentReplay: true }` (including `ticket.patientSummary`).
+  3. Otherwise acquires the department-day lock, resolves/upserts the patient record by `identity_fingerprint = HMAC-SHA256(PATIENT_IDENTITY_SECRET, "${normalizedPhone}|${normalizedNameLower}|${age}")`, and checks for an active ticket (`WAITING`, `CALLED`, `IN_CONSULTATION`) for `(patient_id, department_id, queue_date)`:
+     - If an active ticket exists, returns `409 Conflict` (`DUPLICATE_ACTIVE_TICKET`) with non-PII `error.details.existingTicket` (`id`, `publicCode`, `departmentId`, `departmentNameEn`, `departmentNameHi`, `roomLabel`, `floorNumber`, `status`, `sequenceNo`, `queueDate`, `createdAt`) without incrementing `queue_counters` or `waitingCount`.
+     - If no active ticket exists, allocates the next sequence and returns `201 Created` with `{ ticket, accessToken, idempotentReplay: false }` (including `ticket.patientSummary` with `phoneMasked: '******3210'` and `phoneVerified: false`).
 
 ### `GET /api/tickets/:id`
 - **Auth:** Requires header `X-Ticket-Token: <64-char-hex-accessToken>` (verified in constant time against `tickets.access_token_hash`).
-- **Response (`200 OK`):** Full operational slip, live queue rank, ETA, and route steps.
+- **Response (`200 OK`):** Full operational slip, masked `patientSummary` (`fullName`, `ageYears`, `gender`, `phoneMasked`, `phoneVerified: false`, `registrationNumber`), live queue rank, ETA, and route steps.
+
+### `POST /api/tickets/:id/cancel`
+- **Auth:** Requires header `X-Ticket-Token: <64-char-hex-accessToken>` (verified in constant time against `tickets.access_token_hash`).
+- **Purpose:** Patient self-cancellation for an active `WAITING` or `CALLED` slip (`{ cancelReason?: 'PATIENT_LEFT' | 'WRONG_DEPARTMENT' | 'DUPLICATE' | 'OTHER' }`). Transitions ticket to `CANCELLED`, frees the patient to re-register if needed, and broadcasts post-commit queue invalidation.
 
 ### `GET /api/slips/:publicCode`
 - **Auth:** Public, Rate-limited (`30 requests / 5 minutes / IP`)
 - **Purpose:** Fallback & cross-device lookup for *"I Have My Slip"* and manual *"My Turn"* entry (scoped to current IST `queue_date`).
-- **Response (`200 OK`):** Operational slip, queue position, ETA, and accessible route steps. **Never** includes `accessToken`, `access_token_hash`, or `request_id`.
+- **Response (`200 OK`):** Operational slip, queue position, ETA, and accessible route steps. **Never** includes `accessToken`, `access_token_hash`, `request_id`, or any patient PII (`patientName`, `phone`, `age`, `gender`, `registrationNumber`, `patientSummary`).
 
 ### `GET /api/routes`
 - **Auth:** Public

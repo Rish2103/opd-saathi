@@ -40,11 +40,17 @@ export function errorHandler(err, req, res, _next) {
       ? 'An unexpected server error occurred.'
       : err.message || 'An unexpected server error occurred.';
 
+  const errorBody = {
+    code,
+    message,
+    requestId: req.correlationId ?? null
+  };
+
+  if (err.details && typeof err.details === 'object' && statusCode < 500) {
+    errorBody.details = err.details;
+  }
+
   return res.status(statusCode).json({
-    error: {
-      code,
-      message,
-      requestId: req.correlationId ?? null
-    }
+    error: errorBody
   });
 }

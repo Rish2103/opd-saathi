@@ -3,10 +3,14 @@ import { env } from '../config/env.js';
 import { getPool, withTransaction } from '../db/pool.js';
 import { SEED_DEPARTMENTS } from '../db/seed.js';
 import {
+  derivePatientIdentityFingerprint,
   deriveTicketAccessToken,
   hashAccessToken,
   isWithinRecoveryWindow,
+  maskPatientPhone,
   matchesIdempotentPayload,
+  normalizePatientName,
+  normalizePatientPhone,
   verifyTicketAccessToken
 } from './ticketTokenService.js';
 import { findAccessibleRoute } from '../../shared/navigation/pathfinder.js';
@@ -27,13 +31,71 @@ export function getHospitalDateIST(now = new Date()) {
 }
 
 /**
- * Helper to create structured HTTP domain errors.
+ * Helper to create structured HTTP domain errors with optional safe metadata details.
  */
-export function createDomainError(statusCode, code, message) {
+export function createDomainError(statusCode, code, message, details = null) {
   const err = new Error(message);
   err.statusCode = statusCode;
   err.code = code;
+  if (details && typeof details === 'object') {
+    err.details = details;
+  }
   return err;
+}
+
+/**
+ * Formats a protected, masked patient summary for capability-authenticated
+ * ticket holders or authenticated staff views. Never included in public lookups.
+ */
+export function formatPatientSummary(patientRow) {
+  if (!patientRow || !patientRow.full_name) {
+    return null;
+  }
+  return {
+    fullName: patientRow.full_name,
+    ageYears: Number(patientRow.age_years),
+    gender: patientRow.gender || 'PREFER_NOT_TO_SAY',
+    phoneMasked: maskPatientPhone(patientRow.phone_normalized),
+    phoneVerified: Boolean(patientRow.phone_verified),
+    registrationNumber: patientRow.hospital_reg_no ?? null
+  };
+}
+
+/**
+ * Formats minimal non-PII operational metadata about an existing active ticket
+ * when returning 409 DUPLICATE_ACTIVE_TICKET so the client can reopen or track it
+ * without leaking accessToken or personal details.
+ */
+export function formatDuplicateExistingTicketSummary(ticket, department) {
+  return {
+    id: ticket.id,
+    publicCode: ticket.public_code,
+    queueDate:
+      ticket.queue_date instanceof Date
+        ? ticket.queue_date.toISOString().slice(0, 10)
+        : String(ticket.queue_date).slice(0, 10),
+    sequenceNo: Number(ticket.sequence_no),
+    status: ticket.status,
+    visitType: ticket.visit_type,
+    avoidStairs: Boolean(ticket.avoid_stairs),
+    departmentSlug: department.slug,
+    departmentNameEn: department.name_en,
+    departmentNameHi: department.name_hi,
+    roomLabel: department.room_label,
+    floorNumber: Number(department.floor_number),
+    qrLookupPath: `/my-turn?code=${encodeURIComponent(ticket.public_code)}`,
+    department: {
+      id: department.id,
+      slug: department.slug,
+      tokenPrefix: department.token_prefix,
+      name_en: department.name_en,
+      name_hi: department.name_hi,
+      doctor_name_en: department.doctor_name_en,
+      doctor_name_hi: department.doctor_name_hi,
+      room_label: department.room_label,
+      floor_number: Number(department.floor_number)
+    }
+  };
 }
 
 /**
@@ -251,6 +313,8 @@ export function createLocalMemoryStore() {
     departmentsBySlug,
     doctorStatusByDeptId,
     countersByDeptDate: new Map(), // `${deptId}:${queueDate}` -> integer
+    patientsById: new Map(),
+    patientsByFingerprint: new Map(),
     ticketsById: new Map(),
     ticketsByRequestId: new Map(),
     urgentFlagsById: new Map(),
@@ -364,7 +428,7 @@ export function createQueueService(options = {}) {
   }
 
   /**
-   * Creates a new queue ticket or deterministically recovers an idempotent retry.
+   * Creates a new queue ticket, recovers an idempotent retry, or blocks duplicate active registrations.
    */
   async function createTicket(payload, nowMs = Date.now()) {
     const {
@@ -372,8 +436,53 @@ export function createQueueService(options = {}) {
       departmentId,
       visitType = 'FIRST_VISIT',
       preferredLang = 'hi',
-      avoidStairs = true
+      avoidStairs = true,
+      patientName,
+      phone,
+      age,
+      gender = 'PREFER_NOT_TO_SAY',
+      registrationNumber = null
     } = payload;
+
+    const fullName = normalizePatientName(patientName);
+    const phoneNormalized = normalizePatientPhone(phone);
+    const ageYears =
+      age !== undefined && age !== null && age !== ''
+        ? Number.parseInt(String(age), 10)
+        : Number.NaN;
+    const normalizedGender = [
+      'FEMALE',
+      'MALE',
+      'OTHER',
+      'PREFER_NOT_TO_SAY'
+    ].includes(gender)
+      ? gender
+      : 'PREFER_NOT_TO_SAY';
+    const cleanRegNo =
+      typeof registrationNumber === 'string' && registrationNumber.trim().length > 0
+        ? registrationNumber.trim().slice(0, 64)
+        : null;
+
+    if (
+      !fullName ||
+      fullName.length < 2 ||
+      !phoneNormalized ||
+      !Number.isInteger(ageYears) ||
+      ageYears < 0 ||
+      ageYears > 120
+    ) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        'Valid patient full name, 10-digit mobile number, and age (0–120 years) are required.'
+      );
+    }
+
+    const identityFingerprint = derivePatientIdentityFingerprint({
+      phoneNormalized,
+      fullName,
+      ageYears
+    });
 
     const queueDate = getHospitalDateIST(new Date(nowMs));
 
@@ -388,7 +497,13 @@ export function createQueueService(options = {}) {
         );
 
         const existingRes = await client.query(
-          'SELECT * FROM tickets WHERE request_id = $1 LIMIT 1',
+          `SELECT t.*,
+                  p.identity_fingerprint, p.full_name, p.phone_normalized,
+                  p.phone_verified, p.age_years, p.gender, p.hospital_reg_no
+           FROM tickets t
+           LEFT JOIN patients p ON p.id = t.patient_id
+           WHERE t.request_id = $1
+           LIMIT 1`,
           [requestId]
         );
 
@@ -404,7 +519,8 @@ export function createQueueService(options = {}) {
             departmentId: dept && departmentId === dept.slug ? dept.id : departmentId,
             visitType,
             preferredLang,
-            avoidStairs
+            avoidStairs,
+            identityFingerprint
           };
 
           if (!matchesIdempotentPayload(existingTicket, normalizedIncoming)) {
@@ -448,17 +564,22 @@ export function createQueueService(options = {}) {
             tokenSecret
           );
 
+          const baseSlip = formatOperationalSlip({
+            ticket: existingTicket,
+            department: dept,
+            doctorStatusRow: dsRes.rows[0],
+            activeTicket: activeRes.rows[0] || null,
+            peopleAheadWaiting: aheadRes.rows[0]?.count ?? 0
+          });
+
           return {
             httpStatus: 200,
             idempotentReplay: true,
             accessToken: recoveredToken,
-            ticket: formatOperationalSlip({
-              ticket: existingTicket,
-              department: dept,
-              doctorStatusRow: dsRes.rows[0],
-              activeTicket: activeRes.rows[0] || null,
-              peopleAheadWaiting: aheadRes.rows[0]?.count ?? 0
-            })
+            ticket: {
+              ...baseSlip,
+              patientSummary: formatPatientSummary(existingTicket)
+            }
           };
         }
 
@@ -482,7 +603,56 @@ export function createQueueService(options = {}) {
           [dept.id, queueDate]
         );
 
-        // Allocate atomic daily sequence number
+        // Step 3: Upsert protected patient identity record
+        const patientRes = await client.query(
+          `INSERT INTO patients (
+             identity_fingerprint, full_name, phone_normalized, phone_verified,
+             age_years, gender, hospital_reg_no, updated_at
+           )
+           VALUES ($1, $2, $3, false, $4, $5, $6, NOW())
+           ON CONFLICT (identity_fingerprint)
+           DO UPDATE SET
+             gender = EXCLUDED.gender,
+             hospital_reg_no = COALESCE(EXCLUDED.hospital_reg_no, patients.hospital_reg_no),
+             updated_at = NOW()
+           RETURNING *`,
+          [
+            identityFingerprint,
+            fullName,
+            phoneNormalized,
+            ageYears,
+            normalizedGender,
+            cleanRegNo
+          ]
+        );
+        const patientRow = patientRes.rows[0];
+
+        // Step 4: Check for existing active ticket for (patient_id, department_id, queue_date)
+        // BEFORE allocating a sequence counter
+        const activeDupRes = await client.query(
+          `SELECT * FROM tickets
+           WHERE patient_id = $1
+             AND department_id = $2
+             AND queue_date = $3
+             AND status IN ('WAITING', 'CALLED', 'IN_CONSULTATION')
+           LIMIT 1
+           FOR UPDATE`,
+          [patientRow.id, dept.id, queueDate]
+        );
+
+        if (activeDupRes.rows.length > 0) {
+          const existingActive = activeDupRes.rows[0];
+          throw createDomainError(
+            409,
+            'DUPLICATE_ACTIVE_TICKET',
+            `An active OPD token (${existingActive.public_code}) already exists for this patient in ${dept.name_en} today.`,
+            {
+              existingTicket: formatDuplicateExistingTicketSummary(existingActive, dept)
+            }
+          );
+        }
+
+        // Step 5: Allocate atomic daily sequence number only after duplicate guard passes
         const seqRes = await client.query(
           `INSERT INTO queue_counters (department_id, queue_date, last_sequence)
            VALUES ($1, $2, 1)
@@ -508,15 +678,16 @@ export function createQueueService(options = {}) {
 
         const insertRes = await client.query(
           `INSERT INTO tickets (
-             id, public_code, department_id, queue_date, sequence_no, queue_sort_order,
+             id, public_code, department_id, patient_id, queue_date, sequence_no, queue_sort_order,
              status, visit_type, preferred_lang, avoid_stairs, access_token_hash, request_id
            )
-           VALUES ($1, $2, $3, $4, $5, $6, 'WAITING', $7, $8, $9, $10, $11)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'WAITING', $8, $9, $10, $11, $12)
            RETURNING *`,
           [
             ticketId,
             publicCode,
             dept.id,
+            patientRow.id,
             queueDate,
             sequenceNo,
             queueSortOrder,
@@ -545,17 +716,22 @@ export function createQueueService(options = {}) {
           [dept.id, queueDate, createdTicket.queue_sort_order]
         );
 
+        const baseSlip = formatOperationalSlip({
+          ticket: createdTicket,
+          department: dept,
+          doctorStatusRow: dsRes.rows[0],
+          activeTicket: activeRes.rows[0] || null,
+          peopleAheadWaiting: aheadRes.rows[0]?.count ?? 0
+        });
+
         return {
           httpStatus: 201,
           idempotentReplay: false,
           accessToken,
-          ticket: formatOperationalSlip({
-            ticket: createdTicket,
-            department: dept,
-            doctorStatusRow: dsRes.rows[0],
-            activeTicket: activeRes.rows[0] || null,
-            peopleAheadWaiting: aheadRes.rows[0]?.count ?? 0
-          })
+          ticket: {
+            ...baseSlip,
+            patientSummary: formatPatientSummary(patientRow)
+          }
         };
       });
     } else {
@@ -571,7 +747,8 @@ export function createQueueService(options = {}) {
                 dept && departmentId === dept.slug ? dept.id : departmentId,
               visitType,
               preferredLang,
-              avoidStairs
+              avoidStairs,
+              identityFingerprint
             };
 
             if (!matchesIdempotentPayload(existingTicket, normalizedIncoming)) {
@@ -599,11 +776,18 @@ export function createQueueService(options = {}) {
               tokenSecret
             );
 
+            const patientRow = existingTicket.patient_id
+              ? localStore.patientsById.get(existingTicket.patient_id)
+              : null;
+
             return {
               httpStatus: 200,
               idempotentReplay: true,
               accessToken: recoveredToken,
-              ticket: buildLocalSlipSnapshot(existingTicket, dept)
+              ticket: {
+                ...buildLocalSlipSnapshot(existingTicket, dept),
+                patientSummary: formatPatientSummary(patientRow)
+              }
             };
           }
 
@@ -619,6 +803,58 @@ export function createQueueService(options = {}) {
           return localStore.lockManager.withKeyLock(
             `queue:${dept.id}:${queueDate}`,
             async () => {
+              const createdIso = new Date(nowMs).toISOString();
+
+              // Upsert patient in localStore
+              let patientRow = localStore.patientsByFingerprint.get(identityFingerprint);
+              if (!patientRow) {
+                patientRow = {
+                  id: crypto.randomUUID(),
+                  identity_fingerprint: identityFingerprint,
+                  full_name: fullName,
+                  phone_normalized: phoneNormalized,
+                  phone_verified: false,
+                  age_years: ageYears,
+                  gender: normalizedGender,
+                  hospital_reg_no: cleanRegNo,
+                  created_at: createdIso,
+                  updated_at: createdIso
+                };
+                localStore.patientsById.set(patientRow.id, patientRow);
+                localStore.patientsByFingerprint.set(identityFingerprint, patientRow);
+              } else {
+                patientRow.gender = normalizedGender;
+                if (cleanRegNo) {
+                  patientRow.hospital_reg_no = cleanRegNo;
+                }
+                patientRow.updated_at = createdIso;
+              }
+
+              // Check for existing active ticket for (patient_id, department_id, queue_date)
+              const existingActiveForPatient = Array.from(
+                localStore.ticketsById.values()
+              ).find(
+                (t) =>
+                  t.patient_id === patientRow.id &&
+                  t.department_id === dept.id &&
+                  t.queue_date === queueDate &&
+                  ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status)
+              );
+
+              if (existingActiveForPatient) {
+                throw createDomainError(
+                  409,
+                  'DUPLICATE_ACTIVE_TICKET',
+                  `An active OPD token (${existingActiveForPatient.public_code}) already exists for this patient in ${dept.name_en} today.`,
+                  {
+                    existingTicket: formatDuplicateExistingTicketSummary(
+                      existingActiveForPatient,
+                      dept
+                    )
+                  }
+                );
+              }
+
               const counterKey = `${dept.id}:${queueDate}`;
               const sequenceNo = (localStore.countersByDeptDate.get(counterKey) || 0) + 1;
               localStore.countersByDeptDate.set(counterKey, sequenceNo);
@@ -637,12 +873,13 @@ export function createQueueService(options = {}) {
               const publicCode = `OPD-${dept.token_prefix}-${String(sequenceNo).padStart(3, '0')}`;
               const accessToken = deriveTicketAccessToken(ticketId, requestId, tokenSecret);
               const accessTokenHash = hashAccessToken(accessToken);
-              const createdIso = new Date(nowMs).toISOString();
 
               const newTicket = {
                 id: ticketId,
                 public_code: publicCode,
                 department_id: dept.id,
+                patient_id: patientRow.id,
+                identity_fingerprint: identityFingerprint,
                 queue_date: queueDate,
                 sequence_no: sequenceNo,
                 queue_sort_order: queueSortOrder,
@@ -669,7 +906,10 @@ export function createQueueService(options = {}) {
                 httpStatus: 201,
                 idempotentReplay: false,
                 accessToken,
-                ticket: buildLocalSlipSnapshot(newTicket, dept)
+                ticket: {
+                  ...buildLocalSlipSnapshot(newTicket, dept),
+                  patientSummary: formatPatientSummary(patientRow)
+                }
               };
             }
           );
@@ -793,13 +1033,27 @@ export function createQueueService(options = {}) {
           [dept.id, ticket.queue_date, ticket.queue_sort_order]
         );
 
-        return formatOperationalSlip({
+        let patientRow = null;
+        if (ticket.patient_id) {
+          const patientRes = await client.query(
+            'SELECT * FROM patients WHERE id = $1 LIMIT 1',
+            [ticket.patient_id]
+          );
+          patientRow = patientRes.rows[0] || null;
+        }
+
+        const baseSlip = formatOperationalSlip({
           ticket,
           department: dept,
           doctorStatusRow: dsRes.rows[0],
           activeTicket: activeRes.rows[0] || null,
           peopleAheadWaiting: aheadRes.rows[0]?.count ?? 0
         });
+
+        return {
+          ...baseSlip,
+          patientSummary: formatPatientSummary(patientRow)
+        };
       });
     }
 
@@ -816,7 +1070,14 @@ export function createQueueService(options = {}) {
     }
 
     const dept = localStore.departmentsById.get(ticket.department_id);
-    return buildLocalSlipSnapshot(ticket, dept);
+    const patientRow = ticket.patient_id
+      ? localStore.patientsById.get(ticket.patient_id)
+      : null;
+
+    return {
+      ...buildLocalSlipSnapshot(ticket, dept),
+      patientSummary: formatPatientSummary(patientRow)
+    };
   }
 
   /**
@@ -1088,7 +1349,15 @@ export function createQueueService(options = {}) {
     };
     const allTickets = Array.from(localStore.ticketsById.values())
       .filter((t) => t.department_id === dept.id && t.queue_date === queueDate)
-      .map(({ access_token_hash, request_id, ...safeTicket }) => safeTicket)
+      .map(
+        ({
+          access_token_hash,
+          request_id,
+          patient_id,
+          identity_fingerprint,
+          ...safeTicket
+        }) => safeTicket
+      )
       .sort(
         (a, b) =>
           a.queue_sort_order - b.queue_sort_order || a.sequence_no - b.sequence_no
@@ -1366,6 +1635,23 @@ export function createQueueService(options = {}) {
               `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be requeued (only NO_SHOW or CANCELLED tickets can be requeued).`
             );
           }
+          if (ticket.patient_id) {
+            const activeForPatient = await client.query(
+              `SELECT * FROM tickets
+               WHERE patient_id = $1 AND department_id = $2 AND queue_date = $3
+                 AND status IN ('WAITING', 'CALLED', 'IN_CONSULTATION')
+                 AND id <> $4
+               LIMIT 1`,
+              [ticket.patient_id, deptId, queueDate, ticket.id]
+            );
+            if (activeForPatient.rows.length > 0) {
+              throw createDomainError(
+                409,
+                'DUPLICATE_ACTIVE_TICKET',
+                `Patient already has another active ticket (${activeForPatient.rows[0].public_code}) in this department today.`
+              );
+            }
+          }
           // TAIL_REQUEUE: Set queue_sort_order = MAX(queue_sort_order) + 1
           const maxSortRes = await client.query(
             `SELECT COALESCE(MAX(queue_sort_order), 0)::bigint AS max_sort
@@ -1479,6 +1765,23 @@ export function createQueueService(options = {}) {
                 'INVALID_STATE_TRANSITION',
                 `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be requeued (only NO_SHOW or CANCELLED tickets can be requeued).`
               );
+            }
+            if (ticket.patient_id) {
+              const otherActive = Array.from(localStore.ticketsById.values()).find(
+                (t) =>
+                  t.patient_id === ticket.patient_id &&
+                  t.department_id === dept.id &&
+                  t.queue_date === queueDate &&
+                  ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status) &&
+                  t.id !== ticket.id
+              );
+              if (otherActive) {
+                throw createDomainError(
+                  409,
+                  'DUPLICATE_ACTIVE_TICKET',
+                  `Patient already has another active ticket (${otherActive.public_code}) in this department today.`
+                );
+              }
             }
             let maxSort = 0;
             for (const t of localStore.ticketsById.values()) {

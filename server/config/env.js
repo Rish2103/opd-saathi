@@ -9,6 +9,8 @@ const DEV_FALLBACK_SESSION_SECRET =
   'dev-only-session-secret-not-for-production-use-0123456789abcdef';
 const DEV_FALLBACK_TICKET_SECRET =
   'dev-only-ticket-token-secret-separate-from-session-abcdef012345';
+const DEV_FALLBACK_PATIENT_IDENTITY_SECRET =
+  'dev-only-patient-identity-hmac-secret-separate-9876543210fedcba';
 const DEV_FALLBACK_PIN_HASH = bcrypt.hashSync('1234', 8);
 
 const FORBIDDEN_PRODUCTION_PINS = [
@@ -96,6 +98,7 @@ export function loadEnvConfig(envObj = process.env) {
   const rawSessionSecret = (envObj.SESSION_SECRET || '').trim();
   const rawTicketSecret = (envObj.TICKET_TOKEN_SECRET || '').trim();
   const ticketTokenSecretPrevious = (envObj.TICKET_TOKEN_SECRET_PREVIOUS || '').trim();
+  const rawPatientIdentitySecret = (envObj.PATIENT_IDENTITY_SECRET || '').trim();
   const rawPinHash = (envObj.STAFF_DEMO_PIN_HASH || '').trim();
   const rawPlainPin = (envObj.STAFF_DEMO_PIN || '').trim();
 
@@ -110,6 +113,14 @@ export function loadEnvConfig(envObj = process.env) {
       ? rawTicketSecret
       : ''
     : rawTicketSecret || DEV_FALLBACK_TICKET_SECRET;
+
+  const patientIdentitySecret = isProduction
+    ? isSafeProductionSecret(rawPatientIdentitySecret)
+      ? rawPatientIdentitySecret
+      : ticketTokenSecret
+        ? `${ticketTokenSecret}:patient-identity-v1`
+        : ''
+    : rawPatientIdentitySecret || DEV_FALLBACK_PATIENT_IDENTITY_SECRET;
 
   let staffDemoPinHash = '';
   let staffPinConfigError = null;
@@ -140,6 +151,7 @@ export function loadEnvConfig(envObj = process.env) {
     sessionSecret,
     ticketTokenSecret,
     ticketTokenSecretPrevious,
+    patientIdentitySecret,
     staffDemoPinHash,
     staffPinConfigError,
     demoMode

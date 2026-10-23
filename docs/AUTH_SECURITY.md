@@ -7,8 +7,8 @@
 ## 1. Security Posture & Threat Model
 
 OPD Saathi is a synthetic hackathon demonstration system designed with **production-minded least-privilege boundaries**:
-- **Zero PII Collection:** No patient names, phone numbers, government IDs, or medical diagnoses are accepted, stored, or logged.
-- **No Client-Side Trust:** Every staff action, queue state transition, and protected Socket.IO room subscription is enforced on the Express server.
+- **Minimal Non-Clinical Patient Details & Zero Public PII Exposure:** Registration collects only basic administrative details (`patientName`, 10-digit Indian mobile number marked `phoneVerified: false`, `age`, optional `gender`, optional `registrationNumber`). No clinical symptoms, medical history, or diagnoses are collected. Public lookup endpoints (`GET /api/slips/:publicCode`), public boards, and Socket.IO broadcasts never expose patient PII or capability tokens.
+- **No Client-Side Trust:** Every staff action, queue state transition, patient self-cancellation, and protected Socket.IO room subscription is enforced on the Express server.
 
 ---
 
@@ -54,10 +54,14 @@ OPD Saathi is a synthetic hackathon demonstration system designed with **product
    - Validates `X-Ticket-Token` headers by hashing the presented token with SHA-256 and comparing 32-byte buffers via `crypto.timingSafeEqual()`.
 2. **Bounded Idempotent Recovery (`POST /api/tickets`):**
    - `requestId` must be a valid UUID v4 (`crypto.randomUUID()`).
-   - Replaying `requestId` recovers `accessToken` **only** if all original payload fields (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`) match, `status === 'WAITING'`, and `NOW() - created_at <= INTERVAL '10 minutes'`.
-3. **Zero URL / QR / Log Exposure:**
-   - `accessToken` and `requestId` are never placed in URLs or QR codes (QR codes encode only `/find-slip?code=OPD-GEN-001`).
-   - Request and error loggers redact `pin`, `requestId`, `accessToken`, `x-ticket-token`, `authorization`, and `cookie`.
+   - Replaying `requestId` recovers `accessToken` **only** if all original payload fields (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`, and normalized patient identity fingerprint) match, `status === 'WAITING'`, and `NOW() - created_at <= INTERVAL '10 minutes'`.
+3. **Keyed Patient Identity Fingerprint & Honest Unverified Mobile Policy:**
+   - Normalized patient identity (`normalizedPhone`, lowercase `normalizedName`, `age`) is hashed via `HMAC-SHA256(PATIENT_IDENTITY_SECRET, "${normalizedPhone}|${normalizedNameLower}|${age}")` to prevent rainbow-table reversals of Indian 10-digit mobile numbers.
+   - Mobile numbers are validated for Indian 10-digit format (`^[6-9][0-9]{9}$`) and masked (`******3210`) in capability-protected responses, with `phoneVerified: false` explicitly surfaced in the API and UI (no fake OTP verification claims).
+   - `POST /api/tickets` uses a composite rate limiter (`8 requests / 5 minutes` per `IP + identity_fingerprint` and `60 requests / 5 minutes` per shared-network IP) so shared hospital Wi-Fi or help-desk tablets can assist multiple patients while blocking single-identity spam.
+4. **Zero URL / QR / Public / Log Exposure:**
+   - `accessToken`, `requestId`, and patient PII are never placed in URLs, QR codes (QR codes encode only `/my-turn?code=OPD-GEN-001`), or public `GET /api/slips/:publicCode` responses.
+   - Request and error loggers redact `pin`, `requestId`, `accessToken`, `x-ticket-token`, `authorization`, `cookie`, `patientName`, `fullName`, `phone`, `phoneNormalized`, and `registrationNumber`.
 
 ---
 

@@ -20,7 +20,16 @@
 
 ### 1.3 Lost Browser Storage / Second Device Lookup
 - **Scenario:** A patient prints their slip or opens a relative's phone after the 10-minute recovery window expires.
-- **Handling:** The patient enters `OPD-GEN-008` on **"I Have My Slip"** (`/find-slip`) or **"My Turn"**, calling rate-limited `GET /api/slips/OPD-GEN-008`. Because tickets contain zero PII, the patient receives their full live queue status, ETA, and accessible route without needing the capability secret.
+- **Handling:** The patient enters `OPD-GEN-008` on **"I Have My Slip"** (`/find-slip`) or **"My Turn"**, calling rate-limited `GET /api/slips/OPD-GEN-008`. Because public slip lookups return zero patient PII, the patient receives their full live queue status, ETA, and accessible route without needing the capability secret or exposing personal details.
+
+### 1.4 Repeat Submission for Same Patient, Same Department, Same Day (`409 DUPLICATE_ACTIVE_TICKET`)
+- **Scenario:** A patient or family helper completes registration for `OPD-GEN-001` in General Medicine, then re-opens the registration wizard and submits another form with a new `requestId` for the same patient (`Kamla Devi`, `9876543210`, age `65`) in General Medicine while `OPD-GEN-001` is still `WAITING`, `CALLED`, or `IN_CONSULTATION`.
+- **Handling:**
+  - The server resolves the patient's keyed HMAC `identity_fingerprint` and checks for an active ticket in `(patient_id, department_id, queue_date)` (backed by `idx_tickets_unique_active_patient_dept`).
+  - Returns `409 Conflict` (`DUPLICATE_ACTIVE_TICKET`) with non-PII `error.details.existingTicket` (`publicCode`, `departmentNameEn`, `roomLabel`, `status`, `sequenceNo`) and **does not** increment `queue_counters` or `waitingCount`.
+  - The frontend displays a friendly duplicate-slip banner with a one-tap **"Open Existing Slip"** action that switches to the saved slip or loads it via `publicCode` without overwriting any previously saved slips in `opd_saved_slips_v1`.
+  - Registering the **same patient in a different department** (e.g., Orthopaedics) or **another family member sharing the same mobile number** (different name/age) succeeds (`201 Created`) and appends the new slip to `My Slips` (`opd_saved_slips_v1`).
+  - Once the original ticket reaches `COMPLETED`, `CANCELLED`, or `NO_SHOW`, the patient can register again in that department on the same day.
 
 ---
 

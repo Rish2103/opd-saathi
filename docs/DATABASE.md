@@ -29,7 +29,7 @@
 
 ---
 
-## 2. Schema DDL (`server/db/migrations/001_init.sql`)
+## 2. Schema DDL (`001_init.sql` & `002_patient_identity_and_duplicates.sql`)
 
 ### 2.1 `departments`
 Stores fictional hospital OPD departments, assigned doctors, rooms, floors, and navigation node links.
@@ -53,11 +53,26 @@ Tracks atomic daily sequence numbers per department.
 - `last_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_sequence >= 0)`
 - `PRIMARY KEY (department_id, queue_date)`
 
-### 2.3 `tickets`
-Zero-PII patient queue tokens.
+### 2.3 `patients` (`002_patient_identity_and_duplicates.sql`)
+Stores minimal non-clinical patient registration records keyed by a server-side HMAC-SHA256 identity fingerprint so one mobile number can register multiple family members while preventing duplicate active slips for the same patient in the same department on the same day.
+- `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+- `identity_fingerprint TEXT UNIQUE NOT NULL` (64-char hex `HMAC-SHA256(PATIENT_IDENTITY_SECRET, "${phone_normalized}|${normalized_name_lower}|${age_years}")`)
+- `full_name TEXT NOT NULL CHECK (char_length(btrim(full_name)) BETWEEN 2 AND 80)`
+- `phone_normalized TEXT NOT NULL CHECK (phone_normalized ~ '^[6-9][0-9]{9}$')`
+- `phone_masked TEXT NOT NULL` (e.g., `'******3210'`)
+- `phone_verified BOOLEAN NOT NULL DEFAULT false`
+- `age_years INTEGER NOT NULL CHECK (age_years BETWEEN 0 AND 120)`
+- `gender TEXT NOT NULL DEFAULT 'PREFER_NOT_TO_SAY' CHECK (gender IN ('FEMALE', 'MALE', 'OTHER', 'PREFER_NOT_TO_SAY'))`
+- `registration_number TEXT NULL`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+### 2.4 `tickets`
+Patient queue tokens linked to `patients(id)`. Public lookups never join or return patient PII.
 - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
 - `public_code TEXT NOT NULL` (e.g., `'OPD-GEN-001'`)
 - `department_id UUID NOT NULL REFERENCES departments(id) ON DELETE RESTRICT`
+- `patient_id UUID NULL REFERENCES patients(id) ON DELETE RESTRICT`
 - `queue_date DATE NOT NULL`
 - `sequence_no INTEGER NOT NULL CHECK (sequence_no > 0)`
 - `queue_sort_order BIGINT NOT NULL CHECK (queue_sort_order > 0)`
@@ -77,6 +92,7 @@ Zero-PII patient queue tokens.
   - `UNIQUE (department_id, queue_date, sequence_no)`
   - `UNIQUE (queue_date, public_code)`
   - `CREATE UNIQUE INDEX idx_tickets_single_active ON tickets (department_id, queue_date) WHERE status IN ('CALLED', 'IN_CONSULTATION');`
+  - `CREATE UNIQUE INDEX idx_tickets_unique_active_patient_dept ON tickets (patient_id, department_id, queue_date) WHERE patient_id IS NOT NULL AND status IN ('WAITING', 'CALLED', 'IN_CONSULTATION');`
   - `CREATE INDEX idx_tickets_waiting_order ON tickets (department_id, queue_date, queue_sort_order, sequence_no) WHERE status = 'WAITING';`
 
 ### 2.4 `doctor_status`

@@ -16,7 +16,10 @@ import MyTurnView from '../../src/components/MyTurnView.jsx';
 import NavigationView from '../../src/components/NavigationView.jsx';
 import EmergencyModal from '../../src/components/EmergencyModal.jsx';
 import StaffView from '../../src/components/StaffView.jsx';
-import App from '../../src/App.jsx';
+import App, {
+  buildSavedSlipEntry,
+  normalizeClientPhone
+} from '../../src/App.jsx';
 
 describe('Phase 1 — Frontend UI Components & Bilingual Rendering', () => {
   const sampleSlip = {
@@ -341,6 +344,53 @@ describe('Phase 1 — Frontend UI Components & Bilingual Rendering', () => {
           onClose={() => {}}
           onNavigateToEmergency={() => {}}
         />
+      ),
+      renderToStaticMarkup(
+        <SlipView
+          lang="en"
+          t={TRANSLATIONS.en}
+          slip={{
+            ...sampleSlip,
+            patientSummary: {
+              fullName: 'Ramesh Kumar',
+              ageYears: 62,
+              gender: 'MALE',
+              phoneMasked: '******3210',
+              phoneVerified: false,
+              registrationNumber: 'UHID-2026-8891'
+            }
+          }}
+          savedSlips={[
+            {
+              ticketId: sampleSlip.id,
+              publicCode: 'OPD-GEN-001',
+              status: 'WAITING',
+              departmentNameEn: 'General Medicine',
+              departmentNameHi: 'सामान्य चिकित्सा',
+              accessToken: 'tok-1',
+              avoidStairs: true,
+              patientSummary: { fullName: 'Ramesh Kumar' },
+              slip: sampleSlip
+            },
+            {
+              ticketId: '22222222-2222-4222-8222-222222222222',
+              publicCode: 'OPD-ORT-001',
+              status: 'COMPLETED',
+              departmentNameEn: 'Orthopedics',
+              departmentNameHi: 'हड्डी रोग',
+              accessToken: 'tok-2',
+              avoidStairs: false,
+              patientSummary: { fullName: 'Sita Devi' }
+            }
+          ]}
+          canCancelSlip={true}
+          onSelectSavedSlip={() => {}}
+          onRemoveSavedSlip={() => {}}
+          onCancelSlip={() => {}}
+          onOpenMyTurn={() => {}}
+          onOpenDirections={() => {}}
+          onRegisterNew={() => {}}
+        />
       )
     ];
 
@@ -359,6 +409,198 @@ describe('Phase 1 — Frontend UI Components & Bilingual Rendering', () => {
         expect(hasLightBg && hasWhiteText).toBe(false);
       }
     }
+  });
+
+  it('preserves multiple saved slips without overwriting, renders protected patientSummary, and keeps avoidStairs consistent across views', () => {
+    const firstSlip = {
+      ...sampleSlip,
+      id: '11111111-1111-4111-8111-111111111111',
+      publicCode: 'OPD-GEN-001',
+      avoidStairs: true,
+      patientSummary: {
+        fullName: 'Ramesh Kumar',
+        ageYears: 62,
+        gender: 'MALE',
+        phoneMasked: '******3210',
+        phoneVerified: false,
+        registrationNumber: 'UHID-2026-8891'
+      }
+    };
+    const secondSlip = {
+      ...sampleSlip,
+      id: '22222222-2222-4222-8222-222222222222',
+      publicCode: 'OPD-ORT-001',
+      avoidStairs: false,
+      status: 'WAITING',
+      department: {
+        ...sampleSlip.department,
+        slug: 'orthopedics',
+        name_en: 'Orthopedics (Bone & Joint)',
+        name_hi: 'हड्डी एवं जोड़ रोग (Orthopedics)'
+      },
+      patientSummary: {
+        fullName: 'Sita Devi',
+        ageYears: 55,
+        gender: 'FEMALE',
+        phoneMasked: '******6789',
+        phoneVerified: false,
+        registrationNumber: null
+      }
+    };
+
+    const savedSlipsList = [
+      {
+        ticketId: secondSlip.id,
+        publicCode: secondSlip.publicCode,
+        status: secondSlip.status,
+        departmentNameEn: secondSlip.department.name_en,
+        departmentNameHi: secondSlip.department.name_hi,
+        accessToken: 'cap-token-2',
+        avoidStairs: false,
+        patientSummary: secondSlip.patientSummary,
+        slip: secondSlip
+      },
+      {
+        ticketId: firstSlip.id,
+        publicCode: firstSlip.publicCode,
+        status: firstSlip.status,
+        departmentNameEn: firstSlip.department.name_en,
+        departmentNameHi: firstSlip.department.name_hi,
+        accessToken: 'cap-token-1',
+        avoidStairs: true,
+        patientSummary: firstSlip.patientSummary,
+        slip: firstSlip
+      }
+    ];
+
+    // 1. Render SlipView with secondSlip active while firstSlip remains preserved in savedSlips
+    const slipHtml = renderToStaticMarkup(
+      <SlipView
+        lang="en"
+        t={TRANSLATIONS.en}
+        slip={secondSlip}
+        savedSlips={savedSlipsList}
+        canCancelSlip={true}
+        onSelectSavedSlip={() => {}}
+        onRemoveSavedSlip={() => {}}
+        onCancelSlip={() => {}}
+        onOpenMyTurn={() => {}}
+        onOpenDirections={() => {}}
+        onRegisterNew={() => {}}
+      />
+    );
+    expect(slipHtml).toContain('data-testid="my-slips-switcher"');
+    expect(slipHtml).toContain('OPD-ORT-001');
+    expect(slipHtml).toContain('OPD-GEN-001'); // First slip is NOT overwritten!
+    expect(slipHtml).toContain('Sita Devi');
+    expect(slipHtml).toContain('Ramesh Kumar');
+    expect(slipHtml).toContain('******6789');
+    expect(slipHtml).toContain('Unverified (self-entered)');
+    expect(slipHtml).toContain('data-testid="cancel-slip-btn"');
+    expect(slipHtml).toContain('data-testid="remove-slip-local-btn"');
+    expect(slipHtml).toContain('data-testid="slip-route-preference"');
+    expect(slipHtml).toContain('Shortest Route (Stairs OK)');
+
+    // 2. Reopen firstSlip and verify Avoid Stairs (Lift / Ramp Only) & UHID are preserved
+    const firstSlipHtml = renderToStaticMarkup(
+      <SlipView
+        lang="en"
+        t={TRANSLATIONS.en}
+        slip={firstSlip}
+        savedSlips={savedSlipsList}
+        canCancelSlip={true}
+        onSelectSavedSlip={() => {}}
+        onRemoveSavedSlip={() => {}}
+        onCancelSlip={() => {}}
+        onOpenMyTurn={() => {}}
+        onOpenDirections={() => {}}
+        onRegisterNew={() => {}}
+      />
+    );
+    expect(firstSlipHtml).toContain('Ramesh Kumar');
+    expect(firstSlipHtml).toContain('******3210');
+    expect(firstSlipHtml).toContain('UHID-2026-8891');
+    expect(firstSlipHtml).toContain('Avoid Stairs (Lift / Ramp Only)');
+
+    // 3. Verify MyTurnView also shows all saved slips and matches avoidStairs route preference
+    const myTurnHtml = renderToStaticMarkup(
+      <MyTurnView
+        lang="en"
+        t={TRANSLATIONS.en}
+        lookupCode="OPD-GEN-001"
+        setLookupCode={() => {}}
+        trackedSlip={firstSlip}
+        loading={false}
+        error={null}
+        lastVerifiedAt="10:35:00 AM"
+        connectionState="live"
+        savedLocalSlip={firstSlip}
+        savedSlips={savedSlipsList}
+        onSelectSavedSlip={() => {}}
+        onLookupCode={() => {}}
+        onOpenDirections={() => {}}
+      />
+    );
+    expect(myTurnHtml).toContain('data-testid="my-turn-saved-slips-bar"');
+    expect(myTurnHtml).toContain('OPD-GEN-001');
+    expect(myTurnHtml).toContain('OPD-ORT-001');
+    expect(myTurnHtml).toContain('data-testid="my-turn-route-preference"');
+    expect(myTurnHtml).toContain('Avoid Stairs (Lift / Ramp Only)');
+
+    // 4. Verify App Step 2 registration form renders patient identity inputs & unverified mobile note
+    const regStep2Html = renderToStaticMarkup(
+      <App
+        disableSockets={true}
+        initialView="register"
+        initialRegStep={2}
+      />
+    );
+    expect(regStep2Html).toContain('data-testid="reg-patient-name-input"');
+    expect(regStep2Html).toContain('data-testid="reg-phone-input"');
+    expect(regStep2Html).toContain('data-testid="reg-age-input"');
+    expect(regStep2Html).toContain('data-testid="reg-gender-select"');
+    expect(regStep2Html).toContain('data-testid="reg-uhid-input"');
+    expect(regStep2Html).toContain('data-testid="reg-avoid-stairs-checkbox"');
+
+    // 5. Verify App Home screen renders saved slips section with multiple slips
+    const homeWithSlipsHtml = renderToStaticMarkup(
+      <App
+        disableSockets={true}
+        initialView="home"
+        initialSavedSlips={savedSlipsList.map((s) => ({
+          ...s,
+          ticket: s.slip
+        }))}
+      />
+    );
+    expect(homeWithSlipsHtml).toContain('data-testid="home-saved-slips-section"');
+    expect(homeWithSlipsHtml).toContain('data-testid="home-saved-slip-OPD-ORT-001"');
+    expect(homeWithSlipsHtml).toContain('data-testid="home-saved-slip-OPD-GEN-001"');
+
+    // 6. Verify buildSavedSlipEntry preserves accessToken and patientSummary across public slip refreshes
+    const initialEntry = buildSavedSlipEntry({
+      ticket: firstSlip,
+      accessToken: 'secret-cap-token-1',
+      idempotentReplay: false
+    });
+    const publicRefreshedSlip = {
+      ...firstSlip,
+      status: 'CALLED',
+      patientSummary: undefined // public lookup omits patientSummary
+    };
+    const mergedEntry = buildSavedSlipEntry(
+      { ticket: publicRefreshedSlip },
+      initialEntry
+    );
+    expect(mergedEntry.status).toBe('CALLED');
+    expect(mergedEntry.accessToken).toBe('secret-cap-token-1');
+    expect(mergedEntry.patientSummary.fullName).toBe('Ramesh Kumar');
+    expect(mergedEntry.patientSummary.phoneMasked).toBe('******3210');
+
+    // 7. Verify client phone normalization helper
+    expect(normalizeClientPhone('+91 98765-43210')).toBe('9876543210');
+    expect(normalizeClientPhone('09876543210')).toBe('9876543210');
+    expect(normalizeClientPhone('12345')).toBeNull();
   });
 });
 
@@ -440,7 +682,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
         departmentId: 'general-medicine',
         visitType: 'FIRST_VISIT',
         preferredLang: 'en',
-        avoidStairs: true
+        avoidStairs: true,
+        patientName: 'Ramesh Kumar',
+        phone: '9876543210',
+        age: 62,
+        gender: 'MALE'
       })
     });
     expect(regRes.status).toBe(201);
@@ -524,7 +770,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
         departmentId: 'general-medicine',
         visitType: 'FIRST_VISIT',
         preferredLang: 'en',
-        avoidStairs: true
+        avoidStairs: true,
+        patientName: 'Ramesh Kumar',
+        phone: '9876543210',
+        age: 62,
+        gender: 'MALE'
       })
     });
     expect(p1Res.status).toBe(201);
@@ -539,7 +789,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
         departmentId: 'general-medicine',
         visitType: 'FOLLOW_UP',
         preferredLang: 'hi',
-        avoidStairs: false
+        avoidStairs: false,
+        patientName: 'Sita Devi',
+        phone: '9123456789',
+        age: 55,
+        gender: 'FEMALE'
       })
     });
     expect(p2Res.status).toBe(201);

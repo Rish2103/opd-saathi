@@ -3,7 +3,7 @@
 **Project:** OPD Saathi (ओपीडी साथी) — Smart Queue Management & Accessible Navigation for Government Hospitals  
 **Event:** CachedInfo HackCache '26  
 **Original Baseline Reference:** [`OPD_Saathi_Technical_Plan.md`](file:///d:/HackCached/OPD_Saathi_Technical_Plan.md) (preserved unmodified)  
-**Last Updated:** 24 October 2026 (Phase 1 Working Core Application — Checkpoints A–E Complete)
+**Last Updated:** 24 October 2026 (Phase 1.3 Patient Identity, Duplicate Prevention & Persistent Multi-Slip Management Complete)
 
 ---
 
@@ -42,9 +42,15 @@
 4. **Dedicated `TICKET_TOKEN_SECRET` & Bounded Idempotent Recovery:**
    - Ticket capability tokens are derived via `HMAC-SHA256(TICKET_TOKEN_SECRET, "${ticket.id}:${ticket.request_id}")` encoded as 64-char lowercase `hex`.
    - Only `access_token_hash = SHA256(rawAccessToken)` (64-char lowercase `hex`) is stored in PostgreSQL; validation uses `crypto.timingSafeEqual` on decoded byte buffers.
-   - Idempotent retry recovery (`POST /api/tickets` with the same UUID v4 `requestId`) serialises via `pg_advisory_xact_lock(hashtext('req:' || requestId))`, verifies that **all original payload fields** (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`) match, and only re-issues `accessToken` within a **10-minute window** from `created_at` while `status === 'WAITING'`.
-   - Capability tokens are **never** placed in QR codes, URLs, public lookup responses, or logs. QR codes encode only `/my-turn?code=OPD-GEN-001` and public lookup uses `GET /api/slips/:publicCode`.
-5. **Department-Day Queue Serialisation Lock:**
+   - Idempotent retry recovery (`POST /api/tickets` with the same UUID v4 `requestId`) serialises via `pg_advisory_xact_lock(hashtext('req:' || requestId))`, verifies that **all original payload fields** (`departmentId`, `visitType`, `preferredLang`, `avoidStairs`, and normalized patient identity fingerprint) match, and only re-issues `accessToken` within a **10-minute window** from `created_at` while `status === 'WAITING'`.
+   - Capability tokens and patient PII are **never** placed in QR codes, URLs, public lookup responses (`GET /api/slips/:publicCode`), public boards, Socket.IO broadcasts, or logs. QR codes encode only `/my-turn?code=OPD-GEN-001` and public lookup uses `GET /api/slips/:publicCode`.
+5. **Keyed Patient Identity & Same-Day Department Duplicate Prevention (Phase 1.3):**
+   - Registration collects minimal non-clinical patient details (`patientName`, 10-digit Indian `phone` normalized and marked `phoneVerified: false`, `age`, optional `gender`, optional `registrationNumber`).
+   - Server derives a keyed `identity_fingerprint = HMAC-SHA256(PATIENT_IDENTITY_SECRET, "${normalizedPhone}|${normalizedNameLower}|${ageYears}")` stored in `patients` and linked via `tickets.patient_id`.
+   - Partial unique index `idx_tickets_unique_active_patient_dept ON tickets (patient_id, department_id, queue_date) WHERE patient_id IS NOT NULL AND status IN ('WAITING', 'CALLED', 'IN_CONSULTATION')` prevents duplicate active tickets for the same patient in the same department on the same IST hospital date (`409 DUPLICATE_ACTIVE_TICKET` with non-PII `details.existingTicket`, without incrementing `queue_counters` or `waitingCount`).
+   - Capability-protected responses (`POST /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/cancel` with `X-Ticket-Token`) include masked `patientSummary` (`phoneMasked: '******3210'`, `phoneVerified: false`).
+   - Browser storage (`opd_saved_slips_v1`) persists a multi-slip list with automatic migration from legacy `opd_active_ticket_v1`, allowing patients or family helpers to switch between multiple slips without losing previous tokens.
+6. **Department-Day Queue Serialisation Lock:**
    - All queue mutations acquire `pg_advisory_xact_lock(hashtext('queue:' || department_id::text || ':' || queue_date::text))` inside a transaction before reading/locking `queue_counters` or `tickets` rows, backed by the partial unique index `idx_tickets_single_active`.
 6. **Explicit `TAIL_REQUEUE` Policy via `queue_sort_order`:**
    - `sequence_no` and `public_code` are immutable ticket identifiers.
@@ -96,4 +102,6 @@ Status Legend:
 | **Phase 1 Checkpoint C: Staff Session Auth & Queue Controls** | **P0** | `Locally Tested` | `StaffView.jsx` PIN login, `Call Next`, `Start`, `Complete`, `No-Show`, `Cancel`, `Requeue to Tail`, Doctor Status & Urgent Flags |
 | **Phase 1 Checkpoint D: Live `My Turn`, 3-Floor Navigation & Pre-Reg Emergency** | **P0** | `Locally Tested` | `MyTurnView.jsx` (`GET /api/slips/:publicCode` + $\le 3$ ahead alert), `NavigationView.jsx` (`Avoid Stairs`), `EmergencyModal.jsx` |
 | **Phase 1 Checkpoint E: End-to-End Verification & Teammate Handoff** | **P0** | `Locally Tested` | `npm run build` + `npm test` (`42/42` passing across 4 suites) + `docs/TEAM_HANDOFF.md` on branch `feature/phase-1-core-flow` |
+| **Phase 1.2: UI Stabilisation & Contrast Verification** | **P0** | `Locally Tested` | WCAG AA contrast fixes, hero/card surface adjustments, verified across desktop & mobile viewports |
+| **Phase 1.3: Patient Identity, Duplicate Prevention & Persistent Multi-Slip Management** | **P0** | `Locally Tested` | `002_patient_identity_and_duplicates.sql`, keyed HMAC `identity_fingerprint`, `409 DUPLICATE_ACTIVE_TICKET`, composite rate limiter, `opd_saved_slips_v1` multi-slip switcher (`51` passing tests) |
 | **Phase 2+: P1 Stretch (PWA Offline Cache, Tamil, SVG Map, Voice, Multi-Counter)** | **P1** | `Proposed` | Ready for parallel teammate branches (`feature/navigation-polish`, `feature/staff-dashboard-polish`, `feature/accessibility-i18n`) |

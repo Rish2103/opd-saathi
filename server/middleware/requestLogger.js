@@ -14,7 +14,17 @@ const SENSITIVE_KEYS = new Set([
   'cookie',
   'set-cookie',
   'session_secret',
-  'ticket_token_secret'
+  'ticket_token_secret',
+  'patient_identity_secret',
+  'patientname',
+  'patient_name',
+  'fullname',
+  'full_name',
+  'phone',
+  'phone_normalized',
+  'registrationnumber',
+  'hospital_reg_no',
+  'identity_fingerprint'
 ]);
 
 /**

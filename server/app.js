@@ -19,7 +19,8 @@ import {
 import { requestLogger } from './middleware/requestLogger.js';
 import { requireStaff } from './middleware/requireStaff.js';
 import { requireTicketToken } from './middleware/requireTicketToken.js';
-import { defaultQueueService } from './services/queueService.js';
+import { createDomainError, defaultQueueService } from './services/queueService.js';
+import { normalizePatientPhone } from './services/ticketTokenService.js';
 import {
   findAccessibleRoute,
   getAllHospitalNodes
@@ -35,6 +36,37 @@ const PgSessionStore = connectPgSimple(session);
 const createTicketSchema = z.object({
   requestId: z.string().uuid('requestId must be a valid UUID v4'),
   departmentId: z.string().min(1, 'departmentId is required').max(64),
+  patientName: z
+    .string({ required_error: 'Patient full name is required' })
+    .trim()
+    .min(2, 'Patient full name must be at least 2 characters')
+    .max(120, 'Patient full name must not exceed 120 characters'),
+  phone: z
+    .string({ required_error: 'Mobile number is required' })
+    .trim()
+    .refine(
+      (val) => normalizePatientPhone(val) !== null,
+      'Please enter a valid 10-digit Indian mobile number'
+    ),
+  age: z.coerce
+    .number({
+      required_error: 'Patient age is required',
+      invalid_type_error: 'Patient age must be a valid number'
+    })
+    .int('Patient age must be a whole number')
+    .min(0, 'Patient age must be between 0 and 120')
+    .max(120, 'Patient age must be between 0 and 120'),
+  gender: z
+    .enum(['FEMALE', 'MALE', 'OTHER', 'PREFER_NOT_TO_SAY'])
+    .optional()
+    .default('PREFER_NOT_TO_SAY'),
+  registrationNumber: z
+    .string()
+    .trim()
+    .max(64, 'Hospital registration number must not exceed 64 characters')
+    .optional()
+    .nullable()
+    .default(null),
   visitType: z.enum(['FIRST_VISIT', 'FOLLOW_UP']).default('FIRST_VISIT'),
   preferredLang: z.enum(['en', 'hi', 'ta']).default('hi'),
   avoidStairs: z.boolean().default(true)
@@ -217,6 +249,29 @@ export function createApp(options = {}) {
       next(err);
     }
   });
+
+  app.post(
+    '/api/tickets/:id/cancel',
+    requireTicketToken,
+    async (req, res, next) => {
+      try {
+        // Verify capability token first (throws 404 or 403 on mismatch)
+        await queueService.getTicketByCapability(
+          req.params.id,
+          req.ticketAccessToken
+        );
+        const parsed = cancelTicketSchema.parse(req.body || {});
+        const updated = await queueService.transitionTicketStatus(
+          req.params.id,
+          'cancel',
+          { cancelReason: parsed.cancelReason || 'PATIENT_LEFT' }
+        );
+        res.status(200).json({ ticket: updated });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
 
   /**
    * Canonical public slip lookup endpoint (`GET /api/slips/:publicCode`).

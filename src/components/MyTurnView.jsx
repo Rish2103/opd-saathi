@@ -23,6 +23,8 @@ export default function MyTurnView({
   lastVerifiedAt,
   connectionState,
   savedLocalSlip,
+  savedSlips = [],
+  onSelectSavedSlip,
   onLookupCode,
   onRegisterNew,
   onOpenDirections
@@ -178,6 +180,44 @@ export default function MyTurnView({
           </button>
         )}
       </form>
+
+      {Array.isArray(savedSlips) && savedSlips.length > 0 && (
+        <div
+          data-testid="my-turn-saved-slips-bar"
+          className="p-3.5 rounded-xl bg-canvas border border-border-strong flex flex-wrap items-center gap-2"
+        >
+          <span className="text-xs font-bold uppercase text-ink-secondary mr-1">
+            {t.slip?.mySlipsSwitcherTitle || 'Saved OPD Slips on This Device'}:
+          </span>
+          {savedSlips.map((entry) => {
+            const isCurrent = trackedSlip?.publicCode === entry.publicCode;
+            return (
+              <button
+                key={entry.ticketId || entry.publicCode}
+                type="button"
+                data-testid={`my-turn-pick-slip-${entry.publicCode}`}
+                onClick={() => {
+                  setLookupCode(entry.publicCode);
+                  if (onSelectSavedSlip) {
+                    onSelectSavedSlip(entry);
+                  }
+                  onLookupCode(entry.publicCode);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold font-token border transition ${
+                  isCurrent
+                    ? 'bg-brand-primary text-white border-brand-primary'
+                    : 'bg-surface text-brand-primary border-border-strong hover:bg-subtle'
+                }`}
+              >
+                {entry.publicCode} ·{' '}
+                {lang === 'hi'
+                  ? entry.departmentName_hi || entry.departmentName_en
+                  : entry.departmentName_en}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {error && (
         <div
@@ -347,6 +387,20 @@ export default function MyTurnView({
                     {t.myTurn.requeuedNote} {trackedSlip.requeuedCount}
                   </span>
                 )}
+                <span
+                  data-testid="my-turn-route-preference"
+                  className="ml-2 px-2 py-0.5 rounded bg-surface border border-border-strong text-xs font-bold text-brand-teal"
+                >
+                  {(trackedSlip.avoidStairs ?? true)
+                    ? t.slip?.routeAvoidStairs ||
+                      (lang === 'hi'
+                        ? 'केवल लिफ्ट और रैंप (No Stairs)'
+                        : 'Avoid Stairs (Lift / Ramp Only)')
+                    : t.slip?.routeStandard ||
+                      (lang === 'hi'
+                        ? 'सामान्य मार्ग (Standard Route)'
+                        : 'Shortest Route (Stairs OK)')}
+                </span>
               </div>
             </div>
 
@@ -366,11 +420,12 @@ export default function MyTurnView({
 
               <button
                 type="button"
+                data-testid="my-turn-directions-btn"
                 onClick={() =>
                   onOpenDirections({
                     fromNodeId: 'registration_desk',
                     toNodeId: dept.destination_node_id,
-                    avoidStairs: trackedSlip.avoidStairs
+                    avoidStairs: Boolean(trackedSlip.avoidStairs ?? true)
                   })
                 }
                 className="touch-target inline-flex items-center gap-1.5 rounded-lg bg-brand-teal text-white font-bold px-4 py-2 text-xs sm:text-sm"

@@ -31,7 +31,7 @@ function createTestHarness(options = {}) {
 }
 
 describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent Recovery', () => {
-  it('validates registration payload and creates sequential OPD tickets with capability tokens', async () => {
+  it('validates registration payload and creates sequential OPD tickets with capability tokens and protected patient summary', async () => {
     const { app } = createTestHarness();
 
     // Invalid payload -> 400 VALIDATION_ERROR
@@ -44,6 +44,10 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
     // Inactive/unknown department -> 404 DEPARTMENT_NOT_FOUND
     const unknownDeptRes = await request(app).post('/api/tickets').send({
       departmentId: 'unknown-dept',
+      patientName: 'Ramesh Kumar',
+      phone: '9876543210',
+      age: 58,
+      gender: 'MALE',
       visitType: 'FIRST_VISIT',
       preferredLang: 'en',
       avoidStairs: false,
@@ -52,9 +56,14 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
     expect(unknownDeptRes.status).toBe(404);
     expect(unknownDeptRes.body.error.code).toBe('DEPARTMENT_NOT_FOUND');
 
-    // Valid registration
+    // Valid registration with patient details
     const createRes = await request(app).post('/api/tickets').send({
       departmentId: 'general-medicine',
+      patientName: 'Ramesh Kumar',
+      phone: '+91 98765-43210',
+      age: 58,
+      gender: 'MALE',
+      registrationNumber: 'UHID-2025-88412',
       visitType: 'FIRST_VISIT',
       preferredLang: 'hi',
       avoidStairs: true,
@@ -75,6 +84,14 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
         queueDate: '2026-10-24'
       })
     );
+    expect(createRes.body.ticket.patientSummary).toEqual({
+      fullName: 'Ramesh Kumar',
+      ageYears: 58,
+      gender: 'MALE',
+      phoneMasked: '******3210',
+      phoneVerified: false,
+      registrationNumber: 'UHID-2025-88412'
+    });
     expect(createRes.body.ticket.queue.peopleAheadWaiting).toBe(0);
     expect(createRes.body.ticket.route.found).toBe(true);
     expect(createRes.body.ticket.route.steps.some((s) => s.mode === 'stairs')).toBe(false);
@@ -85,6 +102,10 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
     const requestId = '33333333-3333-4333-8333-333333333333';
     const payload = {
       departmentId: 'paediatrics',
+      patientName: 'Aarav Verma',
+      phone: '9123456789',
+      age: 7,
+      gender: 'MALE',
       visitType: 'FOLLOW_UP',
       preferredLang: 'en',
       avoidStairs: true,
@@ -102,6 +123,11 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
     expect(retryRes.body.ticket.publicCode).toBe('OPD-PED-001');
     expect(retryRes.body.accessToken).toBe(firstRes.body.accessToken);
 
+    // Verify queue counter was NOT incremented on idempotent retry
+    const boardRes = await request(app).get('/api/queues/public-board');
+    const pedQueue = boardRes.body.queues.find((q) => q.slug === 'paediatrics');
+    expect(pedQueue.waitingCount).toBe(1);
+
     // Retry with same requestId but modified avoidStairs -> 409 IDEMPOTENCY_PAYLOAD_MISMATCH
     const conflictRes = await request(app)
       .post('/api/tickets')
@@ -114,6 +140,10 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
     const { app } = createTestHarness();
     const sharedPayload = {
       departmentId: 'orthopaedics',
+      patientName: 'Sunita Devi',
+      phone: '9988776655',
+      age: 64,
+      gender: 'FEMALE',
       visitType: 'FIRST_VISIT',
       preferredLang: 'en',
       avoidStairs: false,
@@ -134,7 +164,7 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
     expect([...uniqueCodes]).toEqual(['OPD-ORT-001']);
   });
 
-  it('allocates strictly sequential unique token numbers under 10 concurrent registrations', async () => {
+  it('allocates strictly sequential unique token numbers under 10 concurrent registrations from distinct patients', async () => {
     const { app } = createTestHarness();
 
     const responses = await Promise.all(
@@ -143,6 +173,9 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
           .post('/api/tickets')
           .send({
             departmentId: 'general-medicine',
+            patientName: `Patient Number ${idx + 1}`,
+            phone: `98765432${String(idx + 10).slice(-2)}`,
+            age: 30 + idx,
             visitType: 'FIRST_VISIT',
             preferredLang: 'en',
             avoidStairs: false,
@@ -175,7 +208,7 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
         const mockClient = {
           query: async (sql, params) => {
             executedQueries.push({ sql: sql.trim(), params });
-            if (sql.includes('FROM tickets') && sql.includes('WHERE request_id = $1')) {
+            if (sql.includes('FROM tickets t') && sql.includes('WHERE t.request_id = $1')) {
               return { rows: [] };
             }
             if (sql.includes('FROM departments')) {
@@ -200,6 +233,27 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
                 ]
               };
             }
+            if (sql.includes('INSERT INTO patients')) {
+              return {
+                rows: [
+                  {
+                    id: 'patient-uuid-1',
+                    identity_fingerprint: params[0],
+                    full_name: params[1],
+                    phone_normalized: params[2],
+                    age_years: params[3],
+                    gender: params[4],
+                    hospital_reg_no: params[5]
+                  }
+                ]
+              };
+            }
+            if (
+              sql.includes('WHERE patient_id = $1') &&
+              sql.includes("status IN ('WAITING', 'CALLED', 'IN_CONSULTATION')")
+            ) {
+              return { rows: [] };
+            }
             if (sql.includes('INSERT INTO queue_counters')) {
               return { rows: [{ last_sequence: 1 }] };
             }
@@ -213,6 +267,7 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
                     id: '99999999-9999-4999-8999-999999999999',
                     public_code: 'OPD-GEN-001',
                     department_id: 'dept-uuid-gen',
+                    patient_id: 'patient-uuid-1',
                     queue_date: '2026-10-24',
                     sequence_no: 1,
                     queue_sort_order: 1,
@@ -247,6 +302,9 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
 
     await pgService.createTicket({
       departmentId: 'general-medicine',
+      patientName: 'Ramesh Kumar',
+      phone: '9876543210',
+      age: 58,
       visitType: 'FIRST_VISIT',
       preferredLang: 'en',
       avoidStairs: false,
@@ -264,12 +322,288 @@ describe('Phase 1 Checkpoint A & E — Ticket Creation, Validation & Idempotent 
   });
 });
 
+describe('Phase 1.3 — Patient Identity, Duplicate Prevention, Privacy & Composite Rate Limiting', () => {
+  it('rejects missing or malformed patientName, phone, or age with 400 VALIDATION_ERROR', async () => {
+    const { app } = createTestHarness();
+
+    // Missing patientName
+    const missingName = await request(app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      phone: '9876543210',
+      age: 45,
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '10101010-1010-4010-8010-101010101001'
+    });
+    expect(missingName.status).toBe(400);
+    expect(missingName.body.error.code).toBe('VALIDATION_ERROR');
+
+    // Malformed Indian mobile number (starts with 1, or fewer than 10 digits)
+    const badPhone = await request(app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: 'Sita Sharma',
+      phone: '1234567890',
+      age: 45,
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '10101010-1010-4010-8010-101010101002'
+    });
+    expect(badPhone.status).toBe(400);
+    expect(badPhone.body.error.code).toBe('VALIDATION_ERROR');
+
+    // Out-of-range age (> 120)
+    const badAge = await request(app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: 'Sita Sharma',
+      phone: '9876543210',
+      age: 150,
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '10101010-1010-4010-8010-101010101003'
+    });
+    expect(badAge.status).toBe(400);
+    expect(badAge.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('normalizes mobile numbers (spaces, hyphens, +91, 0 prefix) and blocks duplicate active tickets in the same department on the same date without incrementing queue counters', async () => {
+    const { app } = createTestHarness();
+
+    // 1. First registration with "+91 98765-43210"
+    const firstRes = await request(app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: '  Ramesh   Kumar ',
+      phone: '+91 98765-43210',
+      age: 58,
+      gender: 'MALE',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '20202020-2020-4020-8020-202020202001'
+    });
+    expect(firstRes.status).toBe(201);
+    expect(firstRes.body.ticket.publicCode).toBe('OPD-GEN-001');
+
+    // 2. Repeated submission with a NEW requestId, different casing/spacing, and "098765 43210" in the SAME department
+    const dupRes = await request(app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: 'ramesh kumar',
+      phone: '098765 43210',
+      age: 58,
+      gender: 'MALE',
+      visitType: 'FOLLOW_UP',
+      preferredLang: 'hi',
+      avoidStairs: true,
+      requestId: '20202020-2020-4020-8020-202020202002'
+    });
+
+    expect(dupRes.status).toBe(409);
+    expect(dupRes.body.error.code).toBe('DUPLICATE_ACTIVE_TICKET');
+    expect(dupRes.body.error.details.existingTicket).toEqual(
+      expect.objectContaining({
+        id: firstRes.body.ticket.id,
+        publicCode: 'OPD-GEN-001',
+        status: 'WAITING',
+        departmentSlug: 'general-medicine',
+        roomLabel: 'Room 204',
+        queueDate: '2026-10-24',
+        qrLookupPath: '/my-turn?code=OPD-GEN-001'
+      })
+    );
+    // Ensure duplicate error response never leaks accessToken or full phone
+    expect(dupRes.body.error.details.existingTicket.accessToken).toBeUndefined();
+    expect(dupRes.body.error.details.existingTicket.phone).toBeUndefined();
+    expect(dupRes.body.error.details.existingTicket.patientName).toBeUndefined();
+
+    // 3. Verify waitingCount was NOT incremented by the duplicate attempt, and next patient gets OPD-GEN-002 (NOT OPD-GEN-003)
+    const boardRes = await request(app).get('/api/queues/public-board');
+    const genQueue = boardRes.body.queues.find((q) => q.slug === 'general-medicine');
+    expect(genQueue.waitingCount).toBe(1);
+
+    const otherPatientRes = await request(app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: 'Meena Kumari',
+      phone: '9811122233',
+      age: 42,
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '20202020-2020-4020-8020-202020202003'
+    });
+    expect(otherPatientRes.status).toBe(201);
+    expect(otherPatientRes.body.ticket.publicCode).toBe('OPD-GEN-002');
+    expect(otherPatientRes.body.ticket.queue.peopleAheadWaiting).toBe(1);
+  });
+
+  it('allows the same patient to register for a DIFFERENT department on the same date, and allows re-registration in the same department after COMPLETED, CANCELLED, or NO_SHOW', async () => {
+    const { app } = createTestHarness();
+    const staffAgent = request.agent(app);
+    await staffAgent.post('/api/staff/session').send({ pin: '1234' });
+
+    const basePatient = {
+      patientName: 'Anil Kapoor',
+      phone: '9765432109',
+      age: 51,
+      gender: 'MALE'
+    };
+
+    // 1. Register in General Medicine -> 201 OPD-GEN-001
+    const gen1 = await request(app).post('/api/tickets').send({
+      ...basePatient,
+      departmentId: 'general-medicine',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '30303030-3030-4030-8030-303030303001'
+    });
+    expect(gen1.status).toBe(201);
+    expect(gen1.body.ticket.publicCode).toBe('OPD-GEN-001');
+
+    // 2. Same patient registers in Ophthalmology (Eye OPD) on the same date -> 201 OPD-EYE-001
+    const eye1 = await request(app).post('/api/tickets').send({
+      ...basePatient,
+      departmentId: 'ophthalmology',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '30303030-3030-4030-8030-303030303002'
+    });
+    expect(eye1.status).toBe(201);
+    expect(eye1.body.ticket.publicCode).toBe('OPD-EYE-001');
+
+    // 3. Patient self-cancels OPD-GEN-001 using capability token -> status becomes CANCELLED
+    const selfCancelRes = await request(app)
+      .post(`/api/tickets/${gen1.body.ticket.id}/cancel`)
+      .set('X-Ticket-Token', gen1.body.accessToken)
+      .send({});
+    expect(selfCancelRes.status).toBe(200);
+    expect(selfCancelRes.body.ticket.status).toBe('CANCELLED');
+
+    // 4. After CANCELLED, same patient can register again in General Medicine -> 201 OPD-GEN-002
+    const gen2 = await request(app).post('/api/tickets').send({
+      ...basePatient,
+      departmentId: 'general-medicine',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '30303030-3030-4030-8030-303030303003'
+    });
+    expect(gen2.status).toBe(201);
+    expect(gen2.body.ticket.publicCode).toBe('OPD-GEN-002');
+
+    // 5. Staff calls OPD-GEN-002 and marks NO_SHOW -> same patient can register again (OPD-GEN-003)
+    await staffAgent.post('/api/staff/queues/general-medicine/call-next').send({});
+    await staffAgent
+      .post(`/api/staff/tickets/${gen2.body.ticket.id}/no-show`)
+      .send({});
+
+    const gen3 = await request(app).post('/api/tickets').send({
+      ...basePatient,
+      departmentId: 'general-medicine',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '30303030-3030-4030-8030-303030303004'
+    });
+    expect(gen3.status).toBe(201);
+    expect(gen3.body.ticket.publicCode).toBe('OPD-GEN-003');
+
+    // 6. Staff cannot requeue old NO_SHOW ticket (gen2) while patient already has active ticket (gen3)
+    const blockedRequeue = await staffAgent
+      .post(`/api/staff/tickets/${gen2.body.ticket.id}/requeue`)
+      .send({});
+    expect(blockedRequeue.status).toBe(409);
+    expect(blockedRequeue.body.error.code).toBe('DUPLICATE_ACTIVE_TICKET');
+
+    // 7. Staff calls, starts, and completes OPD-GEN-003 -> same patient can register again (OPD-GEN-004)
+    await staffAgent.post('/api/staff/queues/general-medicine/call-next').send({});
+    await staffAgent.post(`/api/staff/tickets/${gen3.body.ticket.id}/start`).send({});
+    await staffAgent
+      .post(`/api/staff/tickets/${gen3.body.ticket.id}/complete`)
+      .send({});
+
+    const gen4 = await request(app).post('/api/tickets').send({
+      ...basePatient,
+      departmentId: 'general-medicine',
+      visitType: 'FOLLOW_UP',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: '30303030-3030-4030-8030-303030303005'
+    });
+    expect(gen4.status).toBe(201);
+    expect(gen4.body.ticket.publicCode).toBe('OPD-GEN-004');
+  });
+
+  it('enforcescomposite IP + patient identity rate limiting on POST /api/tickets while allowing different patients on shared hospital Wi-Fi', async () => {
+    const { app } = createTestHarness({
+      disableRateLimits: false
+    });
+
+    // Same patient identity attempting > 8 ticket creations within 15 minutes is rate-limited (429)
+    // even across different departments / cancelled tickets
+    for (let i = 0; i < 8; i += 1) {
+      const res = await request(app)
+        .post('/api/tickets')
+        .send({
+          departmentId: 'general-medicine',
+          patientName: 'Repeated Caller',
+          phone: '9888877776',
+          age: 35,
+          visitType: 'FIRST_VISIT',
+          preferredLang: 'en',
+          avoidStairs: true,
+          requestId: '40404040-4040-4040-8040-404040404001' // idempotent replay still passes through route limiter
+        });
+      expect([200, 201]).toContain(res.status);
+    }
+
+    // 9th request for the same patient identity from the same IP hits the per-patient-identity limit (8 / 15m)
+    const ninthSamePatient = await request(app)
+      .post('/api/tickets')
+      .send({
+        departmentId: 'general-medicine',
+        patientName: 'Repeated Caller',
+        phone: '9888877776',
+        age: 35,
+        visitType: 'FIRST_VISIT',
+        preferredLang: 'en',
+        avoidStairs: true,
+        requestId: '40404040-4040-4040-8040-404040404001'
+      });
+    expect(ninthSamePatient.status).toBe(429);
+    expect(ninthSamePatient.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+
+    // Meanwhile, a DIFFERENT patient on the exact same shared hospital Wi-Fi IP CAN still register!
+    const differentPatientSameIp = await request(app)
+      .post('/api/tickets')
+      .send({
+        departmentId: 'paediatrics',
+        patientName: 'Another Family Patient',
+        phone: '9777766665',
+        age: 9,
+        visitType: 'FIRST_VISIT',
+        preferredLang: 'en',
+        avoidStairs: true,
+        requestId: '40404040-4040-4040-8040-404040404099'
+      });
+    expect(differentPatientSameIp.status).toBe(201);
+    expect(differentPatientSameIp.body.ticket.publicCode).toBe('OPD-PED-001');
+  });
+});
+
 describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Auth & Staff Queue State Machine', () => {
-  it('enforces public lookup privacy on GET /api/slips/:publicCode and capability check on GET /api/tickets/:id', async () => {
+  it('enforces public lookup privacy on GET /api/slips/:publicCode (no patient PII) and returns masked patientSummary on capability-authenticated GET /api/tickets/:id', async () => {
     const { app } = createTestHarness();
 
     const createRes = await request(app).post('/api/tickets').send({
       departmentId: 'general-medicine',
+      patientName: 'Kavita Krishnan',
+      phone: '9876501234',
+      age: 39,
+      gender: 'FEMALE',
+      registrationNumber: 'UHID-99100',
       visitType: 'FIRST_VISIT',
       preferredLang: 'en',
       avoidStairs: false,
@@ -278,7 +612,7 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
 
     const { ticket, accessToken } = createRes.body;
 
-    // Public lookup works with just the publicCode and never leaks secrets
+    // Public lookup works with just the publicCode and NEVER leaks patient PII or capability tokens
     const slipRes = await request(app).get(`/api/slips/${ticket.publicCode}`);
     expect(slipRes.status).toBe(200);
     expect(slipRes.body.slip.publicCode).toBe('OPD-GEN-001');
@@ -286,6 +620,17 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     expect(slipRes.body.slip.access_token_hash).toBeUndefined();
     expect(slipRes.body.slip.requestId).toBeUndefined();
     expect(slipRes.body.slip.request_id).toBeUndefined();
+    expect(slipRes.body.slip.patientSummary).toBeUndefined();
+    expect(slipRes.body.slip.patientName).toBeUndefined();
+    expect(slipRes.body.slip.phone).toBeUndefined();
+    expect(JSON.stringify(slipRes.body)).not.toContain('Kavita Krishnan');
+    expect(JSON.stringify(slipRes.body)).not.toContain('9876501234');
+    expect(JSON.stringify(slipRes.body)).not.toContain('1234');
+
+    // Public board also never leaks patient PII
+    const boardRes = await request(app).get('/api/queues/public-board');
+    expect(JSON.stringify(boardRes.body)).not.toContain('Kavita Krishnan');
+    expect(JSON.stringify(boardRes.body)).not.toContain('9876501234');
 
     // Capability endpoint rejects missing or invalid token
     const missingTokenRes = await request(app).get(`/api/tickets/${ticket.id}`);
@@ -298,12 +643,20 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     expect(wrongTokenRes.status).toBe(403);
     expect(wrongTokenRes.body.error.code).toBe('INVALID_TICKET_TOKEN');
 
-    // Valid capability token succeeds
+    // Valid capability token succeeds and includes protected patientSummary with masked phone
     const validTokenRes = await request(app)
       .get(`/api/tickets/${ticket.id}`)
       .set('X-Ticket-Token', accessToken);
     expect(validTokenRes.status).toBe(200);
     expect(validTokenRes.body.ticket.id).toBe(ticket.id);
+    expect(validTokenRes.body.ticket.patientSummary).toEqual({
+      fullName: 'Kavita Krishnan',
+      ageYears: 39,
+      gender: 'FEMALE',
+      phoneMasked: '******1234',
+      phoneVerified: false,
+      registrationNumber: 'UHID-99100'
+    });
   });
 
   it('enforces rate limiting (429 RATE_LIMITED) on public slip lookup when limit is exceeded', async () => {
@@ -313,6 +666,9 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
 
     await request(app).post('/api/tickets').send({
       departmentId: 'general-medicine',
+      patientName: 'Rate Limit Test Patient',
+      phone: '9876543219',
+      age: 40,
       visitType: 'FIRST_VISIT',
       preferredLang: 'en',
       avoidStairs: false,
@@ -334,10 +690,13 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
   it('rejects unauthenticated staff mutations (401), enforces CSRF Origin check (403), and serializes concurrent Call Next & TAIL_REQUEUE', async () => {
     const { app } = createTestHarness();
 
-    // Create 3 tickets in general-medicine: OPD-GEN-001, OPD-GEN-002, OPD-GEN-003
+    // Create 3 tickets in general-medicine from 3 distinct patients: OPD-GEN-001, OPD-GEN-002, OPD-GEN-003
     const t1 = (
       await request(app).post('/api/tickets').send({
         departmentId: 'general-medicine',
+        patientName: 'Patient Alpha',
+        phone: '9876543001',
+        age: 31,
         visitType: 'FIRST_VISIT',
         preferredLang: 'en',
         avoidStairs: false,
@@ -348,6 +707,9 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     const t2 = (
       await request(app).post('/api/tickets').send({
         departmentId: 'general-medicine',
+        patientName: 'Patient Beta',
+        phone: '9876543002',
+        age: 32,
         visitType: 'FIRST_VISIT',
         preferredLang: 'en',
         avoidStairs: false,
@@ -358,6 +720,9 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     const t3 = (
       await request(app).post('/api/tickets').send({
         departmentId: 'general-medicine',
+        patientName: 'Patient Gamma',
+        phone: '9876543003',
+        age: 33,
         visitType: 'FIRST_VISIT',
         preferredLang: 'en',
         avoidStairs: false,
@@ -442,6 +807,9 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     const t1 = (
       await request(app).post('/api/tickets').send({
         departmentId: 'general-medicine',
+        patientName: 'Routine Patient',
+        phone: '9876543111',
+        age: 50,
         visitType: 'FIRST_VISIT',
         preferredLang: 'en',
         avoidStairs: false,
@@ -479,6 +847,9 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
 
     const createRes = await request(baseUrl).post('/api/tickets').send({
       departmentId: 'general-medicine',
+      patientName: 'Socket Patient',
+      phone: '9876543222',
+      age: 29,
       visitType: 'FIRST_VISIT',
       preferredLang: 'en',
       avoidStairs: false,
