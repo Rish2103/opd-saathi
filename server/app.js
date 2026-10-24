@@ -87,6 +87,39 @@ const updateDoctorStatusSchema = z.object({
   delayMinutes: z.number().int().min(0).max(240).default(0)
 });
 
+const createDepartmentSchema = z.object({
+  slug: z.string().trim().max(48).optional(),
+  token_prefix: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2,5}$/, 'Token prefix must be 2 to 5 uppercase letters (e.g. CRD, DER, ENT)'),
+  name_en: z.string().trim().min(2).max(80),
+  name_hi: z.string().trim().max(80).optional(),
+  doctor_name_en: z.string().trim().min(2).max(80),
+  doctor_name_hi: z.string().trim().max(80).optional(),
+  room_label: z.string().trim().min(2).max(40),
+  floor_number: z.coerce.number().int().min(1).max(3).default(2),
+  destination_node_id: z.string().trim().min(2).max(64).default('room_204_med'),
+  landmark_en: z.string().trim().max(160).optional(),
+  landmark_hi: z.string().trim().max(160).optional(),
+  average_consult_minutes: z.coerce.number().int().min(1).max(120).default(10)
+});
+
+const updateDepartmentSchema = z.object({
+  name_en: z.string().trim().min(2).max(80).optional(),
+  name_hi: z.string().trim().max(80).optional(),
+  doctor_name_en: z.string().trim().min(2).max(80).optional(),
+  doctor_name_hi: z.string().trim().max(80).optional(),
+  room_label: z.string().trim().min(2).max(40).optional(),
+  floor_number: z.coerce.number().int().min(1).max(3).optional(),
+  destination_node_id: z.string().trim().min(2).max(64).optional(),
+  landmark_en: z.string().trim().max(160).optional(),
+  landmark_hi: z.string().trim().max(160).optional(),
+  average_consult_minutes: z.coerce.number().int().min(1).max(120).optional(),
+  is_active: z.boolean().optional()
+});
+
 const createHelpRequestSchema = z.object({
   ticketId: z.string().uuid().optional().nullable(),
   publicCode: z.string().max(32).optional().nullable(),
@@ -299,7 +332,7 @@ export function createApp(options = {}) {
     async (req, res, next) => {
       try {
         const rawCode = String(req.params.publicCode || '').trim();
-        if (!/^OPD-[A-Z]{3}-\d{3,}$/i.test(rawCode)) {
+        if (!/^OPD-[A-Z]{2,5}-\d{3,}$/i.test(rawCode)) {
           return res.status(400).json({
             error: {
               code: 'INVALID_PUBLIC_CODE',
@@ -470,6 +503,38 @@ export function createApp(options = {}) {
   );
 
   app.post(
+    '/api/staff/tickets/sync-saved',
+    requireStaff,
+    async (req, res, next) => {
+      try {
+        const savedSlips = Array.isArray(req.body?.savedSlips)
+          ? req.body.savedSlips
+          : [];
+        const result = await queueService.syncSavedSlips(savedSlips);
+        res.status(200).json(result);
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  app.post(
+    '/api/staff/tickets/:id/call',
+    requireStaff,
+    async (req, res, next) => {
+      try {
+        const ticket = await queueService.transitionTicketStatus(
+          req.params.id,
+          'call'
+        );
+        res.status(200).json({ ticket });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  app.post(
     '/api/staff/tickets/:id/start',
     requireStaff,
     async (req, res, next) => {
@@ -493,6 +558,22 @@ export function createApp(options = {}) {
         const ticket = await queueService.transitionTicketStatus(
           req.params.id,
           'complete'
+        );
+        res.status(200).json({ ticket });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  app.post(
+    '/api/staff/tickets/:id/resolve',
+    requireStaff,
+    async (req, res, next) => {
+      try {
+        const ticket = await queueService.transitionTicketStatus(
+          req.params.id,
+          'resolve'
         );
         res.status(200).json({ ticket });
       } catch (err) {
@@ -545,6 +626,37 @@ export function createApp(options = {}) {
           'requeue'
         );
         res.status(200).json({ ticket });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  app.post(
+    '/api/staff/departments',
+    requireStaff,
+    async (req, res, next) => {
+      try {
+        const parsed = createDepartmentSchema.parse(req.body || {});
+        const department = await queueService.createDepartment(parsed);
+        res.status(201).json({ department });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  app.patch(
+    '/api/staff/departments/:id',
+    requireStaff,
+    async (req, res, next) => {
+      try {
+        const parsed = updateDepartmentSchema.parse(req.body || {});
+        const department = await queueService.updateDepartment(
+          req.params.id,
+          parsed
+        );
+        res.status(200).json({ department });
       } catch (err) {
         next(err);
       }

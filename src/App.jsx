@@ -438,6 +438,42 @@ export default function App({
     }
   }, []);
 
+  const handleStaffTicketMutated = useCallback(
+    (mutatedTicket) => {
+      if (!mutatedTicket) return;
+      const matchesSaved = savedSlipsRef.current.some(
+        (item) =>
+          item.publicCode === mutatedTicket.publicCode ||
+          item.ticketId === mutatedTicket.id
+      );
+      if (matchesSaved) {
+        upsertSavedSlip({ ticket: mutatedTicket }, false);
+      }
+      refreshPublicBoard();
+    },
+    [upsertSavedSlip, refreshPublicBoard]
+  );
+
+  const handleStaffSyncSavedSlips = useCallback(
+    (syncedTickets = []) => {
+      for (const ticket of syncedTickets) {
+        const existingSaved = savedSlipsRef.current.find(
+          (item) =>
+            item.publicCode === ticket.publicCode ||
+            item.ticketId === ticket.id
+        );
+        if (
+          existingSaved &&
+          (existingSaved.status !== ticket.status ||
+            existingSaved.ticket?.status !== ticket.status)
+        ) {
+          upsertSavedSlip({ ticket }, false);
+        }
+      }
+    },
+    [upsertSavedSlip]
+  );
+
   // Canonical Public Lookup or Capability Lookup for My Turn / Saved Slips
   const handleLookupCode = useCallback(
     async (codeToFetch) => {
@@ -2143,6 +2179,10 @@ export default function App({
             staffAuth={staffAuth}
             setStaffAuth={setStaffAuth}
             socketRef={socketRef}
+            onDepartmentsUpdated={fetchInitialData}
+            savedSlips={savedSlips}
+            onTicketMutated={handleStaffTicketMutated}
+            onSyncSavedSlips={handleStaffSyncSavedSlips}
           />
         )}
       </main>

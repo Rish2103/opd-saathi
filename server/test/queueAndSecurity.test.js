@@ -1177,4 +1177,218 @@ describe('Phase 1.1 — Staff PIN Hardening & Zero Frontend Secret Exposure', ()
     expect(pgBackedService.isInMemory()).toBe(false);
     expect(pgBackedService.getStorageBackend()).toBe('postgres');
   });
+
+  it('allows authenticated staff to add a new OPD department and modify an existing department', async () => {
+    const { app } = createTestHarness();
+    const agent = request.agent(app);
+
+    const unauthAdd = await request(app).post('/api/staff/departments').send({
+      name_en: 'Cardiology',
+      token_prefix: 'CRD',
+      doctor_name_en: 'Dr. Meera Nair',
+      room_label: 'Room 210',
+      floor_number: 2,
+      destination_node_id: 'room_204_med'
+    });
+    expect(unauthAdd.status).toBe(401);
+
+    const loginRes = await agent.post('/api/staff/session').send({ pin: '1234' });
+    expect(loginRes.status).toBe(200);
+
+    const addRes = await agent
+      .post('/api/staff/departments')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        name_en: 'Cardiology',
+        name_hi: 'हृदय रोग विभाग',
+        token_prefix: 'CRD',
+        doctor_name_en: 'Dr. Meera Nair',
+        room_label: 'Room 210',
+        floor_number: 2,
+        destination_node_id: 'room_204_med',
+        landmark_en: 'Opposite Floor 2 Main Lift',
+        average_consult_minutes: 15
+      });
+    expect(addRes.status).toBe(201);
+    expect(addRes.body.department).toEqual(
+      expect.objectContaining({
+        slug: 'cardiology',
+        token_prefix: 'CRD',
+        name_en: 'Cardiology',
+        doctor_name_en: 'Dr. Meera Nair',
+        room_label: 'Room 210',
+        floor_number: 2,
+        average_consult_minutes: 15
+      })
+    );
+
+    const dupRes = await agent
+      .post('/api/staff/departments')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        name_en: 'Cardiac Care',
+        token_prefix: 'CRD',
+        doctor_name_en: 'Dr. Someone',
+        room_label: 'Room 211',
+        floor_number: 2,
+        destination_node_id: 'room_204_med'
+      });
+    expect(dupRes.status).toBe(409);
+
+    const patchRes = await agent
+      .patch('/api/staff/departments/cardiology')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        doctor_name_en: 'Dr. Meera Nair (Senior Consultant)',
+        room_label: 'Room 210-B',
+        average_consult_minutes: 12
+      });
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.department.doctor_name_en).toBe(
+      'Dr. Meera Nair (Senior Consultant)'
+    );
+    expect(patchRes.body.department.room_label).toBe('Room 210-B');
+    expect(patchRes.body.department.average_consult_minutes).toBe(12);
+
+    const ticketRes = await request(app).post('/api/tickets').send({
+      departmentId: 'cardiology',
+      patientName: 'Suresh Menon',
+      phone: '9887766554',
+      age: 61,
+      gender: 'MALE',
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1'
+    });
+    expect(ticketRes.status).toBe(201);
+    expect(ticketRes.body.ticket.publicCode).toBe('OPD-CRD-001');
+
+    const slipRes = await request(app).get('/api/slips/OPD-CRD-001');
+    expect(slipRes.status).toBe(200);
+    expect(slipRes.body.slip.department.name_en).toBe('Cardiology');
+  });
+
+  it('syncs browser-saved pending slips across departments, lists all pending tickets, and allows direct call and resolve actions', async () => {
+    const { app } = createTestHarness();
+    const agent = request.agent(app);
+
+    const loginRes = await agent.post('/api/staff/session').send({ pin: '1234' });
+    expect(loginRes.status).toBe(200);
+
+    // Sync 3 browser-saved pending slips across Paediatrics and a custom Test department
+    const syncRes = await agent
+      .post('/api/staff/tickets/sync-saved')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        savedSlips: [
+          {
+            ticketId: 'saved-ticket-1',
+            publicCode: 'OPD-TEST-001',
+            status: 'WAITING',
+            departmentNameEn: 'Test',
+            roomLabel: '111',
+            patientSummary: { name: 'Ramesh', age: 23, gender: 'MALE' },
+            ticket: {
+              id: 'saved-ticket-1',
+              publicCode: 'OPD-TEST-001',
+              status: 'WAITING',
+              tokenNumber: 1,
+              department: {
+                slug: 'test',
+                token_prefix: 'TEST',
+                name_en: 'Test',
+                room_label: '111',
+                floor_number: 2,
+                destination_node_id: 'room_204_med'
+              },
+              patientSummary: { name: 'Ramesh', age: 23, gender: 'MALE' }
+            }
+          },
+          {
+            ticketId: 'saved-ticket-2',
+            publicCode: 'OPD-PED-001',
+            status: 'WAITING',
+            departmentNameEn: 'Paediatrics',
+            roomLabel: 'Room 208',
+            patientSummary: { name: 'Ramesh', age: 23, gender: 'MALE' },
+            ticket: {
+              id: 'saved-ticket-2',
+              publicCode: 'OPD-PED-001',
+              status: 'WAITING',
+              tokenNumber: 1,
+              department: {
+                slug: 'paediatrics',
+                token_prefix: 'PED',
+                name_en: 'Paediatrics',
+                room_label: 'Room 208',
+                floor_number: 2,
+                destination_node_id: 'room_208_ped'
+              },
+              patientSummary: { name: 'Ramesh', age: 23, gender: 'MALE' }
+            }
+          },
+          {
+            ticketId: 'saved-ticket-3',
+            publicCode: 'OPD-PED-002',
+            status: 'WAITING',
+            departmentNameEn: 'Paediatrics',
+            roomLabel: 'Room 208',
+            patientSummary: { name: 'Rakesh', age: 23, gender: 'MALE' },
+            ticket: {
+              id: 'saved-ticket-3',
+              publicCode: 'OPD-PED-002',
+              status: 'WAITING',
+              tokenNumber: 2,
+              department: {
+                slug: 'paediatrics',
+                token_prefix: 'PED',
+                name_en: 'Paediatrics',
+                room_label: 'Room 208',
+                floor_number: 2,
+                destination_node_id: 'room_208_ped'
+              },
+              patientSummary: { name: 'Rakesh', age: 23, gender: 'MALE' }
+            }
+          }
+        ]
+      });
+
+    expect(syncRes.status).toBe(200);
+    expect(syncRes.body.restoredCount).toBe(3);
+
+    // Fetch ALL departments queue view
+    const allQueueRes = await agent.get('/api/staff/queues/ALL');
+    expect(allQueueRes.status).toBe(200);
+    expect(allQueueRes.body.allPendingTickets).toHaveLength(3);
+    expect(
+      allQueueRes.body.allPendingTickets.map((t) => t.public_code)
+    ).toEqual(expect.arrayContaining(['OPD-TEST-001', 'OPD-PED-001', 'OPD-PED-002']));
+    expect(allQueueRes.body.departmentCounts.paediatrics.totalPending).toBe(2);
+    expect(allQueueRes.body.departmentCounts.test.totalPending).toBe(1);
+
+    // Directly resolve OPD-PED-002 from WAITING status
+    const resolveRes = await agent
+      .post('/api/staff/tickets/saved-ticket-3/resolve')
+      .set('Origin', 'http://localhost:3000')
+      .send({});
+    expect(resolveRes.status).toBe(200);
+    expect(resolveRes.body.ticket.status).toBe('COMPLETED');
+
+    // Directly call OPD-PED-001 from WAITING status
+    const callRes = await agent
+      .post('/api/staff/tickets/saved-ticket-2/call')
+      .set('Origin', 'http://localhost:3000')
+      .send({});
+    expect(callRes.status).toBe(200);
+    expect(callRes.body.ticket.status).toBe('CALLED');
+
+    // Resolve OPD-PED-001 from CALLED status
+    const resolveCalledRes = await agent
+      .post('/api/staff/tickets/saved-ticket-2/resolve')
+      .set('Origin', 'http://localhost:3000')
+      .send({});
+    expect(resolveCalledRes.status).toBe(200);
+    expect(resolveCalledRes.body.ticket.status).toBe('COMPLETED');
+  });
 });
