@@ -82,6 +82,22 @@ body {
   letter-spacing: 0 !important;
 }
 
+[lang='ta'] h1,
+[lang='ta'] h2,
+[lang='ta'] h3,
+[lang='hi'] h1,
+[lang='hi'] h2,
+[lang='hi'] h3 {
+  line-height: 1.38;
+  letter-spacing: 0 !important;
+}
+
+[lang='ta'] button,
+[lang='hi'] button {
+  line-height: 1.35;
+  letter-spacing: 0 !important;
+}
+
 .font-token {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;

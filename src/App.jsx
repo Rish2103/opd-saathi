@@ -942,15 +942,19 @@ export default function App({
         {t.skipLink}
       </a>
 
-      {/* Responsive Floating Liquid-Glass Navbar (Single-line pill on Laptop/Desktop lg+, multi-row on Mobile/Tablet) */}
-      <header className="no-print sticky top-0 sm:top-3 z-40 px-2 sm:px-3 lg:px-4 pt-2 sm:pt-0">
-        <div className="max-w-[98vw] 2xl:max-w-[1560px] w-full mx-auto glass-nav rounded-2xl lg:rounded-full px-3 sm:px-4 lg:px-3.5 xl:px-5 py-2.5 lg:py-2 transition-all duration-200">
-          <div className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-wrap lg:flex-nowrap sm:items-center sm:justify-between lg:gap-2 xl:gap-3">
+      {/* Responsive Floating Liquid-Glass Navbar (Single-line pill on Laptop/Desktop xl+, multi-row on Mobile/Tablet) */}
+      <header className="no-print sticky top-0 sm:top-2.5 z-40 px-2 sm:px-3 lg:px-4 pt-1.5 sm:pt-0">
+        <div className="max-w-[99vw] 2xl:max-w-[1600px] w-full mx-auto glass-nav rounded-2xl xl:rounded-full px-3 sm:px-4 xl:px-4 2xl:px-5 py-2 xl:py-1.5 transition-all duration-200">
+          <div
+            className={`grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between xl:gap-2 2xl:gap-3 ${
+              assistedMode && lang !== 'en' ? 'xl:flex-wrap' : 'xl:flex-nowrap'
+            }`}
+          >
             {/* Brand Identity (Left) */}
             <button
               type="button"
               onClick={() => setActiveView('home')}
-              className="col-start-1 row-start-1 sm:order-1 lg:order-1 text-left focus:outline-none rounded-xl lg:rounded-full px-1 py-0.5 hover:bg-slate-100/70 transition shrink-0"
+              className="col-start-1 row-start-1 sm:order-1 xl:order-1 text-left focus:outline-none rounded-xl xl:rounded-full px-1 py-0.5 hover:bg-slate-100/70 transition shrink-0"
             >
               <BrandLogo
                 title={t.brandTitle}
@@ -960,7 +964,7 @@ export default function App({
             </button>
 
             {/* Right-Hand Utilities & Persistent Emergency Button */}
-            <div className="contents sm:flex sm:items-center sm:gap-1.5 xl:gap-2 sm:order-2 lg:order-3 shrink-0">
+            <div className="contents sm:flex sm:items-center sm:gap-1.5 xl:gap-1.5 2xl:gap-2 sm:order-2 xl:order-3 shrink-0 relative z-10">
               {/* Utility Strip: Assisted Mode + Language + Mobile Nav Collapse Toggle */}
               <div className="col-span-2 row-start-2 flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/80 sm:border-t-0 sm:pt-0 sm:justify-end">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -969,10 +973,10 @@ export default function App({
                     data-testid="assisted-mode-toggle"
                     onClick={() => setAssistedMode((prev) => !prev)}
                     aria-pressed={assistedMode}
-                    className={`touch-target inline-flex items-center justify-center gap-1.5 px-2.5 lg:px-2.5 xl:px-3 py-1.5 rounded-xl lg:rounded-full border text-[11px] sm:text-[12px] font-bold whitespace-nowrap transition ${
+                    className={`min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 xl:px-2.5 py-1 rounded-xl xl:rounded-full border text-[11px] sm:text-[11.5px] font-bold whitespace-nowrap transition ${
                       assistedMode
                         ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
-                        : 'bg-subtle/90 text-brand-primary border-brand-primary/30 hover:bg-slate-200/70'
+                        : 'bg-subtle text-brand-primary border-brand-primary/30 hover:bg-slate-200'
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -983,7 +987,7 @@ export default function App({
                     role="group"
                     aria-label="Language Selector"
                     data-testid="language-selector"
-                    className="inline-flex items-center rounded-xl lg:rounded-full bg-subtle/90 border border-brand-primary/30 p-0.5 gap-0.5"
+                    className="inline-flex items-center rounded-xl xl:rounded-full bg-subtle border border-brand-primary/30 p-0.5 gap-0.5"
                   >
                     <Languages
                       className="w-3.5 h-3.5 text-brand-primary ml-1.5 hidden sm:inline shrink-0"
@@ -1003,10 +1007,10 @@ export default function App({
                           aria-pressed={isActive}
                           aria-label={opt.fullLabel}
                           onClick={() => setLang(opt.code)}
-                          className={`touch-target inline-flex items-center justify-center px-2 sm:px-2.5 py-1 rounded-lg lg:rounded-full font-bold text-[11px] sm:text-[12px] whitespace-nowrap transition ${
+                          className={`min-h-[30px] inline-flex items-center justify-center px-2 sm:px-2.5 py-0.5 rounded-lg xl:rounded-full font-bold text-[11px] sm:text-[11.5px] whitespace-nowrap transition ${
                             isActive
                               ? 'bg-brand-primary text-white shadow-sm'
-                              : 'text-brand-primary hover:bg-slate-200/70'
+                              : 'text-brand-primary hover:bg-slate-200/80'
                           }`}
                         >
                           <span>{opt.label}</span>
@@ -1023,7 +1027,7 @@ export default function App({
                   aria-expanded={mobileNavOpen}
                   aria-controls="primary-navigation-links"
                   onClick={() => setMobileNavOpen((prev) => !prev)}
-                  className="sm:hidden touch-target inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl border border-border-strong bg-surface text-ink-primary font-bold text-xs"
+                  className="sm:hidden min-h-[34px] inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-xl border border-border-strong bg-surface text-ink-primary font-bold text-xs"
                 >
                   <span>
                     {lang === 'hi'
@@ -1045,12 +1049,12 @@ export default function App({
                 type="button"
                 data-testid="persistent-emergency-btn"
                 onClick={openEmergencyModal}
-                className="col-start-2 row-start-1 justify-self-end touch-target inline-flex items-center justify-center gap-1.5 bg-status-emergency hover:bg-[#991b1b] text-white font-bold px-2.5 xl:px-3.5 py-1.5 rounded-xl lg:rounded-full shadow-sm transition shrink-0 whitespace-nowrap"
+                className="col-start-2 row-start-1 justify-self-end min-h-[34px] inline-flex items-center justify-center gap-1.5 bg-status-emergency hover:bg-[#991b1b] text-white font-bold px-2.5 xl:px-3 py-1 rounded-xl xl:rounded-full shadow-sm transition shrink-0 whitespace-nowrap"
                 aria-haspopup="dialog"
               >
-                <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <div className="text-left leading-tight">
-                  <span className="block text-[11px] sm:text-[12px] font-extrabold">
+                  <span className="block text-[11px] sm:text-[11.5px] font-extrabold">
                     {t.emergencyBtn}
                   </span>
                 </div>
@@ -1059,14 +1063,18 @@ export default function App({
 
             {/* Primary Navigation Tabs:
                 - Mobile (<640px): Zero-horizontal-scroll 3x2 grid (collapsible via Menu toggle)
-                - Tablet (640-1023px): Full-width Row 2 6-column balanced pill grid
-                - Laptop & Desktop (1024px+): Center single-line inline pill bar */}
+                - Tablet / Compact Laptop (640-1279px): Full-width Row 2 6-column balanced pill grid
+                - Desktop (1280px+): Center single-line inline pill bar with strict overflow containment */}
             <nav
               id="primary-navigation-links"
               aria-label="Primary Navigation"
               className={`${
                 mobileNavOpen ? 'grid' : 'hidden sm:grid'
-              } col-span-2 row-start-3 w-full sm:order-3 lg:w-auto lg:order-2 grid-cols-3 sm:grid-cols-6 lg:flex lg:flex-nowrap items-center gap-1.5 lg:gap-1 bg-slate-100/90 p-1.5 lg:p-1 rounded-xl lg:rounded-full border border-slate-200/80 min-w-0`}
+              } col-span-2 row-start-3 w-full sm:order-3 grid-cols-3 sm:grid-cols-6 items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/90 max-w-full overflow-hidden ${
+                assistedMode && lang !== 'en'
+                  ? 'xl:w-full xl:order-3 xl:grid xl:grid-cols-6'
+                  : 'xl:w-auto xl:order-2 xl:flex xl:flex-nowrap xl:rounded-full xl:shrink-0'
+              }`}
             >
               {[
                 { id: 'home', label: t.nav.home, icon: Home },
@@ -1094,10 +1102,10 @@ export default function App({
                     data-testid={`nav-tab-${item.id}`}
                     aria-current={isCurrent ? 'page' : undefined}
                     onClick={() => setActiveView(item.id)}
-                    className={`touch-target min-h-[38px] inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 lg:px-2.5 xl:px-3 2xl:px-3.5 py-1.5 rounded-lg lg:rounded-full font-bold text-[11px] sm:text-[12px] 2xl:text-[13px] text-center leading-tight whitespace-nowrap transition-all ${
+                    className={`min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 xl:px-2.5 2xl:px-3 py-1 rounded-lg xl:rounded-full font-bold text-[11px] sm:text-[11.5px] 2xl:text-[12.5px] text-center leading-tight whitespace-nowrap transition-all ${
                       isCurrent
                         ? 'bg-brand-primary text-white shadow-sm'
-                        : 'bg-surface/80 lg:bg-transparent text-ink-primary hover:bg-white hover:text-brand-primary'
+                        : 'bg-surface/80 xl:bg-transparent text-ink-primary hover:bg-white hover:text-brand-primary'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1133,7 +1141,15 @@ export default function App({
                         : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
                   </span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                <h1
+                  className={`font-extrabold text-white ${
+                    lang === 'ta'
+                      ? 'text-xl sm:text-2xl lg:text-[30px] leading-[1.4] tracking-normal'
+                      : lang === 'hi'
+                        ? 'text-2xl sm:text-3xl lg:text-[34px] leading-[1.35] tracking-normal'
+                        : 'text-2xl sm:text-3xl lg:text-4xl leading-tight tracking-tight'
+                  }`}
+                >
                   {t.home.heroTitle}
                 </h1>
                 <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-2xl">
@@ -1141,7 +1157,7 @@ export default function App({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 items-stretch">
                 <button
                   type="button"
                   data-testid="home-cta-register"
@@ -1149,40 +1165,40 @@ export default function App({
                     setRegStep(1);
                     setActiveView('register');
                   }}
-                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-extrabold px-4 py-3.5 text-sm sm:text-base shadow-md transition-all"
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-extrabold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md transition-all"
                 >
                   <UserPlus className="w-5 h-5 shrink-0" aria-hidden="true" />
-                  <span>{t.home.ctaRegister}</span>
+                  <span className="leading-snug">{t.home.ctaRegister}</span>
                 </button>
 
                 <button
                   type="button"
                   data-testid="home-cta-my-turn"
                   onClick={() => setActiveView('my-turn')}
-                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-teal-300/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-md transition-all"
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-teal-300/40 text-white font-bold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md transition-all"
                 >
                   <Activity className="w-5 h-5 shrink-0" aria-hidden="true" />
-                  <span>{t.home.ctaMyTurn}</span>
+                  <span className="leading-snug">{t.home.ctaMyTurn}</span>
                 </button>
 
                 <button
                   type="button"
                   data-testid="home-cta-navigate"
                   onClick={() => setActiveView('navigate')}
-                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition-all"
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
                 >
                   <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
-                  <span>{t.home.ctaRoute}</span>
+                  <span className="leading-snug">{t.home.ctaRoute}</span>
                 </button>
 
                 <button
                   type="button"
                   data-testid="home-cta-staff"
                   onClick={() => setActiveView('staff')}
-                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition-all"
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
                 >
                   <ShieldCheck className="w-5 h-5 shrink-0" aria-hidden="true" />
-                  <span>{t.home.ctaStaff}</span>
+                  <span className="leading-snug">{t.home.ctaStaff}</span>
                 </button>
               </div>
             </section>
