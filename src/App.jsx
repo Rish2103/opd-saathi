@@ -24,6 +24,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { TRANSLATIONS, getLocalizedDepartment, resolveDepartmentCode } from './i18n/translations.js';
+import KioskModeView from './components/KioskModeView.jsx';
 import BrandLogo from './components/BrandLogo.jsx';
 import EmergencyModal from './components/EmergencyModal.jsx';
 import SlipView from './components/SlipView.jsx';
@@ -197,6 +198,9 @@ function getInitialViewFromLocation(overrideView = null) {
   const codeParam = (params.get('code') || '').trim().toUpperCase();
   const pathname = window.location.pathname.toLowerCase();
 
+  if (pathname.startsWith('/kiosk')) {
+    return { view: 'kiosk', code: codeParam };
+  }
   if (codeParam || pathname.startsWith('/my-turn')) {
     return { view: 'my-turn', code: codeParam };
   }
@@ -921,6 +925,24 @@ export default function App({
   const maskedPreviewPhone = normalizedPreviewPhone
     ? `******${normalizedPreviewPhone.slice(-4)}`
     : regPhone;
+
+  if (activeView === 'kiosk') {
+    return (
+      <KioskModeView
+        initialLang={lang}
+        initialDepartments={departments}
+        initialNodes={hospitalNodes}
+        staffAuth={staffAuth}
+        setStaffAuth={setStaffAuth}
+        onExitKiosk={() => {
+          if (typeof window !== 'undefined' && window.history?.pushState) {
+            window.history.pushState({}, '', '/');
+          }
+          setActiveView('home');
+        }}
+      />
+    );
+  }
 
   return (
     <div
