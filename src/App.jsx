@@ -1410,7 +1410,7 @@ export default function App({
 
         {/* Tier 2: Main Navigation Dock (Brand + History Left — HeroUI Pill Dock Center — Emergency CTA Right) */}
         <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-2.5 lg:py-2 lg:min-h-[68px] flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
-          {/* Left: Clickable Brand Identity + Back/Forward History Controls */}
+          {/* Left: Clickable Brand Identity */}
           <div className="flex items-center gap-2 lg:order-1 shrink-0">
             <button
               type="button"
@@ -1424,40 +1424,6 @@ export default function App({
                 compact={false}
               />
             </button>
-
-            {/* In-App Back & Forward History Controls (Synchronized with Browser History) */}
-            <div
-              role="group"
-              aria-label="History Navigation"
-              className="inline-flex items-center rounded-xl bg-subtle/85 border border-border-strong/60 p-0.5 gap-0.5"
-            >
-              <button
-                type="button"
-                data-testid="nav-history-back-btn"
-                onClick={handleHistoryBack}
-                disabled={!canGoBack}
-                title={lang === 'hi' ? 'पीछे जाएं' : lang === 'ta' ? 'பின்செல்' : 'Go Back'}
-                className="h-8 px-2 rounded-lg inline-flex items-center justify-center gap-1 text-xs font-bold text-ink-primary hover:bg-surface disabled:opacity-40 disabled:pointer-events-none transition"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only sm:text-[11px]">
-                  {lang === 'hi' ? 'पीछे' : lang === 'ta' ? 'பின்' : 'Back'}
-                </span>
-              </button>
-              <button
-                type="button"
-                data-testid="nav-history-forward-btn"
-                onClick={handleHistoryForward}
-                disabled={!canGoForward}
-                title={lang === 'hi' ? 'आगे जाएं' : lang === 'ta' ? 'முன்செல்' : 'Go Forward'}
-                className="h-8 px-2 rounded-lg inline-flex items-center justify-center gap-1 text-xs font-bold text-ink-primary hover:bg-surface disabled:opacity-40 disabled:pointer-events-none transition"
-              >
-                <span className="sr-only sm:not-sr-only sm:text-[11px]">
-                  {lang === 'hi' ? 'आगे' : lang === 'ta' ? 'முன்' : 'Forward'}
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              </button>
-            </div>
           </div>
 
           {/* Right: Persistent Emergency Action + Mobile Menu Trigger */}
