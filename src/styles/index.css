@@ -61,23 +61,33 @@
   border-bottom-color: rgba(71, 85, 105, 0.6);
 }
 
-/* Assisted Mode increases font scale and applies zero-layout-shift high-contrast boundaries */
+/* Assisted / Large Text Mode increases root font scale (19px base = +18.75% across all rem text) and touch targets without ugly border outlines */
+html[data-assisted='true'],
+:root[data-assisted='true'],
 [data-assisted='true'] {
-  --base-font-scale: 1.125;
+  --base-font-scale: 1.1875;
   --min-touch-target: 48px;
-  --border-strong: #0f172a;
-  line-height: 1.6;
 }
 
-[data-assisted='true'] .border-border-strong {
-  border-color: var(--border-strong);
+html[data-assisted='true'] body,
+[data-assisted='true'] {
+  line-height: 1.65;
+  letter-spacing: 0.006em;
 }
 
-[data-assisted='true'] .card-surface,
-[data-assisted='true'] .glass-card,
+html[data-assisted='true'] p,
+html[data-assisted='true'] label,
+html[data-assisted='true'] li,
+html[data-assisted='true'] input,
+html[data-assisted='true'] select,
+html[data-assisted='true'] button,
+[data-assisted='true'] p,
+[data-assisted='true'] label,
+[data-assisted='true'] li,
 [data-assisted='true'] input,
-[data-assisted='true'] select {
-  box-shadow: inset 0 0 0 2px #0f172a;
+[data-assisted='true'] select,
+[data-assisted='true'] button {
+  font-size: calc(1em * 1.06);
 }
 
 /* Apple Typography Foundation (SKILL.md §15: optical sizing, size-specific tracking & leading) */

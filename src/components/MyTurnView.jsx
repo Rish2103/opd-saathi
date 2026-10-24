@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { isWebAudioSupported, playPatientCalledChime } from '../utils/soundAlerts.js';
 import { getLocalizedDepartment } from '../i18n/translations.js';
+import VoiceListenButton from './VoiceListenButton.jsx';
 
 const SOUND_PREF_KEY = 'opd_patient_sound_enabled';
 
@@ -167,6 +168,17 @@ export default function MyTurnView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <VoiceListenButton
+            lang={lang}
+            size="sm"
+            testId="voice-listen-my-turn-header"
+            text={
+              trackedSlip
+                ? `${t.myTurn.title}. ${t.slip.tokenLabel}: ${trackedSlip.publicCode}. ${statusText}. ${t.home.nowServing}: ${queue.nowServingCode || t.home.noActiveToken}. ${t.slip.peopleAhead}: ${queue.peopleAheadWaiting ?? 0}. ${deptName}, ${doctorName}, ${dept.room_label}, ${floorLabel}.`
+                : `${t.myTurn.title}. ${t.myTurn.subtitle}. ${t.myTurn.emptyDesc}`
+            }
+          />
+
           <button
             type="button"
             data-testid="patient-sound-alert-toggle"

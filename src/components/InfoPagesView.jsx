@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import BrandLogo from './BrandLogo.jsx';
+import VoiceListenButton from './VoiceListenButton.jsx';
 
 /**
  * Sanitizes raw error strings so raw JSON payloads, HTML error pages, or parser stack traces
@@ -264,26 +265,34 @@ export function FaqSection({ lang = 'en', standalone = false, onNavigate }) {
           const isOpen = openIndex === idx;
           return (
             <div key={item.id} data-testid={`faq-item-${idx + 1}`}>
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                aria-controls={`faq-panel-${idx + 1}`}
-                onClick={() => setOpenIndex(isOpen ? -1 : idx)}
-                className="touch-target w-full px-4 sm:px-5 py-4 text-left flex items-center justify-between gap-4 hover:bg-subtle/60 transition-colors"
-              >
-                <span className="font-bold text-sm sm:text-base text-ink-primary leading-snug">
-                  <span className="font-token text-xs font-extrabold text-brand-teal mr-2.5">
-                    0{idx + 1}
-                  </span>
-                  {item.question}
-                </span>
-                <span
-                  aria-hidden="true"
-                  className="w-7 h-7 rounded-lg border border-border-strong bg-surface text-brand-primary font-token font-extrabold text-sm inline-flex items-center justify-center shrink-0"
+              <div className="flex items-center justify-between gap-2 pr-3 sm:pr-4 hover:bg-subtle/60 transition-colors">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-panel-${idx + 1}`}
+                  onClick={() => setOpenIndex(isOpen ? -1 : idx)}
+                  className="touch-target flex-1 px-4 sm:px-5 py-4 text-left flex items-center justify-between gap-4"
                 >
-                  {isOpen ? '−' : '+'}
-                </span>
-              </button>
+                  <span className="font-bold text-sm sm:text-base text-ink-primary leading-snug">
+                    <span className="font-token text-xs font-extrabold text-brand-teal mr-2.5">
+                      0{idx + 1}
+                    </span>
+                    {item.question}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="w-7 h-7 rounded-lg border border-border-strong bg-surface text-brand-primary font-token font-extrabold text-sm inline-flex items-center justify-center shrink-0"
+                  >
+                    {isOpen ? '−' : '+'}
+                  </span>
+                </button>
+                <VoiceListenButton
+                  lang={lang}
+                  size="sm"
+                  testId={`voice-listen-faq-${idx + 1}`}
+                  text={`${item.question} ${item.answer}`}
+                />
+              </div>
               {isOpen && (
                 <div
                   id={`faq-panel-${idx + 1}`}

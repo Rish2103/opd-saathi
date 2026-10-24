@@ -30,6 +30,7 @@ import SlipView from './components/SlipView.jsx';
 import MyTurnView from './components/MyTurnView.jsx';
 import NavigationView from './components/NavigationView.jsx';
 import StaffView from './components/StaffView.jsx';
+import VoiceListenButton from './components/VoiceListenButton.jsx';
 import {
   AboutPageView,
   ClinicalFooter,
@@ -201,6 +202,26 @@ function persistSavedSlipsToStorage(slips) {
   }
 }
 
+const VIEW_PATH_MAP = {
+  home: '/',
+  register: '/register',
+  slip: '/slip',
+  'my-turn': '/my-turn',
+  navigate: '/navigate',
+  staff: '/staff',
+  kiosk: '/kiosk',
+  about: '/about',
+  faq: '/faq',
+  privacy: '/privacy',
+  terms: '/terms',
+  'thank-you': '/thank-you',
+  'not-found': '/404'
+};
+
+function getPathForView(view) {
+  return VIEW_PATH_MAP[view] || '/';
+}
+
 function getInitialViewFromLocation(overrideView = null) {
   if (overrideView) return { view: overrideView, code: '' };
   if (typeof window === 'undefined') return { view: 'home', code: '' };
@@ -349,17 +370,154 @@ export default function App({
   savedSlipsRef.current = savedSlips;
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
-  const navigateToView = useCallback((nextView) => {
-    setActiveView(nextView);
-    setMobileNavOpen(false);
-    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+  const isPopStateRef = useRef(false);
+  const [navHistory, setNavHistory] = useState(() => ({
+    stack: [{ view: initialNav.view, regStep: initialRegStep }],
+    index: 0
+  }));
+
+  const navigateToView = useCallback(
+    (nextView, options = {}) => {
+      const targetStep =
+        options.regStep !== undefined ? options.regStep : regStep;
+      setActiveView(nextView);
+      if (options.regStep !== undefined) {
+        setRegStep(options.regStep);
+      }
+      setMobileNavOpen(false);
+
+      setNavHistory((prev) => {
+        const currentEntry = prev.stack[prev.index];
+        if (
+          currentEntry &&
+          currentEntry.view === nextView &&
+          currentEntry.regStep === targetStep
+        ) {
+          return prev;
+        }
+        const nextStack = [
+          ...prev.stack.slice(0, prev.index + 1),
+          { view: nextView, regStep: targetStep }
+        ];
+        const nextIndex = nextStack.length - 1;
+        if (
+          typeof window !== 'undefined' &&
+          window.history &&
+          typeof window.history.pushState === 'function' &&
+          !isPopStateRef.current
+        ) {
+          try {
+            window.history.pushState(
+              { view: nextView, regStep: targetStep, historyIndex: nextIndex },
+              '',
+              getPathForView(nextView)
+            );
+          } catch {
+            // ignore pushState errors in restricted test sandboxes
+          }
+        }
+        return { stack: nextStack, index: nextIndex };
+      });
+
+      if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch {
+          window.scrollTo(0, 0);
+        }
+      }
+    },
+    [regStep]
+  );
+
+  // Synchronize initial history entry and listen to Browser Back / Forward (popstate) buttons
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history) return undefined;
+    try {
+      if (typeof window.history.replaceState === 'function') {
+        window.history.replaceState(
+          { view: initialNav.view, regStep: initialRegStep, historyIndex: 0 },
+          '',
+          window.location.pathname + window.location.search
+        );
+      }
+    } catch {
+      // ignore replaceState errors
+    }
+
+    const handlePopState = (event) => {
+      isPopStateRef.current = true;
+      const stateView = event.state?.view;
+      const stateStep = event.state?.regStep;
+      const stateIndex = event.state?.historyIndex;
+      const resolvedView =
+        stateView || getInitialViewFromLocation().view || 'home';
+      setActiveView(resolvedView);
+      if (typeof stateStep === 'number' && stateStep >= 1 && stateStep <= 3) {
+        setRegStep(stateStep);
+      }
+      if (typeof stateIndex === 'number') {
+        setNavHistory((prev) => ({
+          ...prev,
+          index: Math.max(0, Math.min(prev.stack.length - 1, stateIndex))
+        }));
+      }
+      setMobileNavOpen(false);
+      setTimeout(() => {
+        isPopStateRef.current = false;
+      }, 0);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [initialNav.view, initialRegStep]);
+
+  const canGoBack = navHistory.index > 0;
+  const canGoForward = navHistory.index < navHistory.stack.length - 1;
+
+  const handleHistoryBack = useCallback(() => {
+    if (!canGoBack) return;
+    if (
+      typeof window !== 'undefined' &&
+      window.history &&
+      typeof window.history.back === 'function'
+    ) {
+      const targetIndex = navHistory.index - 1;
+      const targetEntry = navHistory.stack[targetIndex];
+      if (targetEntry) {
+        setActiveView(targetEntry.view);
+        if (targetEntry.regStep) setRegStep(targetEntry.regStep);
+        setNavHistory((prev) => ({ ...prev, index: targetIndex }));
+      }
       try {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.history.back();
       } catch {
-        window.scrollTo(0, 0);
+        // fallback handled by state update above
       }
     }
-  }, []);
+  }, [canGoBack, navHistory]);
+
+  const handleHistoryForward = useCallback(() => {
+    if (!canGoForward) return;
+    if (
+      typeof window !== 'undefined' &&
+      window.history &&
+      typeof window.history.forward === 'function'
+    ) {
+      const targetIndex = navHistory.index + 1;
+      const targetEntry = navHistory.stack[targetIndex];
+      if (targetEntry) {
+        setActiveView(targetEntry.view);
+        if (targetEntry.regStep) setRegStep(targetEntry.regStep);
+        setNavHistory((prev) => ({ ...prev, index: targetIndex }));
+      }
+      try {
+        window.history.forward();
+      } catch {
+        // fallback handled by state update above
+      }
+    }
+  }, [canGoForward, navHistory]);
 
   const handleScrollToTop = useCallback(() => {
     if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
@@ -377,6 +535,20 @@ export default function App({
       document.title = getUniquePageTitle(activeView, lang);
     }
   }, [activeView, lang]);
+
+  // Apply Large Text / Assisted Mode attribute directly on <html> (:root) so rem font scaling applies everywhere
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute(
+        'data-assisted',
+        assistedMode ? 'true' : 'false'
+      );
+      return () => {
+        document.documentElement.removeAttribute('data-assisted');
+      };
+    }
+    return undefined;
+  }, [assistedMode]);
 
   // Apply optional clinical dark mode attribute (Item 5)
   useEffect(() => {
@@ -939,7 +1111,7 @@ export default function App({
       setLastVerifiedAt(new Date().toLocaleTimeString());
 
       refreshPublicBoard();
-      setActiveView('slip');
+      navigateToView('slip');
     } catch (err) {
       setRegError(
         sanitizeUiErrorMessage(
@@ -963,7 +1135,7 @@ export default function App({
       handleSelectSavedSlip(existingSaved);
       setDuplicateTicketInfo(null);
       setRegError(null);
-      setActiveView('slip');
+      navigateToView('slip');
       return;
     }
 
@@ -971,7 +1143,7 @@ export default function App({
       await handleLookupCode(duplicateTicketInfo.publicCode);
       setDuplicateTicketInfo(null);
       setRegError(null);
-      setActiveView('slip');
+      navigateToView('slip');
     }
   }
 
@@ -1060,8 +1232,8 @@ export default function App({
         {t.skipLink}
       </a>
 
-      {/* Structured Institutional Navigation Header (shadcn / HeroUI / Apple SKILL.md §1, §12, §16) */}
-      <header className="no-print sticky top-0 z-40 apple-nav-bar">
+      {/* Structured Institutional Navigation Header (shadcn / HeroUI / 21st.dev / Apple SKILL.md §1, §12, §16) */}
+      <header className="no-print sticky top-0 z-40 apple-nav-bar shadow-sm">
         {/* Top Scroll Progress Indicator (Item 8) */}
         <div
           data-testid="scroll-progress-bar"
@@ -1074,12 +1246,12 @@ export default function App({
           />
         </div>
 
-        {/* Tier 1: Slim Institutional Utility Strip (Language, Accessibility & Dark Mode) */}
-        <div className="border-b border-border-subtle/80 bg-subtle/75">
-          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 min-h-[38px] py-1 flex flex-wrap items-center justify-between gap-2">
+        {/* Tier 1: Institutional Utility Bar (Hospital Status, Voice Readout, Language, Large Text & Theme) */}
+        <div className="border-b border-border-subtle/80 bg-subtle/85">
+          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 min-h-[40px] py-1.5 flex flex-wrap items-center justify-between gap-2">
             {/* Left: Hospital Operational Status & Kiosk Quick Link */}
-            <div className="hidden md:flex items-center gap-3 text-xs font-medium text-ink-secondary">
-              <span className="inline-flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-2.5 text-xs font-medium text-ink-secondary">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface border border-border-subtle text-ink-primary font-semibold shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-status-serving" aria-hidden="true" />
                 <span>
                   {lang === 'hi'
@@ -1089,19 +1261,19 @@ export default function App({
                       : 'OPD Hours: Mon–Sat 08:00–16:00 IST'}
                 </span>
               </span>
-              <span className="text-border-strong" aria-hidden="true">·</span>
-              <span>
-                {lang === 'hi'
-                  ? 'आपातकालीन कक्ष 101 (24×7)'
-                  : lang === 'ta'
-                    ? 'அவசர சிகிச்சை அறை 101 (24×7)'
-                    : 'Casualty Room 101 (24×7)'}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50/90 border border-red-200 text-status-emergency font-bold">
+                <span>
+                  {lang === 'hi'
+                    ? 'आपातकालीन कक्ष 101 (24×7)'
+                    : lang === 'ta'
+                      ? 'அவசர சிகிச்சை அறை 101 (24×7)'
+                      : 'Casualty Room 101 (24×7)'}
+                </span>
               </span>
-              <span className="text-border-strong" aria-hidden="true">·</span>
               <button
                 type="button"
                 onClick={() => navigateToView('kiosk')}
-                className="font-bold text-brand-teal hover:underline"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-tealSoft border border-brand-teal/40 font-bold text-brand-teal hover:bg-brand-teal hover:text-white transition-colors"
               >
                 <span>
                   {lang === 'hi'
@@ -1113,14 +1285,51 @@ export default function App({
               </button>
             </div>
 
-            {/* Right: Trilingual Switcher, Large Text & Dark Mode */}
+            {/* Right: Voice Page Reader, Trilingual Switcher, Large Text (A+) & Dark Mode */}
             <div className="flex flex-wrap items-center justify-between md:justify-end w-full md:w-auto gap-1.5 sm:gap-2">
+              {/* Voice Readout for Current Active Tab */}
+              <VoiceListenButton
+                lang={lang}
+                variant="header"
+                testId="navbar-voice-listen-btn"
+                label={
+                  lang === 'hi'
+                    ? 'पेज सुनें'
+                    : lang === 'ta'
+                      ? 'பக்கத்தைக் கேளுங்கள்'
+                      : 'Listen to Page'
+                }
+                text={
+                  activeView === 'home'
+                    ? `${t.home.heroTitle}. ${t.home.heroDesc}. ${t.home.boardTitle}.`
+                    : activeView === 'register'
+                      ? `${t.register.title}. ${t.register.subtitle}. ${
+                          regStep === 1
+                            ? t.register.selectDeptPrompt
+                            : regStep === 2
+                              ? t.register.patientSectionSubtitle
+                              : t.register.summaryHeading
+                        }`
+                      : activeView === 'slip'
+                        ? `${t.slip.title}. ${
+                            (activeSavedEntry?.ticket || trackedSlip)?.publicCode
+                              ? `${t.slip.tokenLabel}: ${(activeSavedEntry?.ticket || trackedSlip).publicCode}`
+                              : t.slip.noSlipTitle
+                          }`
+                        : activeView === 'my-turn'
+                          ? `${t.myTurn.title}. ${t.myTurn.subtitle}.`
+                          : activeView === 'navigate'
+                            ? `${t.navigate.title}. ${t.navigate.subtitle}.`
+                            : `${t.brandTitle}. ${t.brandSubtitle}.`
+                }
+              />
+
               {/* Trilingual Native Script Selector */}
               <div
                 role="group"
                 aria-label="Language Selector"
                 data-testid="language-selector"
-                className="inline-flex items-center rounded-lg bg-surface border border-border-subtle p-0.5 gap-0.5 shadow-sm"
+                className="inline-flex items-center rounded-lg bg-surface border border-border-strong/60 p-0.5 gap-0.5 shadow-sm"
               >
                 {[
                   { code: 'en', label: 'EN', fullLabel: 'English (EN)' },
@@ -1149,18 +1358,22 @@ export default function App({
               </div>
 
               <div className="flex items-center gap-1.5">
-                {/* Large Text / Assisted Mode Toggle */}
+                {/* Large Text (A+) / Assisted Mode Toggle */}
                 <button
                   type="button"
                   data-testid="assisted-mode-toggle"
                   onClick={() => setAssistedMode((prev) => !prev)}
                   aria-pressed={assistedMode}
-                  className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg border text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all ${
+                  title="Toggle Large Text (+19% font size across all screens)"
+                  className={`h-7 inline-flex items-center justify-center gap-1 px-2.5 rounded-lg border text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all ${
                     assistedMode
-                      ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
-                      : 'bg-surface text-ink-secondary hover:text-ink-primary border-border-subtle hover:bg-subtle'
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-sm ring-2 ring-brand-primary/20'
+                      : 'bg-surface text-ink-secondary hover:text-ink-primary border-border-strong/60 hover:bg-subtle'
                   }`}
                 >
+                  <span className="font-token text-[11px] font-black" aria-hidden="true">
+                    A+
+                  </span>
                   <span>{assistedMode ? t.assistedOn : t.assistedOff}</span>
                 </button>
 
@@ -1173,7 +1386,7 @@ export default function App({
                   className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg border text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all ${
                     darkMode
                       ? 'bg-brand-teal text-white border-brand-teal shadow-sm'
-                      : 'bg-surface text-ink-secondary hover:text-ink-primary border-border-subtle hover:bg-subtle'
+                      : 'bg-surface text-ink-secondary hover:text-ink-primary border-border-strong/60 hover:bg-subtle'
                   }`}
                 >
                   <span>
@@ -1195,10 +1408,10 @@ export default function App({
           </div>
         </div>
 
-        {/* Tier 2: Main Navigation Bar (Brand Left — Navigation Center — Emergency CTA Right) */}
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-2.5 lg:py-0 lg:min-h-[64px] flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
-          {/* Left: Clickable Brand Identity */}
-          <div className="flex items-center gap-2.5 lg:order-1 shrink-0">
+        {/* Tier 2: Main Navigation Dock (Brand + History Left — HeroUI Pill Dock Center — Emergency CTA Right) */}
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-2.5 lg:py-2 lg:min-h-[68px] flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
+          {/* Left: Clickable Brand Identity + Back/Forward History Controls */}
+          <div className="flex items-center gap-2 lg:order-1 shrink-0">
             <button
               type="button"
               data-testid="brand-logo-home-btn"
@@ -1211,13 +1424,40 @@ export default function App({
                 compact={false}
               />
             </button>
-            <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-md bg-subtle border border-border-subtle text-[11px] font-semibold text-ink-secondary">
-              {lang === 'hi'
-                ? 'ओपीडी पोर्टल'
-                : lang === 'ta'
-                  ? 'ஓபிடி தளம்'
-                  : 'OPD Portal'}
-            </span>
+
+            {/* In-App Back & Forward History Controls (Synchronized with Browser History) */}
+            <div
+              role="group"
+              aria-label="History Navigation"
+              className="inline-flex items-center rounded-xl bg-subtle/85 border border-border-strong/60 p-0.5 gap-0.5"
+            >
+              <button
+                type="button"
+                data-testid="nav-history-back-btn"
+                onClick={handleHistoryBack}
+                disabled={!canGoBack}
+                title={lang === 'hi' ? 'पीछे जाएं' : lang === 'ta' ? 'பின்செல்' : 'Go Back'}
+                className="h-8 px-2 rounded-lg inline-flex items-center justify-center gap-1 text-xs font-bold text-ink-primary hover:bg-surface disabled:opacity-40 disabled:pointer-events-none transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only sm:text-[11px]">
+                  {lang === 'hi' ? 'पीछे' : lang === 'ta' ? 'பின்' : 'Back'}
+                </span>
+              </button>
+              <button
+                type="button"
+                data-testid="nav-history-forward-btn"
+                onClick={handleHistoryForward}
+                disabled={!canGoForward}
+                title={lang === 'hi' ? 'आगे जाएं' : lang === 'ta' ? 'முன்செல்' : 'Go Forward'}
+                className="h-8 px-2 rounded-lg inline-flex items-center justify-center gap-1 text-xs font-bold text-ink-primary hover:bg-surface disabled:opacity-40 disabled:pointer-events-none transition"
+              >
+                <span className="sr-only sm:not-sr-only sm:text-[11px]">
+                  {lang === 'hi' ? 'आगे' : lang === 'ta' ? 'முன்' : 'Forward'}
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              </button>
+            </div>
           </div>
 
           {/* Right: Persistent Emergency Action + Mobile Menu Trigger */}
@@ -1256,17 +1496,17 @@ export default function App({
             </button>
           </div>
 
-          {/* Center (Desktop lg+) / Collapsible Drawer (<lg): Primary Navigation Links */}
+          {/* Center (Desktop lg+) / Collapsible Drawer (<lg): HeroUI / shadcn Segmented Navigation Dock */}
           <nav
             id="primary-navigation-links"
             aria-label="Primary Navigation"
             className={`${
               mobileNavOpen ? 'grid' : 'hidden lg:flex'
-            } w-full lg:w-auto lg:order-2 grid-cols-2 sm:grid-cols-3 lg:flex-nowrap items-center gap-1 bg-subtle/80 p-1 rounded-xl border border-border-subtle`}
+            } w-full lg:w-auto lg:order-2 grid-cols-2 sm:grid-cols-3 lg:flex-nowrap items-center gap-1 bg-subtle/90 p-1.5 rounded-2xl border border-border-strong/60 shadow-inner`}
           >
             {[
-              { id: 'home', label: t.nav.home },
-              { id: 'register', label: t.nav.register },
+              { id: 'home', label: t.nav.home, Icon: Home },
+              { id: 'register', label: t.nav.register, Icon: UserPlus },
               {
                 id: 'slip',
                 label:
@@ -1274,13 +1514,15 @@ export default function App({
                     ? `${t.nav.slip} (${savedSlips.length})`
                     : activeSavedEntry?.publicCode
                       ? `${t.nav.slip} (1)`
-                      : t.nav.slip
+                      : t.nav.slip,
+                Icon: FileText
               },
-              { id: 'my-turn', label: t.nav.myTurn },
-              { id: 'navigate', label: t.nav.navigate },
-              { id: 'staff', label: t.nav.staff }
+              { id: 'my-turn', label: t.nav.myTurn, Icon: Activity },
+              { id: 'navigate', label: t.nav.navigate, Icon: Navigation },
+              { id: 'staff', label: t.nav.staff, Icon: ShieldCheck }
             ].map((item) => {
               const isCurrent = activeView === item.id;
+              const NavIcon = item.Icon;
               return (
                 <button
                   key={item.id}
@@ -1288,12 +1530,18 @@ export default function App({
                   data-testid={`nav-tab-${item.id}`}
                   aria-current={isCurrent ? 'page' : undefined}
                   onClick={() => navigateToView(item.id)}
-                  className={`h-9 inline-flex items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold text-xs xl:text-[13px] text-center leading-tight whitespace-nowrap transition-all duration-150 active:scale-[0.97] ${
+                  className={`relative h-9 inline-flex items-center justify-center gap-1.5 px-3 xl:px-3.5 rounded-xl font-bold text-xs xl:text-[13px] text-center leading-tight whitespace-nowrap transition-all duration-150 active:scale-[0.97] ${
                     isCurrent
-                      ? 'bg-brand-primary text-white shadow-sm'
-                      : 'text-ink-secondary hover:text-ink-primary hover:bg-surface'
+                      ? 'bg-brand-primary text-white shadow-sm ring-1 ring-brand-primary'
+                      : 'text-ink-secondary hover:text-ink-primary hover:bg-surface/90'
                   }`}
                 >
+                  <NavIcon
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      isCurrent ? 'text-teal-300' : 'text-brand-teal'
+                    }`}
+                    aria-hidden="true"
+                  />
                   <span className="truncate">{item.label}</span>
                 </button>
               );
@@ -1314,28 +1562,37 @@ export default function App({
           <div className="space-y-8">
             {/* Solid High-Contrast Clinical Hero Banner (No harsh gradients or vibecoded badges) */}
             <section className="bg-brand-primary text-white rounded-2xl p-6 sm:p-8 shadow-card border border-brand-primary space-y-6">
-              <div className="space-y-3 max-w-3xl">
-                <div className="text-xs font-extrabold uppercase tracking-wider text-teal-200">
-                  {lang === 'hi'
-                    ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
-                    : lang === 'ta'
-                      ? 'அரசு மருத்துவமனை டிஜிட்டல் ஓபிடி வழிகாட்டி'
-                      : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-3 max-w-3xl">
+                  <div className="text-xs font-extrabold uppercase tracking-wider text-teal-200">
+                    {lang === 'hi'
+                      ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
+                      : lang === 'ta'
+                        ? 'அரசு மருத்துவமனை டிஜிட்டல் ஓபிடி வழிகாட்டி'
+                        : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
+                  </div>
+                  <h1
+                    className={`font-extrabold text-white ${
+                      lang === 'ta'
+                        ? 'text-xl sm:text-2xl lg:text-[30px] leading-[1.4] tracking-normal'
+                        : lang === 'hi'
+                          ? 'text-2xl sm:text-3xl lg:text-[34px] leading-[1.35] tracking-normal'
+                          : 'text-2xl sm:text-3xl lg:text-4xl leading-tight tracking-tight'
+                    }`}
+                  >
+                    {t.home.heroTitle}
+                  </h1>
+                  <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-2xl">
+                    {t.home.heroDesc}
+                  </p>
                 </div>
-                <h1
-                  className={`font-extrabold text-white ${
-                    lang === 'ta'
-                      ? 'text-xl sm:text-2xl lg:text-[30px] leading-[1.4] tracking-normal'
-                      : lang === 'hi'
-                        ? 'text-2xl sm:text-3xl lg:text-[34px] leading-[1.35] tracking-normal'
-                        : 'text-2xl sm:text-3xl lg:text-4xl leading-tight tracking-tight'
-                  }`}
-                >
-                  {t.home.heroTitle}
-                </h1>
-                <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-2xl">
-                  {t.home.heroDesc}
-                </p>
+
+                <VoiceListenButton
+                  lang={lang}
+                  variant="inverse"
+                  testId="hero-voice-listen-btn"
+                  text={`${t.home.heroTitle}. ${t.home.heroDesc}. ${t.home.ctaRegister}. ${t.home.ctaMyTurn}. ${t.home.ctaRoute}.`}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1 items-stretch">
@@ -1621,6 +1878,11 @@ export default function App({
                   const nowServing = item.nowServingCode || t.home.noActiveToken;
                   const waiting = item.waitingCount ?? 0;
                   const isDeptEmpty = waiting === 0 && !item.nowServingCode;
+                  const spokenBoardSummary = `${name}. ${roomLabel}, ${t.floors[floorNum] || `Floor ${floorNum}`}. ${t.home.nowServing}: ${nowServing}. ${t.home.waitingCount}: ${waiting}. ${
+                    isDeptEmpty
+                      ? t.home.deptOpenImmediate
+                      : `${t.home.estWait}: ${item.estimatedWaitMinutes ?? waiting * 7} ${t.home.mins}`
+                  }.`;
 
                   return (
                     <article
@@ -1632,9 +1894,16 @@ export default function App({
                           <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-brand-primary text-white">
                             {prefix}
                           </span>
-                          <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-surface text-ink-primary border border-border-subtle">
-                            {roomLabel} · F{floorNum}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-token text-xs font-bold px-2 py-1 rounded-lg bg-surface text-ink-primary border border-border-subtle">
+                              {roomLabel} · F{floorNum}
+                            </span>
+                            <VoiceListenButton
+                              lang={lang}
+                              testId={`board-listen-${slug}`}
+                              text={spokenBoardSummary}
+                            />
+                          </div>
                         </div>
                         <h3 className="font-extrabold text-base text-ink-primary leading-snug min-h-[2.5rem] flex items-start">
                           {name}
@@ -1683,7 +1952,7 @@ export default function App({
                           setDuplicateTicketInfo(null);
                           setRegError(null);
                           setRegStep(2);
-                          navigateToView('register');
+                          navigateToView('register', { regStep: 2 });
                         }}
                         className="btn-teal w-full text-xs sm:text-sm py-2.5"
                       >
@@ -1714,16 +1983,30 @@ export default function App({
             className="card-surface p-5 sm:p-7 space-y-6"
           >
             <div className="border-b border-border-subtle pb-5 space-y-3">
-              <div>
-                <h2
-                  id="register-heading"
-                  className="text-xl sm:text-2xl font-extrabold text-ink-primary"
-                >
-                  {t.register.title}
-                </h2>
-                <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                  {t.register.subtitle}
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2
+                    id="register-heading"
+                    className="text-xl sm:text-2xl font-extrabold text-ink-primary"
+                  >
+                    {t.register.title}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-ink-secondary mt-1">
+                    {t.register.subtitle}
+                  </p>
+                </div>
+
+                <VoiceListenButton
+                  lang={lang}
+                  testId="register-wizard-listen-btn"
+                  text={`${t.register.title}. ${t.register.subtitle}. ${
+                    regStep === 1
+                      ? t.register.selectDeptPrompt
+                      : regStep === 2
+                        ? `${t.register.patientSectionTitle}. ${t.register.patientSectionSubtitle}.`
+                        : t.register.summaryHeading
+                  }`}
+                />
               </div>
 
               {/* 3-Step Visual Progress Bar */}
@@ -1790,25 +2073,19 @@ export default function App({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {departments.map((dept) => {
                     const isSelected = regDeptSlug === dept.slug;
+                    const locDept = getLocalizedDepartment(dept, lang, t);
+                    const spokenDeptText = `${locDept.name}. ${locDept.doctor}. ${dept.room_label}, ${t.floors[dept.floor_number]}. ${locDept.landmark}.`;
                     return (
-                      <button
+                      <div
                         key={dept.slug}
-                        type="button"
-                        data-testid={`dept-card-${dept.slug}`}
-                        onClick={() => {
-                          setRegDeptSlug(dept.slug);
-                          setDuplicateTicketInfo(null);
-                          setRegError(null);
-                          setRegStep(2);
-                        }}
-                        className={`text-left rounded-2xl p-4 sm:p-5 border-2 transition-all flex flex-col justify-between gap-3 ${
+                        className={`rounded-2xl p-4 sm:p-5 border-2 transition-all flex flex-col justify-between gap-3 ${
                           isSelected
                             ? 'bg-brand-primary/5 border-brand-primary ring-2 ring-brand-primary/20 shadow-sm'
                             : 'bg-canvas border-border-subtle hover:border-brand-primary/50 hover:bg-subtle/60'
                         }`}
                       >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
                             <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-brand-primary text-white">
                               {dept.token_prefix}
                             </span>
@@ -1816,30 +2093,52 @@ export default function App({
                               {dept.room_label} · {t.floors[dept.floor_number]}
                             </span>
                           </div>
-                          <div className="font-extrabold text-base sm:text-lg text-ink-primary">
-                            {getLocalizedDepartment(dept, lang, t).name}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs sm:text-sm text-ink-secondary font-medium">
-                            <Stethoscope
-                              className="w-4 h-4 text-brand-teal shrink-0"
-                              aria-hidden="true"
-                            />
-                            <span>
-                              {getLocalizedDepartment(dept, lang, t).doctor}
-                            </span>
-                          </div>
+                          <VoiceListenButton
+                            lang={lang}
+                            testId={`dept-listen-${dept.slug}`}
+                            text={spokenDeptText}
+                          />
                         </div>
 
-                        <div className="pt-2.5 border-t border-border-subtle text-xs text-ink-secondary flex items-center gap-1.5">
-                          <MapPin
-                            className="w-4 h-4 text-brand-teal shrink-0"
-                            aria-hidden="true"
-                          />
-                          <span>
-                            {getLocalizedDepartment(dept, lang, t).landmark}
-                          </span>
-                        </div>
-                      </button>
+                        <button
+                          type="button"
+                          data-testid={`dept-card-${dept.slug}`}
+                          onClick={() => {
+                            setRegDeptSlug(dept.slug);
+                            setDuplicateTicketInfo(null);
+                            setRegError(null);
+                            setRegStep(2);
+                          }}
+                          className="text-left w-full flex flex-col justify-between gap-3 focus:outline-none"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="font-extrabold text-base sm:text-lg text-ink-primary">
+                              {locDept.name}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs sm:text-sm text-ink-secondary font-medium">
+                              <Stethoscope
+                                className="w-4 h-4 text-brand-teal shrink-0"
+                                aria-hidden="true"
+                              />
+                              <span>{locDept.doctor}</span>
+                            </div>
+                          </div>
+
+                          <div className="pt-2.5 border-t border-border-subtle text-xs text-ink-secondary flex items-center justify-between gap-2 w-full">
+                            <span className="inline-flex items-center gap-1.5">
+                              <MapPin
+                                className="w-4 h-4 text-brand-teal shrink-0"
+                                aria-hidden="true"
+                              />
+                              <span>{locDept.landmark}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 font-bold text-brand-primary shrink-0">
+                              <span>{t.register.nextBtn}</span>
+                              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                            </span>
+                          </div>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1851,14 +2150,22 @@ export default function App({
               <div className="space-y-6">
                 {/* Patient Identity Details Section */}
                 <div className="p-4 sm:p-6 rounded-2xl bg-canvas border border-border-strong/70 space-y-4">
-                  <div className="space-y-1 border-b border-border-subtle pb-3">
-                    <h3 className="font-extrabold text-base sm:text-lg text-brand-primary flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-brand-teal shrink-0" aria-hidden="true" />
-                      <span>{t.register.patientSectionTitle}</span>
-                    </h3>
-                    <p className="text-xs sm:text-sm text-ink-secondary">
-                      {t.register.patientSectionSubtitle}
-                    </p>
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border-subtle pb-3">
+                    <div className="space-y-1">
+                      <h3 className="font-extrabold text-base sm:text-lg text-brand-primary flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-brand-teal shrink-0" aria-hidden="true" />
+                        <span>{t.register.patientSectionTitle}</span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-ink-secondary">
+                        {t.register.patientSectionSubtitle}
+                      </p>
+                    </div>
+                    <VoiceListenButton
+                      lang={lang}
+                      size="sm"
+                      testId="voice-listen-reg-step2"
+                      text={`${t.register.patientSectionTitle}. ${t.register.patientSectionSubtitle}. ${t.register.patientNameLabel}. ${t.register.phoneLabel}. ${t.register.ageLabel}. ${t.register.visitTypeLabel}. ${t.register.avoidStairsLabel}. ${t.register.avoidStairsHint}`}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2094,9 +2401,17 @@ export default function App({
             {regStep === 3 && selectedRegDept && (
               <div className="space-y-5">
                 <div className="p-5 sm:p-6 rounded-2xl bg-canvas border-2 border-border-strong/70 space-y-4">
-                  <h3 className="font-extrabold text-base sm:text-lg text-ink-primary border-b border-border-subtle pb-2.5">
-                    {t.register.summaryHeading}
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2.5">
+                    <h3 className="font-extrabold text-base sm:text-lg text-ink-primary">
+                      {t.register.summaryHeading}
+                    </h3>
+                    <VoiceListenButton
+                      lang={lang}
+                      size="sm"
+                      testId="voice-listen-reg-step3"
+                      text={`${t.register.summaryHeading}. ${t.register.patientLabel}: ${regPatientName.trim()}. ${t.register.deptLabel}: ${getLocalizedDepartment(selectedRegDept, lang, t).name}. ${t.register.doctorLabel}: ${getLocalizedDepartment(selectedRegDept, lang, t).doctor}. ${t.register.roomLabel}: ${selectedRegDept.room_label}, ${t.floors[selectedRegDept.floor_number]}. ${t.register.visitTypeLabel}: ${t.visitTypes[regVisitType]}.`}
+                    />
+                  </div>
 
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -2266,7 +2581,7 @@ export default function App({
                 setLookupCode(code);
                 handleLookupCode(code);
               }
-              setActiveView('my-turn');
+              navigateToView('my-turn');
             }}
             onOpenDirections={(arg1, arg2) => {
               if (arg1 && typeof arg1 === 'object') {
@@ -2282,13 +2597,13 @@ export default function App({
                   avoidStairs: Boolean(arg2 ?? true)
                 });
               }
-              setActiveView('navigate');
+              navigateToView('navigate');
             }}
             onRegisterNew={() => {
               setDuplicateTicketInfo(null);
               setRegError(null);
               setRegStep(1);
-              setActiveView('register');
+              navigateToView('register', { regStep: 1 });
             }}
           />
         )}
@@ -2315,7 +2630,7 @@ export default function App({
               setDuplicateTicketInfo(null);
               setRegError(null);
               setRegStep(1);
-              setActiveView('register');
+              navigateToView('register', { regStep: 1 });
             }}
             onOpenDirections={({ fromNodeId, toNodeId, avoidStairs }) => {
               setRouteQuery({
@@ -2323,7 +2638,7 @@ export default function App({
                 toNodeId: toNodeId || 'room_204_med',
                 avoidStairs: Boolean(avoidStairs ?? true)
               });
-              setActiveView('navigate');
+              navigateToView('navigate');
             }}
           />
         )}

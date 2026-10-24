@@ -150,3 +150,63 @@ export function getSpeechCapabilities(lang = 'en') {
     targetBcp47
   };
 }
+
+/**
+ * Stops any active browser SpeechSynthesis playback immediately.
+ */
+export function stopAllSpeech() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      // Ignore cancellation errors in restricted browsers
+    }
+  }
+}
+
+/**
+ * Speaks a given text string aloud in the target language ('en', 'hi', 'ta') using Web Speech API.
+ * Falls back to a gentle chime if SpeechSynthesis is unavailable in the browser.
+ */
+export function speakTextAloud(text, lang = 'en', { onStart, onEnd, onError } = {}) {
+  const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!cleanText) {
+    return false;
+  }
+
+  const caps = getSpeechCapabilities(lang);
+  if (!caps.supported) {
+    playPatientCalledChime();
+    if (onEnd) onEnd();
+    return false;
+  }
+
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new window.SpeechSynthesisUtterance(cleanText);
+    utterance.lang = caps.targetBcp47;
+    if (caps.voice) {
+      utterance.voice = caps.voice;
+    }
+    utterance.rate = 0.94;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => {
+      if (onStart) onStart();
+    };
+    utterance.onend = () => {
+      if (onEnd) onEnd();
+    };
+    utterance.onerror = () => {
+      if (onError) onError();
+      if (onEnd) onEnd();
+    };
+
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch {
+    if (onError) onError();
+    if (onEnd) onEnd();
+    return false;
+  }
+}
