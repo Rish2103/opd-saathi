@@ -28,32 +28,49 @@
   --border-strong: #94a3b8;
   --focus-ring: #ffbf47;
   --base-font-scale: 1;
-  --min-touch-target: 48px;
+  --min-touch-target: 44px;
 }
 
-/* Assisted Mode increases font scale, touch targets, and border contrast */
+/* Assisted Mode increases font scale and applies zero-layout-shift high-contrast boundaries */
 [data-assisted='true'] {
-  --base-font-scale: 1.15;
-  --min-touch-target: 56px;
+  --base-font-scale: 1.125;
+  --min-touch-target: 48px;
   --border-strong: #0f172a;
+  line-height: 1.6;
 }
 
 [data-assisted='true'] .border-border-strong {
   border-color: var(--border-strong);
 }
 
+[data-assisted='true'] .card-surface,
+[data-assisted='true'] .glass-card,
+[data-assisted='true'] input,
+[data-assisted='true'] select {
+  box-shadow: inset 0 0 0 2px #0f172a, 0 2px 8px rgba(11, 37, 69, 0.08);
+}
+
 html {
-  font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', system-ui, -apple-system, sans-serif;
   font-size: calc(16px * var(--base-font-scale));
   background-color: var(--bg-canvas);
   color: var(--text-primary);
   overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(13, 110, 110, 0.07) 0%, transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(11, 37, 69, 0.06) 0%, transparent 38%);
+  background-attachment: fixed;
 }
 
 /* Prevent clipping of Devanagari top/bottom matras */
 [lang='hi'],
 .font-devanagari {
-  font-family: 'Noto Sans Devanagari', 'Noto Sans', system-ui, sans-serif;
+  font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
   line-height: 1.65;
   letter-spacing: 0 !important;
 }
@@ -73,13 +90,38 @@ html {
 /* Minimum touch target helper */
 .touch-target {
   min-height: var(--min-touch-target);
-  min-width: var(--min-touch-target);
 }
 
-/* Shared Card, Token Display & Button Component System */
+/* Shared Liquid-Glass, Card, Token Display & Button Component System */
 @layer components {
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.84);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    box-shadow:
+      0 10px 30px -6px rgba(11, 37, 69, 0.1),
+      0 2px 8px -2px rgba(13, 110, 110, 0.06),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(148, 163, 184, 0.55);
+    @apply rounded-2xl shadow-card;
+  }
+
   .card-surface {
-    @apply bg-surface border-2 border-border-strong rounded-xl shadow-card;
+    @apply bg-surface border border-border-strong rounded-2xl shadow-card;
+  }
+
+  .ticket-perforation {
+    background-image: linear-gradient(to right, #94a3b8 50%, rgba(255, 255, 255, 0) 0%);
+    background-position: bottom;
+    background-size: 14px 2px;
+    background-repeat: repeat-x;
   }
 
   .token-code-display {
@@ -87,30 +129,34 @@ html {
   }
 
   .btn-primary {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary hover:bg-[#133863] text-white font-bold px-5 py-2.5 text-sm sm:text-base border-2 border-brand-primary shadow-sm transition-colors disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#0E315A] to-brand-primary hover:from-[#133C6D] hover:to-[#0E315A] active:scale-[0.99] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-primary shadow-sm transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-secondary {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-canvas text-brand-primary font-bold px-4 py-2.5 text-sm sm:text-base border-2 border-brand-primary shadow-sm transition-colors disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-slate-50 active:scale-[0.99] text-brand-primary font-bold px-4 py-2.5 text-sm sm:text-base border border-slate-300 hover:border-brand-primary shadow-sm transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-teal {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white font-bold px-5 py-2.5 text-sm sm:text-base border-2 border-brand-teal shadow-sm transition-colors disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#0F7E7E] to-brand-teal hover:from-brand-teal hover:to-brand-tealHover active:scale-[0.99] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-teal shadow-sm transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+  }
+
+  .btn-subtle {
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 active:scale-[0.99] text-ink-primary font-semibold px-3.5 py-2 text-xs sm:text-sm border border-slate-300/90 transition-all duration-150 disabled:opacity-60;
   }
 
   .btn-danger {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 hover:bg-red-100 text-status-emergency font-bold px-4 py-2.5 text-sm sm:text-base border-2 border-status-emergency shadow-sm transition-colors disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 hover:bg-red-100 active:scale-[0.99] text-status-emergency font-bold px-4 py-2.5 text-sm sm:text-base border border-status-emergency shadow-sm transition-all duration-150 disabled:opacity-60;
   }
 
   .btn-neutral {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-red-50 text-ink-secondary hover:text-status-emergency hover:border-status-emergency font-bold px-4 py-2.5 text-xs sm:text-sm border-2 border-border-strong shadow-sm transition-colors disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-red-50 active:scale-[0.99] text-ink-secondary hover:text-status-emergency hover:border-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm border border-border-strong shadow-sm transition-all duration-150 disabled:opacity-60;
   }
 }
 
 /* Native dialog backdrop styling */
 dialog::backdrop {
   background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
 }
 
 /* Print stylesheet for token slip */

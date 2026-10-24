@@ -214,21 +214,21 @@ export default function StaffView({
     return (
       <section
         aria-labelledby="staff-login-heading"
-        className="max-w-md mx-auto bg-surface border-2 border-border-strong rounded-xl p-6 shadow-card space-y-5"
+        className="max-w-md mx-auto bg-surface border border-border-subtle rounded-2xl p-5 sm:p-7 shadow-card space-y-5"
       >
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-brand-primary text-white">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-hero-gradient text-white flex items-center justify-center shadow-sm shrink-0">
             <Lock className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="staff-login-heading" className="text-xl font-bold text-ink-primary">
+            <h2 id="staff-login-heading" className="text-xl font-extrabold text-ink-primary tracking-tight">
               {t.staff.loginTitle}
             </h2>
-            <p className="text-xs text-ink-secondary">{t.staff.loginDesc}</p>
+            <p className="text-xs sm:text-sm text-ink-secondary">{t.staff.loginDesc}</p>
           </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-subtle border border-border-strong text-xs font-mono font-bold text-brand-primary">
+        <div className="p-3.5 rounded-xl bg-subtle border border-border-subtle text-xs font-mono font-bold text-brand-primary">
           {t.staff.demoHint}
         </div>
 
@@ -236,7 +236,7 @@ export default function StaffView({
           <div>
             <label
               htmlFor="staff-pin-input"
-              className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+              className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
             >
               {t.staff.pinLabel}
             </label>
@@ -248,14 +248,14 @@ export default function StaffView({
               onChange={(e) => setPin(e.target.value)}
               placeholder="••••"
               required
-              className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-lg font-bold tracking-widest"
+              className="touch-target w-full rounded-xl border border-border-strong bg-surface px-4 py-3 font-token text-lg font-extrabold tracking-widest shadow-xs"
             />
           </div>
 
           {authError && (
             <div
               role="alert"
-              className="p-3 rounded-lg bg-red-50 border border-status-emergency text-status-emergency text-xs font-bold"
+              className="p-3.5 rounded-xl bg-red-50 border border-status-emergency text-status-emergency text-xs font-bold"
             >
               {authError}
             </div>
@@ -264,9 +264,9 @@ export default function StaffView({
           <button
             type="submit"
             disabled={authLoading || !pin.trim()}
-            className="touch-target w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-5 py-3 text-sm sm:text-base disabled:opacity-60"
+            className="btn-primary w-full px-5 py-3 text-sm sm:text-base"
           >
-            <Lock className="w-4 h-4" aria-hidden="true" />
+            <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{t.staff.loginBtn}</span>
           </button>
         </form>
@@ -282,26 +282,26 @@ export default function StaffView({
   return (
     <section
       aria-labelledby="staff-desk-heading"
-      className="bg-surface border-2 border-border-strong rounded-xl p-5 sm:p-7 shadow-card space-y-6"
+      className="bg-surface border border-border-subtle rounded-2xl p-4 sm:p-7 shadow-card space-y-6"
     >
       {/* Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border-strong pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div>
-          <h2 id="staff-desk-heading" className="text-xl sm:text-2xl font-bold text-ink-primary">
+          <h2 id="staff-desk-heading" className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight">
             {t.staff.title}
           </h2>
           <p className="text-xs sm:text-sm text-ink-secondary">{t.staff.subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2">
           <button
             type="button"
             onClick={() => fetchStaffDashboard(selectedDeptSlug)}
             disabled={loadingQueue}
-            className="touch-target inline-flex items-center gap-1.5 rounded-lg border-2 border-brand-primary bg-subtle text-brand-primary font-bold px-3.5 py-2 text-xs sm:text-sm"
+            className="btn-secondary px-3.5 py-2 text-xs sm:text-sm"
           >
             <RefreshCw
-              className={`w-4 h-4 ${loadingQueue ? 'animate-spin' : ''}`}
+              className={`w-4 h-4 shrink-0 ${loadingQueue ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
             <span>{t.home.boardRefresh}</span>
@@ -310,9 +310,9 @@ export default function StaffView({
           <button
             type="button"
             onClick={handleLogout}
-            className="touch-target inline-flex items-center gap-1.5 rounded-lg border-2 border-status-emergency bg-red-50 text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm"
+            className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-red-50 text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm hover:bg-red-100 transition-colors"
           >
-            <LogOut className="w-4 h-4" aria-hidden="true" />
+            <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{t.staff.logoutBtn}</span>
           </button>
         </div>
@@ -323,19 +323,19 @@ export default function StaffView({
         <div
           role="alert"
           data-testid="staff-action-banner"
-          className={`p-4 rounded-xl border-2 font-bold text-sm flex items-center justify-between gap-3 ${
+          className={`p-4 rounded-2xl border font-bold text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3 shadow-xs ${
             actionBanner.type === 'error'
               ? 'bg-red-50 border-status-emergency text-status-emergency'
-              : 'bg-green-50 border-status-serving text-status-serving'
+              : 'bg-emerald-50 border-status-serving text-status-serving'
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
             {actionBanner.type === 'error' ? (
               <AlertTriangle className="w-5 h-5 shrink-0" aria-hidden="true" />
             ) : (
               <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
             )}
-            <span>
+            <span className="break-words">
               {actionBanner.code ? `[${actionBanner.code}] ` : ''}
               {actionBanner.message}
             </span>
@@ -343,7 +343,7 @@ export default function StaffView({
           <button
             type="button"
             onClick={() => setActionBanner(null)}
-            className="text-xs underline font-semibold"
+            className="touch-target px-2.5 py-1 rounded-lg bg-surface/80 border border-border-subtle text-xs font-bold shrink-0"
           >
             Dismiss
           </button>
@@ -351,40 +351,44 @@ export default function StaffView({
       )}
 
       {/* Urgent Help & Triage Requests Panel */}
-      <div className="p-4 rounded-xl bg-red-50/70 border-2 border-status-emergency space-y-3">
+      <div className="p-4 sm:p-5 rounded-2xl bg-red-50/70 border border-red-200 space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-bold text-sm sm:text-base text-status-emergency flex items-center gap-2">
+          <h3 className="font-extrabold text-sm sm:text-base text-status-emergency flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 shrink-0" aria-hidden="true" />
             <span>{t.staff.urgentHeading}</span>
           </h3>
-          <span className="font-token text-xs font-bold px-2.5 py-0.5 rounded bg-status-emergency text-white">
+          <span className="font-token text-xs font-extrabold px-2.5 py-1 rounded-full bg-status-emergency text-white">
             {urgentFlags.filter((f) => f.status !== 'RESOLVED').length} Open
           </span>
         </div>
 
         {urgentFlags.length === 0 ? (
-          <p className="text-xs text-ink-secondary">{t.staff.urgentEmpty}</p>
+          <p className="text-xs font-medium text-ink-secondary">{t.staff.urgentEmpty}</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {urgentFlags.slice(0, 5).map((flag) => (
               <div
                 key={flag.id}
-                className="p-3 rounded-lg bg-surface border border-border-strong flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm"
+                className="p-3.5 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs"
               >
-                <div>
-                  <span className="font-token font-bold px-2 py-0.5 rounded bg-subtle border border-border-strong mr-2">
-                    {flag.status}
-                  </span>
-                  <strong>{flag.location_label}</strong> ·{' '}
-                  <span className="text-ink-secondary">{flag.request_type}</span>
-                  {flag.public_code && (
-                    <span className="ml-2 font-token font-bold text-brand-primary">
-                      ({flag.public_code})
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-token font-extrabold px-2 py-0.5 rounded-md bg-subtle border border-border-strong text-xs">
+                      {flag.status}
                     </span>
-                  )}
+                    <strong className="text-ink-primary">{flag.location_label}</strong>
+                    {flag.public_code && (
+                      <span className="font-token font-extrabold text-brand-primary">
+                        ({flag.public_code})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-ink-secondary font-medium">
+                    {flag.request_type}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
                   {flag.status === 'NEW' && (
                     <button
                       type="button"
@@ -393,7 +397,7 @@ export default function StaffView({
                           `/api/staff/urgent-flags/${flag.id}/acknowledge`
                         )
                       }
-                      className="touch-target px-3 py-1.5 rounded-lg bg-brand-primary text-white font-bold text-xs"
+                      className="btn-primary px-3 py-2 text-xs"
                     >
                       {t.staff.ackBtn}
                     </button>
@@ -406,7 +410,7 @@ export default function StaffView({
                           `/api/staff/urgent-flags/${flag.id}/resolve`
                         )
                       }
-                      className="touch-target px-3 py-1.5 rounded-lg bg-status-serving text-white font-bold text-xs"
+                      className="touch-target inline-flex items-center justify-center px-3 py-2 rounded-xl bg-status-serving text-white font-bold text-xs shadow-xs"
                     >
                       {t.staff.resolveBtn}
                     </button>
@@ -418,20 +422,63 @@ export default function StaffView({
         )}
       </div>
 
-      {/* Department Selector & Doctor Status Controls */}
+      {/* Department Selector (2-Column Mobile Grid + Accessible Select) & Doctor Status Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="p-4 rounded-xl bg-subtle border-2 border-border-strong space-y-2">
+        <div className="p-4 sm:p-5 rounded-2xl bg-subtle/80 border border-border-subtle space-y-3">
           <label
             htmlFor="staff-dept-select"
-            className="block text-xs sm:text-sm font-bold text-ink-primary"
+            className="block text-xs sm:text-sm font-extrabold text-ink-primary"
           >
             {t.staff.selectDept}
           </label>
+
+          {/* 2-Column Mobile Quick Department Selector Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {departments.map((dept) => {
+              const isSelected = selectedDeptSlug === dept.slug;
+              return (
+                <button
+                  key={dept.slug}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedDeptSlug(dept.slug)}
+                  className={`touch-target p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                    isSelected
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                      : 'bg-surface text-ink-primary border-border-subtle hover:border-brand-teal/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 w-full">
+                    <span
+                      className={`font-token text-[11px] font-extrabold px-1.5 py-0.5 rounded ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-subtle text-brand-primary'
+                      }`}
+                    >
+                      {dept.token_prefix}
+                    </span>
+                    <span
+                      className={`text-[10px] font-semibold truncate ${
+                        isSelected ? 'text-teal-200' : 'text-ink-muted'
+                      }`}
+                    >
+                      {dept.room_label}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold leading-snug line-clamp-1">
+                    {lang === 'hi' ? dept.name_hi : dept.name_en}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <select
             id="staff-dept-select"
             value={selectedDeptSlug}
             onChange={(e) => setSelectedDeptSlug(e.target.value)}
-            className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3 py-2 text-sm font-bold"
+            className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-xs sm:text-sm font-bold shadow-xs"
           >
             {departments.map((dept) => (
               <option key={dept.slug} value={dept.slug}>
@@ -442,19 +489,19 @@ export default function StaffView({
           </select>
         </div>
 
-        <div className="p-4 rounded-xl bg-subtle border-2 border-border-strong space-y-2">
-          <div className="text-xs sm:text-sm font-bold text-ink-primary flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-brand-teal" aria-hidden="true" />
+        <div className="p-4 sm:p-5 rounded-2xl bg-subtle/80 border border-border-subtle space-y-3 flex flex-col justify-between">
+          <div className="text-xs sm:text-sm font-extrabold text-ink-primary flex items-center gap-2">
+            <Clock className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
             <span>{t.staff.doctorStatusHeading}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] items-stretch sm:items-center gap-2.5">
             <select
               aria-label={t.staff.doctorStatusHeading}
               value={docStatusForm.status}
               onChange={(e) =>
                 setDocStatusForm((prev) => ({ ...prev, status: e.target.value }))
               }
-              className="touch-target flex-1 min-w-[150px] rounded-lg border-2 border-border-strong bg-surface px-3 py-2 text-xs sm:text-sm font-bold"
+              className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-xs sm:text-sm font-bold shadow-xs"
             >
               <option value="AVAILABLE">AVAILABLE</option>
               <option value="DELAYED">DELAYED</option>
@@ -462,44 +509,46 @@ export default function StaffView({
               <option value="UNAVAILABLE">UNAVAILABLE</option>
             </select>
 
-            <input
-              type="number"
-              min="0"
-              max="240"
-              aria-label={t.staff.delayMinsLabel}
-              value={docStatusForm.delayMinutes}
-              onChange={(e) =>
-                setDocStatusForm((prev) => ({
-                  ...prev,
-                  delayMinutes: Number(e.target.value || 0)
-                }))
-              }
-              className="touch-target w-24 rounded-lg border-2 border-border-strong bg-surface px-3 py-2 font-token text-xs sm:text-sm font-bold"
-            />
+            <div className="grid grid-cols-2 sm:contents gap-2">
+              <input
+                type="number"
+                min="0"
+                max="240"
+                aria-label={t.staff.delayMinsLabel}
+                value={docStatusForm.delayMinutes}
+                onChange={(e) =>
+                  setDocStatusForm((prev) => ({
+                    ...prev,
+                    delayMinutes: Number(e.target.value || 0)
+                  }))
+                }
+                className="touch-target w-full sm:w-24 rounded-xl border border-border-strong bg-surface px-3 py-2.5 font-token text-xs sm:text-sm font-extrabold shadow-xs"
+              />
 
-            <button
-              type="button"
-              onClick={() =>
-                executeStaffMutation(
-                  `/api/staff/departments/${encodeURIComponent(
-                    deptInfo.id || selectedDeptSlug
-                  )}/doctor-status`,
-                  'PATCH',
-                  docStatusForm
-                )
-              }
-              className="touch-target px-4 py-2 rounded-lg bg-brand-teal text-white font-bold text-xs sm:text-sm"
-            >
-              {t.staff.saveDocStatusBtn}
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  executeStaffMutation(
+                    `/api/staff/departments/${encodeURIComponent(
+                      deptInfo.id || selectedDeptSlug
+                    )}/doctor-status`,
+                    'PATCH',
+                    docStatusForm
+                  )
+                }
+                className="btn-teal w-full sm:w-auto px-4 py-2.5 text-xs sm:text-sm"
+              >
+                {t.staff.saveDocStatusBtn}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Active Patient Card & Call Next Button */}
-      <div className="p-5 rounded-xl bg-canvas border-2 border-border-strong space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold text-base sm:text-lg text-ink-primary">
+      {/* Active Patient Card & Full-Width Mobile Call Next Button */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-canvas border border-border-subtle space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h3 className="font-extrabold text-base sm:text-lg text-ink-primary">
             {t.staff.activeCardTitle}
           </h3>
 
@@ -512,7 +561,7 @@ export default function StaffView({
                 `/api/staff/queues/${encodeURIComponent(selectedDeptSlug)}/call-next`
               )
             }
-            className="touch-target inline-flex items-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-5 py-3 text-sm sm:text-base shadow-sm disabled:opacity-50"
+            className="btn-primary w-full sm:w-auto px-5 py-3 text-sm sm:text-base"
           >
             <Play className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>
@@ -524,18 +573,31 @@ export default function StaffView({
         {activeTicket ? (
           <div
             data-testid="staff-active-ticket-card"
-            className="p-4 rounded-xl bg-green-50 border-2 border-status-serving flex flex-wrap items-center justify-between gap-4"
+            className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border-2 border-status-serving space-y-4"
           >
-            <div>
-              <div className="font-token text-2xl sm:text-3xl font-bold text-ink-primary">
-                {activeTicket.public_code}
+            {/* Row 1: Token Identity & Status Metadata */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div className="font-token text-2xl sm:text-3xl font-extrabold text-ink-primary">
+                  {activeTicket.public_code}
+                </div>
+                <span className="font-token text-xs font-extrabold px-2.5 py-1 rounded-full bg-status-serving text-white">
+                  {activeTicket.status}
+                </span>
               </div>
-              <div className="text-xs sm:text-sm font-bold text-status-serving mt-0.5">
+              <div className="text-xs sm:text-sm font-bold text-ink-secondary">
                 Status: {activeTicket.status} · {activeTicket.visit_type}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Row 2: Full-Width Multi-Column Action Footer (Never Clips at 360px) */}
+            <div
+              className={`grid gap-2.5 ${
+                activeTicket.status === 'CALLED'
+                  ? 'grid-cols-1 sm:grid-cols-3'
+                  : 'grid-cols-1 sm:grid-cols-2'
+              }`}
+            >
               {activeTicket.status === 'CALLED' && (
                 <>
                   <button
@@ -546,9 +608,9 @@ export default function StaffView({
                         `/api/staff/tickets/${activeTicket.id}/start`
                       )
                     }
-                    className="touch-target inline-flex items-center gap-1.5 rounded-lg bg-brand-teal text-white font-bold px-4 py-2.5 text-xs sm:text-sm"
+                    className="btn-teal w-full px-4 py-2.5 text-xs sm:text-sm"
                   >
-                    <UserCheck className="w-4 h-4" aria-hidden="true" />
+                    <UserCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{t.staff.startConsultBtn}</span>
                   </button>
 
@@ -560,9 +622,9 @@ export default function StaffView({
                         `/api/staff/tickets/${activeTicket.id}/no-show`
                       )
                     }
-                    className="touch-target inline-flex items-center gap-1.5 rounded-lg bg-status-next text-white font-bold px-4 py-2.5 text-xs sm:text-sm"
+                    className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-next text-white font-bold px-4 py-2.5 text-xs sm:text-sm shadow-xs"
                   >
-                    <UserMinus className="w-4 h-4" aria-hidden="true" />
+                    <UserMinus className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{t.staff.noShowBtn}</span>
                   </button>
                 </>
@@ -577,9 +639,9 @@ export default function StaffView({
                       `/api/staff/tickets/${activeTicket.id}/complete`
                     )
                   }
-                  className="touch-target inline-flex items-center gap-1.5 rounded-lg bg-status-serving text-white font-bold px-4 py-2.5 text-xs sm:text-sm"
+                  className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-serving text-white font-bold px-4 py-2.5 text-xs sm:text-sm shadow-xs"
                 >
-                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{t.staff.completeBtn}</span>
                 </button>
               )}
@@ -594,15 +656,15 @@ export default function StaffView({
                     { cancelReason: 'PATIENT_LEFT' }
                   )
                 }
-                className="touch-target inline-flex items-center gap-1.5 rounded-lg border-2 border-status-emergency bg-surface text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm"
+                className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold px-3.5 py-2.5 text-xs sm:text-sm hover:bg-red-50 transition-colors"
               >
-                <XCircle className="w-4 h-4" aria-hidden="true" />
+                <XCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{t.staff.cancelBtn}</span>
               </button>
             </div>
           </div>
         ) : (
-          <div className="p-4 rounded-lg bg-subtle border border-border-strong text-sm text-ink-secondary">
+          <div className="p-4 rounded-xl bg-subtle border border-border-subtle text-sm font-medium text-ink-secondary">
             {t.staff.noActivePatient}
           </div>
         )}
@@ -611,32 +673,34 @@ export default function StaffView({
       {/* Waiting Queue & Recent History Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="space-y-3">
-          <h3 className="font-bold text-sm sm:text-base text-ink-primary flex items-center gap-2">
-            <Users className="w-4 h-4 text-brand-primary" aria-hidden="true" />
+          <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
+            <Users className="w-4 h-4 text-brand-primary shrink-0" aria-hidden="true" />
             <span>
               {t.staff.waitingHeading} ({waitingTickets.length})
             </span>
           </h3>
 
           {waitingTickets.length === 0 ? (
-            <div className="p-4 rounded-xl bg-subtle border border-border-strong text-xs text-ink-secondary">
+            <div className="p-4 rounded-2xl bg-subtle border border-border-subtle text-xs font-medium text-ink-secondary">
               No waiting patients in this department.
             </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {waitingTickets.map((ticket, index) => (
                 <li
                   key={ticket.id}
-                  className="p-3.5 rounded-xl bg-canvas border-2 border-border-strong flex items-center justify-between gap-2"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div>
-                    <span className="font-token text-xs font-bold px-2 py-0.5 rounded bg-brand-primary text-white mr-2">
-                      #{index + 1}
-                    </span>
-                    <span className="font-token font-bold text-base text-ink-primary">
-                      {ticket.public_code}
-                    </span>
-                    <div className="text-xs text-ink-secondary mt-0.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-token text-xs font-extrabold px-2 py-0.5 rounded-md bg-brand-primary text-white">
+                        #{index + 1}
+                      </span>
+                      <span className="font-token font-extrabold text-base text-ink-primary">
+                        {ticket.public_code}
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium text-ink-secondary mt-1">
                       {ticket.visit_type} · Sort #{ticket.queue_sort_order}
                       {ticket.requeued_count > 0
                         ? ` · Requeued (${ticket.requeued_count})`
@@ -653,7 +717,7 @@ export default function StaffView({
                         { cancelReason: 'PATIENT_LEFT' }
                       )
                     }
-                    className="touch-target px-3 py-1.5 rounded-lg border border-status-emergency text-status-emergency font-bold text-xs"
+                    className="touch-target w-full sm:w-auto px-3.5 py-2 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold text-xs hover:bg-red-50 transition-colors"
                   >
                     {t.staff.cancelBtn}
                   </button>
@@ -664,32 +728,34 @@ export default function StaffView({
         </div>
 
         <div className="space-y-3">
-          <h3 className="font-bold text-sm sm:text-base text-ink-primary flex items-center gap-2">
-            <RotateCcw className="w-4 h-4 text-brand-teal" aria-hidden="true" />
+          <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
+            <RotateCcw className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
             <span>
               {t.staff.historyHeading} ({historyTickets.length})
             </span>
           </h3>
 
           {historyTickets.length === 0 ? (
-            <div className="p-4 rounded-xl bg-subtle border border-border-strong text-xs text-ink-secondary">
+            <div className="p-4 rounded-2xl bg-subtle border border-border-subtle text-xs font-medium text-ink-secondary">
               No completed, no-show, or cancelled tickets yet today.
             </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {historyTickets.slice(0, 10).map((ticket) => (
                 <li
                   key={ticket.id}
-                  className="p-3.5 rounded-xl bg-canvas border-2 border-border-strong flex items-center justify-between gap-2"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div>
-                    <span className="font-token font-bold text-base text-ink-primary mr-2">
-                      {ticket.public_code}
-                    </span>
-                    <span className="font-token text-xs font-bold px-2 py-0.5 rounded bg-subtle border border-border-strong">
-                      {ticket.status}
-                    </span>
-                    <div className="text-xs text-ink-secondary mt-0.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-token font-extrabold text-base text-ink-primary">
+                        {ticket.public_code}
+                      </span>
+                      <span className="font-token text-xs font-bold px-2 py-0.5 rounded-md bg-surface border border-border-strong">
+                        {ticket.status}
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium text-ink-secondary mt-1">
                       Sort #{ticket.queue_sort_order} · Requeued: {ticket.requeued_count}
                     </div>
                   </div>
@@ -703,9 +769,9 @@ export default function StaffView({
                           `/api/staff/tickets/${ticket.id}/requeue`
                         )
                       }
-                      className="touch-target inline-flex items-center gap-1.5 rounded-lg bg-brand-teal text-white font-bold px-3.5 py-2 text-xs"
+                      className="btn-teal w-full sm:w-auto px-3.5 py-2 text-xs"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>{t.staff.requeueBtn}</span>
                     </button>
                   )}

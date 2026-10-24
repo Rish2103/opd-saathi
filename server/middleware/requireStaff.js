@@ -1,3 +1,97 @@
+import { env } from '../config/env.js';
+
+/**
+ * Validates that a state-changing staff request originates from a trusted same-origin
+ * or explicitly permitted local development origin.
+ *
+ * Security guarantees:
+ * 1. Rejects missing, 'null', or malformed Origin headers on state-changing requests.
+ * 2. Compares complete origins (scheme + hostname + port), never hostnames alone.
+ * 3. Never trusts client-supplied X-Forwarded-Host unless trustProxy is explicitly enabled
+ *    and no canonical APP_ORIGIN overrides it.
+ * 4. Applies the local development loopback allowlist strictly when isProduction === false.
+ */
+export function isTrustedStaffOrigin(req, runtimeEnv = env) {
+  const originHeader = req.get('origin');
+  if (!originHeader || originHeader === 'null') {
+    return false;
+  }
+
+  let parsedOrigin;
+  try {
+    parsedOrigin = new URL(originHeader);
+  } catch {
+    return false;
+  }
+
+  if (parsedOrigin.protocol !== 'http:' && parsedOrigin.protocol !== 'https:') {
+    return false;
+  }
+
+  const requestOrigin = parsedOrigin.origin;
+  const allowedOrigins = new Set();
+
+  // 1. Canonical configured application origin (highest priority in production)
+  if (runtimeEnv.appOrigin) {
+    try {
+      allowedOrigins.add(new URL(runtimeEnv.appOrigin).origin);
+    } catch {
+      // Ignore malformed configured origin
+    }
+  } else if (runtimeEnv.trustProxy) {
+    // 2. Trusted reverse-proxy derived origin ONLY when trustProxy is explicitly enabled
+    const forwardedHost = req.get('x-forwarded-host')?.split(',')[0]?.trim();
+    const forwardedProto =
+      req.get('x-forwarded-proto')?.split(',')[0]?.trim() || req.protocol;
+    const effectiveHost = forwardedHost || req.get('host');
+    if (
+      effectiveHost &&
+      (forwardedProto === 'http' || forwardedProto === 'https')
+    ) {
+      try {
+        allowedOrigins.add(new URL(`${forwardedProto}://${effectiveHost}`).origin);
+      } catch {
+        // Ignore malformed host header
+      }
+    }
+  } else {
+    // 3. Direct host header when not behind a trusted proxy and no canonical APP_ORIGIN is set
+    const directHost = req.get('host');
+    const directProto = req.protocol === 'https' ? 'https' : 'http';
+    if (directHost) {
+      try {
+        allowedOrigins.add(new URL(`${directProto}://${directHost}`).origin);
+      } catch {
+        // Ignore malformed host header
+      }
+    }
+  }
+
+  // 4. Explicit, narrowly scoped development-origin policy (never active in production)
+  if (!runtimeEnv.isProduction) {
+    const port = runtimeEnv.port || 3000;
+    allowedOrigins.add('http://localhost:5173');
+    allowedOrigins.add('http://127.0.0.1:5173');
+    allowedOrigins.add('http://localhost:4173');
+    allowedOrigins.add('http://127.0.0.1:4173');
+    allowedOrigins.add(`http://localhost:${port}`);
+    allowedOrigins.add(`http://127.0.0.1:${port}`);
+    const directHost = req.get('host');
+    if (
+      directHost &&
+      (directHost.startsWith('127.0.0.1:') || directHost.startsWith('localhost:'))
+    ) {
+      try {
+        allowedOrigins.add(new URL(`http://${directHost}`).origin);
+      } catch {
+        // Ignore malformed host
+      }
+    }
+  }
+
+  return allowedOrigins.has(requestOrigin);
+}
+
 /**
  * Enforces server-side staff session authentication and same-origin CSRF checks
  * for all protected /api/staff/* endpoints.
@@ -29,30 +123,15 @@ export function requireStaff(req, res, next) {
       }
     }
 
-    // Same-origin verification when Origin header is present
-    const originHeader = req.get('origin');
-    const hostHeader = req.get('host');
-    if (originHeader && hostHeader) {
-      try {
-        const originUrl = new URL(originHeader);
-        if (originUrl.host !== hostHeader) {
-          return res.status(403).json({
-            error: {
-              code: 'CSRF_ORIGIN_MISMATCH',
-              message: 'Cross-origin staff mutation requests are forbidden.',
-              requestId: req.correlationId ?? null
-            }
-          });
+    const runtimeEnv = req.app?.locals?.runtimeEnv || env;
+    if (!isTrustedStaffOrigin(req, runtimeEnv)) {
+      return res.status(403).json({
+        error: {
+          code: 'CSRF_ORIGIN_MISMATCH',
+          message: 'Cross-origin or untrusted staff mutation requests are forbidden.',
+          requestId: req.correlationId ?? null
         }
-      } catch {
-        return res.status(403).json({
-          error: {
-            code: 'CSRF_ORIGIN_MISMATCH',
-            message: 'Invalid Origin header on staff mutation request.',
-            requestId: req.correlationId ?? null
-          }
-        });
-      }
+      });
     }
   }
 

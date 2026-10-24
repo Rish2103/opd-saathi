@@ -64,19 +64,21 @@ export default function EmergencyModal({
     <dialog
       ref={dialogRef}
       aria-labelledby="emergency-dialog-title"
-      className="w-full max-w-2xl rounded-xl border-4 border-status-emergency bg-surface p-0 text-ink-primary shadow-2xl"
+      className="w-[calc(100%-1.5rem)] sm:w-full max-w-2xl rounded-2xl border-2 border-status-emergency bg-surface p-0 text-ink-primary shadow-2xl overflow-hidden"
     >
-      <div className="bg-status-emergency text-white px-5 py-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <ShieldAlert className="w-7 h-7 shrink-0" aria-hidden="true" />
-          <h2 id="emergency-dialog-title" className="text-lg sm:text-xl font-bold">
+      <div className="bg-status-emergency text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-6 h-6 shrink-0" aria-hidden="true" />
+          </div>
+          <h2 id="emergency-dialog-title" className="text-base sm:text-xl font-extrabold truncate">
             {t.emergency.modalTitle}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="touch-target inline-flex items-center justify-center gap-1 rounded-lg bg-[#8f1515] hover:bg-[#731010] border border-white/40 text-white px-3 py-1.5 text-xs sm:text-sm font-bold"
+          className="touch-target inline-flex items-center justify-center gap-1 rounded-xl bg-[#8f1515] hover:bg-[#731010] border border-white/40 text-white px-3 py-1.5 text-xs sm:text-sm font-bold shrink-0"
           aria-label={t.emergency.closeBtn}
         >
           <X className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -84,10 +86,10 @@ export default function EmergencyModal({
         </button>
       </div>
 
-      <div className="p-5 space-y-5 max-h-[82vh] overflow-y-auto">
+      <div className="p-4 sm:p-6 space-y-5 max-h-[82vh] overflow-y-auto">
         {/* Critical Warning & Immediate Direction */}
-        <div className="p-4 rounded-lg bg-red-50 border-2 border-status-emergency space-y-2">
-          <div className="flex items-start gap-2.5 text-status-emergency font-bold text-sm sm:text-base">
+        <div className="p-4 rounded-2xl bg-red-50 border border-status-emergency space-y-2">
+          <div className="flex items-start gap-2.5 text-status-emergency font-extrabold text-sm sm:text-base">
             <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
             <span>{t.emergency.warningBanner}</span>
           </div>
@@ -97,10 +99,10 @@ export default function EmergencyModal({
         </div>
 
         {/* Direct Call & Route Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <a
             href="tel:108"
-            className="touch-target inline-flex items-center justify-center gap-2 rounded-lg bg-status-emergency text-white font-bold px-4 py-3 text-center shadow-sm"
+            className="btn-danger px-4 py-3 text-center text-sm"
           >
             <PhoneCall className="w-5 h-5 shrink-0" aria-hidden="true" />
             <span>{t.emergency.call108}</span>
@@ -108,7 +110,7 @@ export default function EmergencyModal({
 
           <a
             href="tel:112"
-            className="touch-target inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-4 py-3 text-center shadow-sm"
+            className="btn-primary px-4 py-3 text-center text-sm"
           >
             <PhoneCall className="w-5 h-5 shrink-0" aria-hidden="true" />
             <span>{t.emergency.call112}</span>
@@ -120,7 +122,7 @@ export default function EmergencyModal({
               onClose();
               onNavigateToEmergency();
             }}
-            className="touch-target inline-flex items-center justify-center gap-2 rounded-lg border-2 border-brand-teal bg-subtle text-brand-teal font-bold px-4 py-3 text-center"
+            className="btn-secondary border-brand-teal text-brand-teal px-4 py-3 text-center text-sm"
           >
             <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
             <span>{t.emergency.routeToEmergencyBtn}</span>
@@ -128,8 +130,8 @@ export default function EmergencyModal({
         </div>
 
         {/* Pre-Registration Staff Help Request Form */}
-        <div className="border-t-2 border-border-strong pt-4 space-y-3">
-          <h3 className="font-bold text-base sm:text-lg text-ink-primary">
+        <div className="border-t border-border-subtle pt-4 space-y-3">
+          <h3 className="font-extrabold text-base sm:text-lg text-ink-primary">
             {t.emergency.requestHelpHeading}
           </h3>
           <p className="text-xs sm:text-sm text-ink-secondary leading-relaxed">
@@ -140,9 +142,9 @@ export default function EmergencyModal({
             <div
               role="status"
               aria-live="polite"
-              className="p-4 rounded-lg bg-green-50 border-2 border-status-serving space-y-2"
+              className="p-4 rounded-2xl bg-emerald-50 border border-status-serving space-y-2.5"
             >
-              <div className="flex items-center gap-2 text-status-serving font-bold">
+              <div className="flex items-center gap-2 text-status-serving font-extrabold">
                 <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
                 <span>{t.emergency.helpSentTitle}</span>
               </div>
@@ -153,18 +155,18 @@ export default function EmergencyModal({
               <button
                 type="button"
                 onClick={() => setSubmittedFlag(null)}
-                className="touch-target mt-2 px-4 py-2 rounded-lg border border-border-strong bg-surface text-xs font-bold"
+                className="btn-secondary mt-2 px-4 py-2 text-xs"
               >
                 Send Another Alert
               </button>
             </div>
           ) : (
-            <form onSubmit={handleHelpSubmit} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleHelpSubmit} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label
                     htmlFor="emergency-location-select"
-                    className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                    className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                   >
                     {t.emergency.locationLabel}
                   </label>
@@ -172,7 +174,7 @@ export default function EmergencyModal({
                     id="emergency-location-select"
                     value={locationLabel}
                     onChange={(e) => setLocationLabel(e.target.value)}
-                    className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3 py-2 text-sm font-medium"
+                    className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-sm font-semibold shadow-xs"
                   >
                     {nodes.length > 0 ? (
                       nodes.map((node) => (
@@ -193,7 +195,7 @@ export default function EmergencyModal({
                 <div>
                   <label
                     htmlFor="emergency-type-select"
-                    className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                    className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                   >
                     {t.emergency.requestTypeLabel}
                   </label>
@@ -201,7 +203,7 @@ export default function EmergencyModal({
                     id="emergency-type-select"
                     value={requestType}
                     onChange={(e) => setRequestType(e.target.value)}
-                    className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3 py-2 text-sm font-medium"
+                    className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-sm font-semibold shadow-xs"
                   >
                     <option value="URGENT_ASSESSMENT_REQUEST">{t.emergency.typeUrgent}</option>
                     <option value="STAFF_HELP">{t.emergency.typeMobility}</option>
@@ -212,17 +214,17 @@ export default function EmergencyModal({
               {errorMsg && (
                 <div
                   role="alert"
-                  className="p-3 rounded-lg bg-red-50 border border-status-emergency text-status-emergency text-xs sm:text-sm font-semibold"
+                  className="p-3 rounded-xl bg-red-50 border border-status-emergency text-status-emergency text-xs sm:text-sm font-bold"
                 >
                   {errorMsg}
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="touch-target inline-flex items-center gap-2 rounded-lg bg-status-emergency text-white font-bold px-5 py-2.5 text-sm shadow-sm disabled:opacity-60"
+                  className="btn-danger w-full sm:w-auto px-5 py-2.5 text-sm"
                 >
                   <Send className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>
@@ -233,7 +235,7 @@ export default function EmergencyModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="touch-target px-5 py-2.5 rounded-lg border-2 border-brand-primary bg-subtle text-brand-primary font-bold text-sm"
+                  className="btn-secondary w-full sm:w-auto px-5 py-2.5 text-sm"
                 >
                   {t.emergency.closeBtn}
                 </button>

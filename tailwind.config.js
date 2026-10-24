@@ -1,6 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  safelist: [
+    'bg-brand-primary',
+    'text-brand-primary',
+    'border-brand-primary',
+    'bg-status-serving',
+    'text-status-serving',
+    'bg-status-next',
+    'border-border-strong',
+    'shadow-card',
+  ],
   theme: {
     extend: {
       colors: {
@@ -37,10 +47,12 @@ export default {
       },
       boxShadow: {
         card: '0 2px 8px rgba(11, 37, 69, 0.08)',
+        glass: '0 10px 30px -5px rgba(11, 37, 69, 0.10), 0 4px 12px -2px rgba(13, 110, 110, 0.06)',
+        elevated: '0 16px 40px -8px rgba(11, 37, 69, 0.14)',
       },
       fontFamily: {
         sans: [
-          'Noto Sans',
+          'Plus Jakarta Sans',
           'Noto Sans Devanagari',
           'system-ui',
           '-apple-system',
@@ -50,7 +62,7 @@ export default {
         ],
         devanagari: [
           'Noto Sans Devanagari',
-          'Noto Sans',
+          'Plus Jakarta Sans',
           'system-ui',
           'sans-serif',
         ],

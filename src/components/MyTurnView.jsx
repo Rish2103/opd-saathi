@@ -101,12 +101,12 @@ export default function MyTurnView({
   return (
     <section
       aria-labelledby="my-turn-heading"
-      className="bg-surface border-2 border-border-strong rounded-xl p-5 sm:p-7 shadow-card space-y-6"
+      className="bg-surface border border-border-subtle rounded-2xl p-4 sm:p-7 shadow-card space-y-6"
     >
       {/* Header & Connection Status Badge */}
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-border-strong pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="space-y-1">
-          <h2 id="my-turn-heading" className="text-xl sm:text-2xl font-bold text-ink-primary">
+          <h2 id="my-turn-heading" className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight">
             {t.myTurn.title}
           </h2>
           <p className="text-xs sm:text-sm text-ink-secondary">{t.myTurn.subtitle}</p>
@@ -115,14 +115,28 @@ export default function MyTurnView({
         <div className="flex items-center gap-2">
           <span
             data-testid="connection-status-badge"
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-xs ${
               connectionState === 'live'
-                ? 'bg-green-50 text-status-serving border-status-serving'
+                ? 'bg-emerald-50 text-status-serving border-emerald-200'
                 : connectionState === 'reconnecting'
-                  ? 'bg-amber-50 text-status-next border-status-next'
+                  ? 'bg-amber-50 text-status-next border-amber-200'
                   : 'bg-slate-100 text-ink-secondary border-border-strong'
             }`}
           >
+            <span className="relative flex h-2 w-2" aria-hidden="true">
+              {connectionState === 'live' && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  connectionState === 'live'
+                    ? 'bg-status-serving'
+                    : connectionState === 'reconnecting'
+                      ? 'bg-status-next'
+                      : 'bg-slate-400'
+                }`}
+              />
+            </span>
             {connectionState === 'live' ? (
               <Wifi className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             ) : (
@@ -136,12 +150,12 @@ export default function MyTurnView({
       {/* Public Token Code Lookup Form */}
       <form
         onSubmit={handleFormSubmit}
-        className="p-4 rounded-xl bg-subtle border-2 border-border-strong flex flex-wrap items-end gap-3"
+        className="p-4 sm:p-5 rounded-2xl bg-subtle/80 border border-border-subtle flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-end gap-3"
       >
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-0 sm:min-w-[220px]">
           <label
             htmlFor="my-turn-code-input"
-            className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+            className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
           >
             {t.myTurn.inputLabel}
           </label>
@@ -151,14 +165,14 @@ export default function MyTurnView({
             value={lookupCode}
             onChange={(e) => setLookupCode(e.target.value.toUpperCase())}
             placeholder={t.myTurn.inputPlaceholder}
-            className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-base font-bold uppercase tracking-wider"
+            className="touch-target w-full rounded-xl border border-border-strong bg-surface px-4 py-2.5 font-token text-base font-extrabold uppercase tracking-wider shadow-xs"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading || !lookupCode.trim()}
-          className="touch-target inline-flex items-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-5 py-2.5 text-sm sm:text-base disabled:opacity-60"
+          className="btn-primary w-full sm:w-auto px-5 py-2.5 text-sm sm:text-base"
         >
           <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>{t.myTurn.searchBtn}</span>
@@ -171,7 +185,7 @@ export default function MyTurnView({
               setLookupCode(savedLocalSlip.publicCode);
               onLookupCode(savedLocalSlip.publicCode);
             }}
-            className="touch-target inline-flex items-center gap-2 rounded-lg border-2 border-brand-teal bg-surface text-brand-teal font-bold px-4 py-2.5 text-xs sm:text-sm"
+            className="btn-secondary w-full sm:w-auto px-4 py-2.5 text-xs sm:text-sm border-brand-teal text-brand-teal"
           >
             <Activity className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>
@@ -184,45 +198,49 @@ export default function MyTurnView({
       {Array.isArray(savedSlips) && savedSlips.length > 0 && (
         <div
           data-testid="my-turn-saved-slips-bar"
-          className="p-4 rounded-xl bg-canvas border-2 border-border-strong flex flex-wrap items-center gap-2.5"
+          className="p-4 rounded-2xl bg-canvas border border-border-subtle space-y-2.5"
         >
-          <span className="text-xs sm:text-sm font-bold uppercase text-ink-secondary mr-1">
+          <div className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary">
             {t.slip?.mySlipsSwitcherTitle || 'Saved OPD Slips on This Device'}:
-          </span>
-          {savedSlips.map((entry) => {
-            const isCurrent = trackedSlip?.publicCode === entry.publicCode;
-            return (
-              <button
-                key={entry.ticketId || entry.publicCode}
-                type="button"
-                data-testid={`my-turn-pick-slip-${entry.publicCode}`}
-                onClick={() => {
-                  setLookupCode(entry.publicCode);
-                  if (onSelectSavedSlip) {
-                    onSelectSavedSlip(entry);
-                  }
-                  onLookupCode(entry.publicCode);
-                }}
-                className={`touch-target inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-bold font-token border-2 transition-colors ${
-                  isCurrent
-                    ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
-                    : 'bg-surface text-brand-primary border-brand-primary hover:bg-subtle'
-                }`}
-              >
-                {entry.publicCode} ·{' '}
-                {lang === 'hi'
-                  ? entry.departmentName_hi || entry.departmentName_en
-                  : entry.departmentName_en}
-              </button>
-            );
-          })}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {savedSlips.map((entry) => {
+              const isCurrent = trackedSlip?.publicCode === entry.publicCode;
+              return (
+                <button
+                  key={entry.ticketId || entry.publicCode}
+                  type="button"
+                  data-testid={`my-turn-pick-slip-${entry.publicCode}`}
+                  onClick={() => {
+                    setLookupCode(entry.publicCode);
+                    if (onSelectSavedSlip) {
+                      onSelectSavedSlip(entry);
+                    }
+                    onLookupCode(entry.publicCode);
+                  }}
+                  className={`touch-target inline-flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all text-left ${
+                    isCurrent
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                      : 'bg-surface text-brand-primary border-border-strong hover:border-brand-teal/50 hover:bg-subtle'
+                  }`}
+                >
+                  <span className="font-token font-extrabold">{entry.publicCode}</span>
+                  <span className={`truncate text-xs ${isCurrent ? 'text-teal-200' : 'text-ink-secondary'}`}>
+                    {lang === 'hi'
+                      ? entry.departmentName_hi || entry.departmentName_en
+                      : entry.departmentName_en}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {error && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-red-50 border-2 border-status-emergency text-status-emergency font-bold text-sm"
+          className="p-4 rounded-xl bg-red-50 border border-status-emergency text-status-emergency font-bold text-sm"
         >
           {error}
         </div>
@@ -231,21 +249,21 @@ export default function MyTurnView({
       {!trackedSlip && !error && (
         <div
           data-testid="my-turn-empty-state"
-          className="p-6 rounded-xl bg-canvas border-2 border-border-strong text-center space-y-3"
+          className="p-6 sm:p-8 rounded-2xl bg-canvas border border-border-subtle text-center space-y-3"
         >
-          <div className="font-bold text-base sm:text-lg text-ink-primary">
+          <div className="font-extrabold text-base sm:text-lg text-ink-primary">
             {t.myTurn.emptyTitle}
           </div>
           <p className="text-xs sm:text-sm text-ink-secondary max-w-xl mx-auto">
             {t.myTurn.emptyDesc}
           </p>
           {onRegisterNew && (
-            <div className="pt-1">
+            <div className="pt-2">
               <button
                 type="button"
                 data-testid="my-turn-empty-register-btn"
                 onClick={onRegisterNew}
-                className="touch-target inline-flex items-center gap-2 rounded-xl bg-brand-primary text-white font-bold px-5 py-2.5 text-xs sm:text-sm shadow-sm"
+                className="btn-primary px-5 py-2.5 text-xs sm:text-sm"
               >
                 <UserPlus className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{t.myTurn.emptyRegisterBtn}</span>
@@ -264,14 +282,14 @@ export default function MyTurnView({
               role="alert"
               aria-live="assertive"
               data-testid="turn-alert-banner"
-              className="p-4 sm:p-5 rounded-xl bg-green-50 border-4 border-status-serving text-ink-primary flex items-start gap-3.5 shadow-sm"
+              className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border-2 border-status-serving text-ink-primary flex items-start gap-3.5 shadow-sm"
             >
               <BellRing
                 className="w-7 h-7 text-status-serving shrink-0 mt-0.5"
                 aria-hidden="true"
               />
               <div className="space-y-1">
-                <div className="font-bold text-base sm:text-lg text-status-serving">
+                <div className="font-extrabold text-base sm:text-lg text-status-serving">
                   {t.myTurn.alertCalledTitle} ({trackedSlip.publicCode})
                 </div>
                 <p className="text-sm sm:text-base font-medium">
@@ -286,14 +304,14 @@ export default function MyTurnView({
               role="status"
               aria-live={newlyCrossedAlert ? 'assertive' : 'polite'}
               data-testid="turn-alert-banner"
-              className="p-4 sm:p-5 rounded-xl bg-amber-50 border-4 border-status-next text-ink-primary flex items-start gap-3.5 shadow-sm"
+              className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-status-next text-ink-primary flex items-start gap-3.5 shadow-sm"
             >
               <BellRing
                 className="w-7 h-7 text-status-next shrink-0 mt-0.5"
                 aria-hidden="true"
               />
               <div className="space-y-1">
-                <div className="font-bold text-base sm:text-lg text-status-next">
+                <div className="font-extrabold text-base sm:text-lg text-status-next">
                   {t.myTurn.alertNearTitle} ({queue.peopleAheadWaiting} {t.home.waitingCount})
                 </div>
                 <p className="text-sm sm:text-base font-medium">
@@ -304,57 +322,57 @@ export default function MyTurnView({
           )}
 
           {/* Main Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-brand-primary text-white">
-              <div className="text-xs font-bold uppercase text-slate-300">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="p-4 rounded-2xl bg-hero-gradient text-white shadow-sm">
+              <div className="text-xs font-bold uppercase tracking-wider text-teal-200">
                 {t.slip.tokenLabel}
               </div>
               <div
                 data-testid="my-turn-token-code"
-                className="font-token text-3xl font-bold tracking-wider mt-1"
+                className="font-token text-3xl font-extrabold tracking-wider mt-1"
               >
                 {trackedSlip.publicCode}
               </div>
               <div
                 data-testid="my-turn-status"
-                className="text-xs font-bold text-slate-200 mt-1.5"
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 text-xs font-bold text-white mt-2"
               >
                 {statusText}
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-canvas border-2 border-border-strong">
-              <div className="text-xs font-bold uppercase text-ink-muted">
+            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+              <div className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                 {t.home.nowServing}
               </div>
               <div
                 data-testid="my-turn-now-serving"
-                className="font-token text-2xl sm:text-3xl font-bold text-status-serving mt-1"
+                className="font-token text-2xl sm:text-3xl font-extrabold text-status-serving mt-1"
               >
                 {queue.nowServingCode || t.home.noActiveToken}
               </div>
-              <div className="text-xs text-ink-secondary mt-1">{deptName}</div>
+              <div className="text-xs font-medium text-ink-secondary mt-1.5">{deptName}</div>
             </div>
 
-            <div className="p-4 rounded-xl bg-canvas border-2 border-border-strong">
-              <div className="text-xs font-bold uppercase text-ink-muted">
+            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+              <div className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                 {t.slip.peopleAhead}
               </div>
               <div
                 data-testid="my-turn-people-ahead"
-                className="font-token text-2xl sm:text-3xl font-bold text-ink-primary mt-1"
+                className="font-token text-2xl sm:text-3xl font-extrabold text-ink-primary mt-1"
               >
                 {queue.peopleAheadWaiting ?? 0}
               </div>
-              <div className="text-xs text-ink-secondary mt-1">{docStatusText}</div>
+              <div className="text-xs font-medium text-ink-secondary mt-1.5">{docStatusText}</div>
             </div>
 
-            <div className="p-4 rounded-xl bg-canvas border-2 border-border-strong">
-              <div className="flex items-center gap-1 text-xs font-bold uppercase text-ink-muted">
+            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+              <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-ink-muted">
                 <Clock className="w-3.5 h-3.5 text-brand-teal" aria-hidden="true" />
                 <span>{t.home.estWait}</span>
               </div>
-              <div className="font-token text-2xl sm:text-3xl font-bold text-brand-teal mt-1">
+              <div className="font-token text-2xl sm:text-3xl font-extrabold text-brand-teal mt-1">
                 {queue.etaStatus === 'UNAVAILABLE_ASK_HELP_DESK'
                   ? '—'
                   : queue.estimatedWaitMinutes !== null &&
@@ -362,34 +380,36 @@ export default function MyTurnView({
                     ? `~${queue.estimatedWaitMinutes} ${t.home.mins}`
                     : '—'}
               </div>
-              <div className="text-xs text-ink-secondary mt-1">
+              <div className="text-xs font-medium text-ink-secondary mt-1.5">
                 {dept.room_label} · {floorLabel}
               </div>
             </div>
           </div>
 
           {/* Department Info & Re-check Footer */}
-          <div className="p-4 rounded-xl bg-subtle border border-border-strong flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1 text-xs sm:text-sm">
-              <div className="font-bold text-ink-primary flex items-center gap-2">
-                <Stethoscope className="w-4 h-4 text-brand-teal" aria-hidden="true" />
+          <div className="p-4 sm:p-5 rounded-2xl bg-subtle/80 border border-border-subtle flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-4">
+            <div className="space-y-1.5 text-xs sm:text-sm">
+              <div className="font-extrabold text-ink-primary flex items-center gap-2">
+                <Stethoscope className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
                 <span>
                   {deptName} — {doctorName} ({dept.room_label}, {floorLabel})
                 </span>
               </div>
-              <div className="text-ink-secondary">
-                {t.myTurn.lastUpdated}{' '}
-                <span className="font-token font-bold">
-                  {lastVerifiedAt || new Date().toLocaleTimeString()}
+              <div className="text-ink-secondary flex flex-wrap items-center gap-2">
+                <span>
+                  {t.myTurn.lastUpdated}{' '}
+                  <span className="font-token font-bold text-ink-primary">
+                    {lastVerifiedAt || new Date().toLocaleTimeString()}
+                  </span>
                 </span>
                 {trackedSlip.requeuedCount > 0 && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-surface border border-border-strong font-mono text-xs">
+                  <span className="px-2 py-0.5 rounded-md bg-surface border border-border-strong font-mono text-xs font-bold">
                     {t.myTurn.requeuedNote} {trackedSlip.requeuedCount}
                   </span>
                 )}
                 <span
                   data-testid="my-turn-route-preference"
-                  className="ml-2 px-2 py-0.5 rounded bg-surface border border-border-strong text-xs font-bold text-brand-teal"
+                  className="px-2.5 py-0.5 rounded-full bg-surface border border-border-strong text-xs font-bold text-brand-teal"
                 >
                   {(trackedSlip.avoidStairs ?? true)
                     ? t.slip?.routeAvoidStairs ||
@@ -404,15 +424,15 @@ export default function MyTurnView({
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="grid grid-cols-2 sm:flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => onLookupCode(trackedSlip.publicCode)}
                 disabled={loading}
-                className="touch-target inline-flex items-center gap-1.5 rounded-lg border-2 border-brand-primary bg-surface text-brand-primary font-bold px-3.5 py-2 text-xs sm:text-sm"
+                className="btn-secondary px-3.5 py-2 text-xs sm:text-sm"
               >
                 <RefreshCw
-                  className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                  className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin' : ''}`}
                   aria-hidden="true"
                 />
                 <span>{t.home.boardRefresh}</span>
@@ -428,9 +448,9 @@ export default function MyTurnView({
                     avoidStairs: Boolean(trackedSlip.avoidStairs ?? true)
                   })
                 }
-                className="touch-target inline-flex items-center gap-1.5 rounded-lg bg-brand-teal text-white font-bold px-4 py-2 text-xs sm:text-sm"
+                className="btn-teal px-4 py-2 text-xs sm:text-sm"
               >
-                <Navigation className="w-4 h-4" aria-hidden="true" />
+                <Navigation className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{t.slip.directionsBtn}</span>
               </button>
             </div>

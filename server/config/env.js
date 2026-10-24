@@ -140,6 +140,10 @@ export function loadEnvConfig(envObj = process.env) {
   }
 
   const demoMode = (envObj.DEMO_MODE || 'true').toLowerCase() !== 'false';
+  const appOrigin = (envObj.APP_ORIGIN || envObj.PUBLIC_ORIGIN || '').trim() || null;
+  const trustProxy =
+    (envObj.TRUST_PROXY || '').trim().toLowerCase() === 'true' ||
+    (envObj.RENDER || '').trim().toLowerCase() === 'true';
 
   return {
     nodeEnv,
@@ -154,7 +158,9 @@ export function loadEnvConfig(envObj = process.env) {
     patientIdentitySecret,
     staffDemoPinHash,
     staffPinConfigError,
-    demoMode
+    demoMode,
+    appOrigin,
+    trustProxy
   };
 }
 

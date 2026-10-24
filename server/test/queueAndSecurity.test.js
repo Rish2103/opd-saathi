@@ -494,9 +494,13 @@ describe('Phase 1.3 — Patient Identity, Duplicate Prevention, Privacy & Compos
     expect(gen2.body.ticket.publicCode).toBe('OPD-GEN-002');
 
     // 5. Staff calls OPD-GEN-002 and marks NO_SHOW -> same patient can register again (OPD-GEN-003)
-    await staffAgent.post('/api/staff/queues/general-medicine/call-next').send({});
+    await staffAgent
+      .post('/api/staff/queues/general-medicine/call-next')
+      .set('Origin', 'http://localhost:3000')
+      .send({});
     await staffAgent
       .post(`/api/staff/tickets/${gen2.body.ticket.id}/no-show`)
+      .set('Origin', 'http://localhost:3000')
       .send({});
 
     const gen3 = await request(app).post('/api/tickets').send({
@@ -513,15 +517,23 @@ describe('Phase 1.3 — Patient Identity, Duplicate Prevention, Privacy & Compos
     // 6. Staff cannot requeue old NO_SHOW ticket (gen2) while patient already has active ticket (gen3)
     const blockedRequeue = await staffAgent
       .post(`/api/staff/tickets/${gen2.body.ticket.id}/requeue`)
+      .set('Origin', 'http://localhost:3000')
       .send({});
     expect(blockedRequeue.status).toBe(409);
     expect(blockedRequeue.body.error.code).toBe('DUPLICATE_ACTIVE_TICKET');
 
     // 7. Staff calls, starts, and completes OPD-GEN-003 -> same patient can register again (OPD-GEN-004)
-    await staffAgent.post('/api/staff/queues/general-medicine/call-next').send({});
-    await staffAgent.post(`/api/staff/tickets/${gen3.body.ticket.id}/start`).send({});
+    await staffAgent
+      .post('/api/staff/queues/general-medicine/call-next')
+      .set('Origin', 'http://localhost:3000')
+      .send({});
+    await staffAgent
+      .post(`/api/staff/tickets/${gen3.body.ticket.id}/start`)
+      .set('Origin', 'http://localhost:3000')
+      .send({});
     await staffAgent
       .post(`/api/staff/tickets/${gen3.body.ticket.id}/complete`)
+      .set('Origin', 'http://localhost:3000')
       .send({});
 
     const gen4 = await request(app).post('/api/tickets').send({
@@ -757,8 +769,14 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
 
     // Concurrent Call Next -> exactly one 200 OK (OPD-GEN-001) and one 409 ACTIVE_TICKET_EXISTS
     const [callA, callB] = await Promise.all([
-      staffAgent.post('/api/staff/queues/general-medicine/call-next').send({}),
-      staffAgent.post('/api/staff/queues/general-medicine/call-next').send({})
+      staffAgent
+        .post('/api/staff/queues/general-medicine/call-next')
+        .set('Origin', 'http://localhost:3000')
+        .send({}),
+      staffAgent
+        .post('/api/staff/queues/general-medicine/call-next')
+        .set('Origin', 'http://localhost:3000')
+        .send({})
     ]);
 
     const callStatuses = [callA.status, callB.status].sort();
@@ -772,12 +790,16 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     // Invalid state transition: trying to Complete a CALLED ticket directly without starting consultation -> 409
     const invalidComplete = await staffAgent
       .post(`/api/staff/tickets/${t1.id}/complete`)
+      .set('Origin', 'http://localhost:3000')
       .send({});
     expect(invalidComplete.status).toBe(409);
     expect(invalidComplete.body.error.code).toBe('INVALID_STATE_TRANSITION');
 
     // Mark t1 (OPD-GEN-001) as NO_SHOW
-    const noShowRes = await staffAgent.post(`/api/staff/tickets/${t1.id}/no-show`).send({});
+    const noShowRes = await staffAgent
+      .post(`/api/staff/tickets/${t1.id}/no-show`)
+      .set('Origin', 'http://localhost:3000')
+      .send({});
     expect(noShowRes.status).toBe(200);
     expect(noShowRes.body.ticket.status).toBe('NO_SHOW');
 
@@ -788,7 +810,10 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     expect(slip3Before.body.slip.queue.peopleAheadWaiting).toBe(1);
 
     // Requeue t1 (OPD-GEN-001) using TAIL_REQUEUE -> placed behind t2 and t3!
-    const requeueRes = await staffAgent.post(`/api/staff/tickets/${t1.id}/requeue`).send({});
+    const requeueRes = await staffAgent
+      .post(`/api/staff/tickets/${t1.id}/requeue`)
+      .set('Origin', 'http://localhost:3000')
+      .send({});
     expect(requeueRes.status).toBe(200);
     expect(requeueRes.body.ticket.status).toBe('WAITING');
     expect(requeueRes.body.ticket.requeuedCount).toBe(1);
@@ -799,6 +824,98 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     const slip3After = await request(app).get(`/api/slips/${t3.publicCode}`);
     expect(slip2After.body.slip.queue.peopleAheadWaiting).toBe(0);
     expect(slip3After.body.slip.queue.peopleAheadWaiting).toBe(1);
+  });
+
+  it('enforces strict full-origin CSRF validation across all 6 scenarios (dev proxy, prod same-origin, missing Origin, malformed Origin, spoofed X-Forwarded-Host, untrusted cross-origin)', async () => {
+    // 1. Development environment: allows Vite dev origin (http://localhost:5173) when proxied to Host: localhost:3000
+    const { app: devApp } = createTestHarness();
+    const devAgent = request.agent(devApp);
+    await devAgent.post('/api/staff/session').send({ pin: '1234' });
+
+    // Scenario 1: Valid local development request (Origin: http://localhost:5173, Host: localhost:3000) -> 200
+    const validDevRes = await devAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Host', 'localhost:3000')
+      .set('Origin', 'http://localhost:5173')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(validDevRes.status).toBe(200);
+
+    // Scenario 3: Missing Origin header on state-changing staff request -> 403 CSRF_ORIGIN_MISMATCH
+    const missingOriginRes = await devAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(missingOriginRes.status).toBe(403);
+    expect(missingOriginRes.body.error.code).toBe('CSRF_ORIGIN_MISMATCH');
+
+    // Scenario 4: Malformed Origin header & 'null' Origin -> 403 CSRF_ORIGIN_MISMATCH
+    const malformedOriginRes = await devAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Origin', 'not-a-valid-origin-url')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(malformedOriginRes.status).toBe(403);
+    expect(malformedOriginRes.body.error.code).toBe('CSRF_ORIGIN_MISMATCH');
+
+    const nullOriginRes = await devAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Origin', 'null')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(nullOriginRes.status).toBe(403);
+    expect(nullOriginRes.body.error.code).toBe('CSRF_ORIGIN_MISMATCH');
+
+    // Scenario 5: Spoofed X-Forwarded-Host header when trustProxy is disabled -> 403 CSRF_ORIGIN_MISMATCH
+    const spoofedForwardedHostRes = await devAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Origin', 'https://evil.example.com')
+      .set('X-Forwarded-Host', 'evil.example.com')
+      .set('X-Forwarded-Proto', 'https')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(spoofedForwardedHostRes.status).toBe(403);
+    expect(spoofedForwardedHostRes.body.error.code).toBe('CSRF_ORIGIN_MISMATCH');
+
+    // 2. Production environment with canonical APP_ORIGIN configured
+    const strongPinHash = bcrypt.hashSync('849207', 8);
+    const prodQueueService = createQueueService({
+      getHospitalDateIST: () => '2026-10-24'
+    });
+    const prodApp = createApp({
+      queueService: prodQueueService,
+      isProduction: true,
+      appOrigin: 'https://opd-saathi.onrender.com',
+      trustProxy: true,
+      staffPinHash: strongPinHash,
+      disableRateLimits: true,
+      // Use non-secure cookie in HTTP test harness while testing production origin enforcement
+      sessionMiddleware: createTestHarness().sessionMiddleware
+    });
+
+    const prodAgent = request.agent(prodApp);
+    const prodLogin = await prodAgent
+      .post('/api/staff/session')
+      .send({ pin: '849207' });
+    expect(prodLogin.status).toBe(200);
+
+    // Scenario 2: Valid deployed same-origin request in production -> 200
+    const validProdRes = await prodAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Origin', 'https://opd-saathi.onrender.com')
+      .send({ status: 'DELAYED', delayMinutes: 15 });
+    expect(validProdRes.status).toBe(200);
+
+    // Scenario 6a: Untrusted cross-origin request in production -> 403
+    const crossOriginProdRes = await prodAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Origin', 'https://evil.example.com')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(crossOriginProdRes.status).toBe(403);
+    expect(crossOriginProdRes.body.error.code).toBe('CSRF_ORIGIN_MISMATCH');
+
+    // Scenario 6b: Development origin (http://localhost:5173) is strictly rejected in production -> 403
+    const devOriginInProdRes = await prodAgent
+      .patch('/api/staff/departments/general-medicine/doctor-status')
+      .set('Origin', 'http://localhost:5173')
+      .send({ status: 'AVAILABLE', delayMinutes: 0 });
+    expect(devOriginInProdRes.status).toBe(403);
+    expect(devOriginInProdRes.body.error.code).toBe('CSRF_ORIGIN_MISMATCH');
   });
 
   it('allows pre-registration emergency help requests and preserves routine queue order until human triage', async () => {

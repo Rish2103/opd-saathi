@@ -114,11 +114,11 @@ export default function NavigationView({
   return (
     <section
       aria-labelledby="navigate-heading"
-      className="bg-surface border-2 border-border-strong rounded-xl p-5 sm:p-7 shadow-card space-y-6"
+      className="bg-surface border border-border-subtle rounded-2xl p-4 sm:p-7 shadow-card space-y-6"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-border-strong pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="space-y-1">
-          <h2 id="navigate-heading" className="text-xl sm:text-2xl font-bold text-ink-primary">
+          <h2 id="navigate-heading" className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight">
             {t.navigate.title}
           </h2>
           <p className="text-xs sm:text-sm text-ink-secondary">{t.navigate.subtitle}</p>
@@ -128,7 +128,7 @@ export default function NavigationView({
           <button
             type="button"
             onClick={handleReadDirections}
-            className="touch-target inline-flex items-center gap-2 rounded-lg border-2 border-brand-primary bg-subtle text-brand-primary font-bold px-4 py-2 text-xs sm:text-sm"
+            className="btn-secondary px-4 py-2 text-xs sm:text-sm"
           >
             {speaking ? (
               <VolumeX className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -143,7 +143,7 @@ export default function NavigationView({
       </div>
 
       {/* Quick Destination Chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-stretch lg:items-center gap-2">
         {quickDestinations.map((dest) => {
           const isSelected = routeQuery.toNodeId === dest.id;
           return (
@@ -156,10 +156,10 @@ export default function NavigationView({
                   toNodeId: dest.id
                 }))
               }
-              className={`touch-target px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition ${
+              className={`touch-target px-3.5 py-2 rounded-xl text-xs font-bold border transition-all text-left lg:text-center ${
                 isSelected
-                  ? 'bg-brand-primary text-white border-brand-primary'
-                  : 'bg-canvas text-ink-primary border-border-strong hover:bg-subtle'
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                  : 'bg-canvas text-ink-primary border-border-subtle hover:border-brand-teal/50 hover:bg-subtle'
               }`}
             >
               {lang === 'hi' ? dest.label_hi : dest.label_en}
@@ -169,12 +169,12 @@ export default function NavigationView({
       </div>
 
       {/* Origin, Destination & Avoid Stairs Controls */}
-      <div className="p-4 rounded-xl bg-subtle border-2 border-border-strong space-y-4">
+      <div className="p-4 sm:p-5 rounded-2xl bg-subtle/80 border border-border-subtle space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label
               htmlFor="nav-from-select"
-              className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+              className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
             >
               {t.navigate.fromLabel}
             </label>
@@ -184,7 +184,7 @@ export default function NavigationView({
               onChange={(e) =>
                 setRouteQuery((prev) => ({ ...prev, fromNodeId: e.target.value }))
               }
-              className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3 py-2 text-sm font-semibold"
+              className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-sm font-semibold shadow-xs"
             >
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
@@ -197,7 +197,7 @@ export default function NavigationView({
           <div>
             <label
               htmlFor="nav-to-select"
-              className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+              className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
             >
               {t.navigate.toLabel}
             </label>
@@ -207,7 +207,7 @@ export default function NavigationView({
               onChange={(e) =>
                 setRouteQuery((prev) => ({ ...prev, toNodeId: e.target.value }))
               }
-              className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3 py-2 text-sm font-semibold"
+              className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-sm font-semibold shadow-xs"
             >
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
@@ -219,7 +219,7 @@ export default function NavigationView({
         </div>
 
         {/* Avoid Stairs Accessibility Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border-strong">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border-subtle">
           <label className="inline-flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -229,13 +229,13 @@ export default function NavigationView({
               }
               className="w-5 h-5 accent-brand-teal rounded"
             />
-            <span className="font-bold text-sm sm:text-base text-ink-primary flex items-center gap-1.5">
-              <Accessibility className="w-5 h-5 text-brand-teal" aria-hidden="true" />
+            <span className="font-bold text-sm sm:text-base text-ink-primary flex items-center gap-2">
+              <Accessibility className="w-5 h-5 text-brand-teal shrink-0" aria-hidden="true" />
               <span>{t.navigate.avoidStairsToggle}</span>
             </span>
           </label>
 
-          <span className="text-xs font-semibold text-ink-secondary">
+          <span className="text-xs font-semibold text-ink-secondary px-2.5 py-1 rounded-full bg-surface border border-border-subtle">
             {routeQuery.avoidStairs
               ? t.navigate.liftOnlyNote
               : t.navigate.stairsAllowedNote}
@@ -252,33 +252,33 @@ export default function NavigationView({
 
       {!loading && routeResult && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3.5 rounded-xl bg-canvas border-2 border-border-strong">
-              <div className="text-xs font-bold uppercase text-ink-muted">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+              <div className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                 {t.navigate.distanceLabel}
               </div>
-              <div className="font-token text-xl sm:text-2xl font-bold text-ink-primary mt-0.5">
+              <div className="font-token text-xl sm:text-2xl font-extrabold text-ink-primary mt-1">
                 {routeResult.totalDistanceMeters} {t.navigate.meters}
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-canvas border-2 border-border-strong">
-              <div className="flex items-center gap-1 text-xs font-bold uppercase text-ink-muted">
+            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+              <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-ink-muted">
                 <Clock className="w-3.5 h-3.5 text-brand-teal" aria-hidden="true" />
                 <span>{t.navigate.walkTimeLabel}</span>
               </div>
-              <div className="font-token text-xl sm:text-2xl font-bold text-brand-teal mt-0.5">
+              <div className="font-token text-xl sm:text-2xl font-extrabold text-brand-teal mt-1">
                 ~{Math.max(1, Math.round(routeResult.estimatedWalkSeconds / 60))}{' '}
                 {t.home.mins} ({routeResult.estimatedWalkSeconds} {t.navigate.seconds})
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-canvas border-2 border-border-strong">
-              <div className="flex items-center gap-1 text-xs font-bold uppercase text-ink-muted">
+            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+              <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-ink-muted">
                 <Layers className="w-3.5 h-3.5 text-brand-primary" aria-hidden="true" />
                 <span>{t.navigate.floorsLabel}</span>
               </div>
-              <div className="font-token text-xl sm:text-2xl font-bold text-brand-primary mt-0.5">
+              <div className="font-token text-xl sm:text-2xl font-extrabold text-brand-primary mt-1">
                 {routeResult.floorsTraversed?.map((f) => `F${f}`).join(' → ') || 'F1'}
               </div>
             </div>
@@ -289,20 +289,20 @@ export default function NavigationView({
               {routeResult.steps.map((step) => (
                 <li
                   key={step.stepNumber}
-                  className="p-4 rounded-xl bg-canvas border-2 border-border-strong flex items-start gap-3.5"
+                  className="p-4 sm:p-5 rounded-2xl bg-canvas border border-border-subtle hover:border-brand-teal/40 transition-colors flex items-start gap-3.5"
                 >
-                  <div className="w-8 h-8 rounded-full bg-brand-primary text-white font-token font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-9 h-9 rounded-full bg-brand-primary text-white font-token font-extrabold text-sm flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                     {step.stepNumber}
                   </div>
-                  <div className="flex-1 space-y-1.5">
+                  <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase px-2.5 py-0.5 rounded bg-subtle text-brand-primary border border-border-strong">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase px-2.5 py-0.5 rounded-full bg-surface text-brand-primary border border-border-subtle">
                         <Navigation className="w-3.5 h-3.5 text-brand-teal" aria-hidden="true" />
                         <span>
                           {step.mode.toUpperCase()} · {t.floors[step.floor] || `Floor ${step.floor}`}
                         </span>
                       </span>
-                      <span className="font-token text-xs font-semibold text-ink-muted">
+                      <span className="font-token text-xs font-bold text-ink-muted">
                         {step.distanceMeters}m · ~{step.durationSeconds}s
                       </span>
                     </div>
@@ -311,7 +311,7 @@ export default function NavigationView({
                       {lang === 'hi' ? step.instruction_hi : step.instruction_en}
                     </p>
 
-                    <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
+                    <div className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary bg-surface px-2.5 py-1 rounded-lg border border-border-subtle">
                       <MapPin className="w-3.5 h-3.5 text-brand-teal shrink-0" aria-hidden="true" />
                       <span>
                         Landmark: {lang === 'hi' ? step.landmark_hi : step.landmark_en}
@@ -322,7 +322,7 @@ export default function NavigationView({
               ))}
             </ol>
           ) : (
-            <div className="p-5 rounded-xl bg-amber-50 border-2 border-status-next text-ink-primary font-semibold text-sm">
+            <div className="p-5 rounded-2xl bg-amber-50 border border-status-next text-ink-primary font-semibold text-sm">
               {lang === 'hi'
                 ? routeResult.fallbackMessage_hi
                 : routeResult.fallbackMessage_en}

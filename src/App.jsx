@@ -8,6 +8,8 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Eye,
   FileText,
   Home,
@@ -16,11 +18,13 @@ import {
   Navigation,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Stethoscope,
   Trash2,
   UserPlus
 } from 'lucide-react';
 import { TRANSLATIONS } from './i18n/translations.js';
+import BrandLogo from './components/BrandLogo.jsx';
 import EmergencyModal from './components/EmergencyModal.jsx';
 import SlipView from './components/SlipView.jsx';
 import MyTurnView from './components/MyTurnView.jsx';
@@ -213,6 +217,7 @@ export default function App({
   const [lang, setLang] = useState('en');
   const [assistedMode, setAssistedMode] = useState(false);
   const [activeView, setActiveView] = useState(initialNav.view);
+  const [mobileNavOpen, setMobileNavOpen] = useState(true);
 
   const [departments, setDepartments] = useState([]);
   const [hospitalNodes, setHospitalNodes] = useState([]);
@@ -920,127 +925,167 @@ export default function App({
         {t.skipLink}
       </a>
 
-      {/* Persistent Pre-Registration Top Bar (Emergency Help + Assisted Mode + Language + Nav) */}
-      <header className="no-print bg-surface border-b-2 border-border-strong sticky top-0 z-30 shadow-sm">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Persistent Pre-Registration Emergency Help Button */}
-            <button
-              type="button"
-              data-testid="persistent-emergency-btn"
-              onClick={openEmergencyModal}
-              className="touch-target inline-flex items-center gap-2.5 bg-status-emergency text-white font-bold px-4 py-2 rounded-lg shadow-sm hover:opacity-95 transition"
-              aria-haspopup="dialog"
-            >
-              <AlertTriangle className="w-5 h-5 shrink-0" aria-hidden="true" />
-              <div className="text-left leading-tight">
-                <span className="block text-sm sm:text-base">{t.emergencyBtn}</span>
-                <span className="block text-[11px] font-normal opacity-90 hidden sm:inline">
-                  {t.emergencySub}
-                </span>
-              </div>
-            </button>
-
-            {/* Brand Title */}
+      {/* Responsive Floating Liquid-Glass Navbar (Single-line pill on Laptop/Desktop lg+, multi-row on Mobile/Tablet) */}
+      <header className="no-print sticky top-0 sm:top-3 z-40 px-2 sm:px-3 lg:px-4 pt-2 sm:pt-0">
+        <div className="max-w-[98vw] 2xl:max-w-[1560px] w-full mx-auto glass-nav rounded-2xl lg:rounded-full px-3 sm:px-4 lg:px-3.5 xl:px-5 py-2.5 lg:py-2 transition-all duration-200">
+          <div className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-wrap lg:flex-nowrap sm:items-center sm:justify-between lg:gap-2 xl:gap-3">
+            {/* Brand Identity (Left) */}
             <button
               type="button"
               onClick={() => setActiveView('home')}
-              className="text-left focus:outline-none px-1"
+              className="col-start-1 row-start-1 sm:order-1 lg:order-1 text-left focus:outline-none rounded-xl lg:rounded-full px-1 py-0.5 hover:bg-slate-100/70 transition shrink-0"
             >
-              <div className="font-bold text-base sm:text-lg text-brand-primary leading-tight">
-                {t.brandTitle}
-              </div>
-              <div className="text-xs text-ink-secondary hidden sm:block">
-                {t.brandSubtitle}
-              </div>
+              <BrandLogo
+                title={t.brandTitle}
+                subtitle={t.brandSubtitle}
+                compact={false}
+              />
             </button>
 
-            {/* Accessibility & Language Controls */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                data-testid="assisted-mode-toggle"
-                onClick={() => setAssistedMode((prev) => !prev)}
-                aria-pressed={assistedMode}
-                className="touch-target inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-brand-primary bg-subtle text-brand-primary font-bold text-xs sm:text-sm"
-              >
-                <Eye className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>{assistedMode ? t.assistedOn : t.assistedOff}</span>
-              </button>
+            {/* Right-Hand Utilities & Persistent Emergency Button */}
+            <div className="contents sm:flex sm:items-center sm:gap-1.5 xl:gap-2 sm:order-2 lg:order-3 shrink-0">
+              {/* Utility Strip: Assisted Mode + Language + Mobile Nav Collapse Toggle */}
+              <div className="col-span-2 row-start-2 flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/80 sm:border-t-0 sm:pt-0 sm:justify-end">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    data-testid="assisted-mode-toggle"
+                    onClick={() => setAssistedMode((prev) => !prev)}
+                    aria-pressed={assistedMode}
+                    className={`touch-target inline-flex items-center justify-center gap-1.5 px-2.5 lg:px-2.5 xl:px-3 py-1.5 rounded-xl lg:rounded-full border text-[11px] sm:text-[12px] font-bold whitespace-nowrap transition ${
+                      assistedMode
+                        ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                        : 'bg-subtle/90 text-brand-primary border-brand-primary/30 hover:bg-slate-200/70'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{assistedMode ? t.assistedOn : t.assistedOff}</span>
+                  </button>
 
+                  <button
+                    type="button"
+                    data-testid="language-toggle-btn"
+                    onClick={() => setLang((prev) => (prev === 'en' ? 'hi' : 'en'))}
+                    className="touch-target inline-flex items-center justify-center gap-1.5 px-2.5 lg:px-2.5 xl:px-3 py-1.5 rounded-xl lg:rounded-full bg-brand-primary hover:bg-brand-primaryHover text-white font-bold text-[11px] sm:text-[12px] whitespace-nowrap shadow-sm transition"
+                  >
+                    <Languages className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{t.langToggle}</span>
+                  </button>
+                </div>
+
+                {/* Mobile-Only Navigation Grid Collapse/Expand Toggle */}
+                <button
+                  type="button"
+                  data-testid="mobile-nav-toggle-btn"
+                  aria-expanded={mobileNavOpen}
+                  aria-controls="primary-navigation-links"
+                  onClick={() => setMobileNavOpen((prev) => !prev)}
+                  className="sm:hidden touch-target inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl border border-border-strong bg-surface text-ink-primary font-bold text-xs"
+                >
+                  <span>{lang === 'hi' ? 'मेनू' : 'Menu'}</span>
+                  {mobileNavOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+
+              {/* Persistent Pre-Registration Emergency Help Button (Row 1 Right on Mobile, Rightmost on Laptop) */}
               <button
                 type="button"
-                data-testid="language-toggle-btn"
-                onClick={() => setLang((prev) => (prev === 'en' ? 'hi' : 'en'))}
-                className="touch-target inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-primary text-white font-bold text-xs sm:text-sm"
+                data-testid="persistent-emergency-btn"
+                onClick={openEmergencyModal}
+                className="col-start-2 row-start-1 justify-self-end touch-target inline-flex items-center justify-center gap-1.5 bg-status-emergency hover:bg-[#991b1b] text-white font-bold px-2.5 xl:px-3.5 py-1.5 rounded-xl lg:rounded-full shadow-sm transition shrink-0 whitespace-nowrap"
+                aria-haspopup="dialog"
               >
-                <Languages className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>{t.langToggle}</span>
+                <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <div className="text-left leading-tight">
+                  <span className="block text-[11px] sm:text-[12px] font-extrabold">
+                    {t.emergencyBtn}
+                  </span>
+                </div>
               </button>
             </div>
-          </div>
 
-          {/* Primary Navigation Tabs */}
-          <nav
-            aria-label="Primary Navigation"
-            className="flex items-center gap-1.5 overflow-x-auto pb-1"
-          >
-            {[
-              { id: 'home', label: t.nav.home, icon: Home },
-              { id: 'register', label: t.nav.register, icon: UserPlus },
-              {
-                id: 'slip',
-                label:
-                  savedSlips.length > 1
-                    ? `${t.nav.slip} (${savedSlips.length})`
-                    : activeSavedEntry?.publicCode
-                      ? `${t.nav.slip} (${activeSavedEntry.publicCode})`
-                      : t.nav.slip,
-                icon: FileText
-              },
-              { id: 'my-turn', label: t.nav.myTurn, icon: Activity },
-              { id: 'navigate', label: t.nav.navigate, icon: Navigation },
-              { id: 'staff', label: t.nav.staff, icon: ShieldCheck }
-            ].map((item) => {
-              const Icon = item.icon;
-              const isCurrent = activeView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-testid={`nav-tab-${item.id}`}
-                  aria-current={isCurrent ? 'page' : undefined}
-                  onClick={() => setActiveView(item.id)}
-                  className={`touch-target inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition border-2 ${
-                    isCurrent
-                      ? 'bg-brand-primary text-white border-brand-primary'
-                      : 'bg-canvas text-ink-primary border-border-strong hover:bg-subtle'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+            {/* Primary Navigation Tabs:
+                - Mobile (<640px): Zero-horizontal-scroll 3x2 grid (collapsible via Menu toggle)
+                - Tablet (640-1023px): Full-width Row 2 6-column balanced pill grid
+                - Laptop & Desktop (1024px+): Center single-line inline pill bar */}
+            <nav
+              id="primary-navigation-links"
+              aria-label="Primary Navigation"
+              className={`${
+                mobileNavOpen ? 'grid' : 'hidden sm:grid'
+              } col-span-2 row-start-3 w-full sm:order-3 lg:w-auto lg:order-2 grid-cols-3 sm:grid-cols-6 lg:flex lg:flex-nowrap items-center gap-1.5 lg:gap-1 bg-slate-100/90 p-1.5 lg:p-1 rounded-xl lg:rounded-full border border-slate-200/80 min-w-0`}
+            >
+              {[
+                { id: 'home', label: t.nav.home, icon: Home },
+                { id: 'register', label: t.nav.register, icon: UserPlus },
+                {
+                  id: 'slip',
+                  label:
+                    savedSlips.length > 0
+                      ? `${t.nav.slip} (${savedSlips.length})`
+                      : activeSavedEntry?.publicCode
+                        ? `${t.nav.slip} (1)`
+                        : t.nav.slip,
+                  icon: FileText
+                },
+                { id: 'my-turn', label: t.nav.myTurn, icon: Activity },
+                { id: 'navigate', label: t.nav.navigate, icon: Navigation },
+                { id: 'staff', label: t.nav.staff, icon: ShieldCheck }
+              ].map((item) => {
+                const Icon = item.icon;
+                const isCurrent = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    data-testid={`nav-tab-${item.id}`}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    onClick={() => setActiveView(item.id)}
+                    className={`touch-target min-h-[38px] inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 lg:px-2.5 xl:px-3 2xl:px-3.5 py-1.5 rounded-lg lg:rounded-full font-bold text-[11px] sm:text-[12px] 2xl:text-[13px] text-center leading-tight whitespace-nowrap transition-all ${
+                      isCurrent
+                        ? 'bg-brand-primary text-white shadow-sm'
+                        : 'bg-surface/80 lg:bg-transparent text-ink-primary hover:bg-white hover:text-brand-primary'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </div>
       </header>
 
       {/* Main Content Container */}
       <main
         id="main-content"
-        className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-6 space-y-6"
+        className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 sm:py-7 space-y-6"
       >
         {/* =================================================================
             VIEW 1: HOME & LIVE WAITING ROOM BOARD
            ================================================================= */}
         {activeView === 'home' && (
           <div className="space-y-6">
-            {/* Hero Action Banner */}
-            <section className="bg-brand-primary text-white rounded-xl p-5 sm:p-7 shadow-card space-y-5">
-              <div className="space-y-2 max-w-3xl">
-                <h1 className="text-2xl sm:text-3xl font-bold">{t.home.heroTitle}</h1>
-                <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
+            {/* Premium Clinical Hero Action Banner */}
+            <section className="bg-gradient-to-br from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white rounded-2xl p-5 sm:p-8 shadow-elevated border border-white/10 space-y-6">
+              <div className="space-y-3 max-w-3xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-teal-200 text-xs font-bold tracking-wide">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {lang === 'hi'
+                      ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
+                      : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  {t.home.heroTitle}
+                </h1>
+                <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-2xl">
                   {t.home.heroDesc}
                 </p>
               </div>
@@ -1053,7 +1098,7 @@ export default function App({
                     setRegStep(1);
                     setActiveView('register');
                   }}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
+                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-extrabold px-4 py-3.5 text-sm sm:text-base shadow-md transition-all"
                 >
                   <UserPlus className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaRegister}</span>
@@ -1063,7 +1108,7 @@ export default function App({
                   type="button"
                   data-testid="home-cta-my-turn"
                   onClick={() => setActiveView('my-turn')}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-white/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
+                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-teal-300/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-md transition-all"
                 >
                   <Activity className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaMyTurn}</span>
@@ -1073,7 +1118,7 @@ export default function App({
                   type="button"
                   data-testid="home-cta-navigate"
                   onClick={() => setActiveView('navigate')}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
+                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition-all"
                 >
                   <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaRoute}</span>
@@ -1083,7 +1128,7 @@ export default function App({
                   type="button"
                   data-testid="home-cta-staff"
                   onClick={() => setActiveView('staff')}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition"
+                  className="touch-target inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3.5 text-sm sm:text-base shadow-sm transition-all"
                 >
                   <ShieldCheck className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span>{t.home.ctaStaff}</span>
@@ -1096,27 +1141,31 @@ export default function App({
               <section
                 aria-label={t.slip.mySlipsSwitcherTitle}
                 data-testid="home-saved-slips-section"
-                className="p-4 sm:p-5 rounded-xl bg-green-50 border-2 border-status-serving space-y-4"
+                className="p-4 sm:p-6 rounded-2xl bg-emerald-50/90 border-2 border-status-serving/40 shadow-card space-y-4"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-xs font-bold uppercase text-status-serving">
-                      {t.home.activeSlipBanner} ({savedSlips.length})
+                    <div className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-status-serving">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      <span>
+                        {t.home.activeSlipBanner} ({savedSlips.length})
+                      </span>
                     </div>
-                    <div className="font-bold text-base sm:text-lg text-ink-primary">
+                    <div className="font-extrabold text-base sm:text-lg text-ink-primary mt-0.5">
                       {t.slip.mySlipsSwitcherTitle}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveView('slip')}
-                    className="touch-target px-4 py-2 rounded-lg bg-brand-primary text-white font-bold text-xs sm:text-sm"
+                    className="btn-primary text-xs sm:text-sm"
                   >
-                    {t.home.viewActiveSlip}
+                    <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>{t.home.viewActiveSlip}</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {savedSlips.map((entry) => {
                     const isSelected =
                       activeSavedEntry?.ticketId === entry.ticketId &&
@@ -1140,30 +1189,30 @@ export default function App({
                       <div
                         key={entry.ticketId || entry.publicCode}
                         data-testid={`home-saved-slip-${entry.publicCode}`}
-                        className={`p-3.5 rounded-xl bg-surface border-2 flex flex-col justify-between gap-3 ${
+                        className={`p-4 rounded-2xl bg-surface border-2 flex flex-col justify-between gap-3.5 transition-all ${
                           isSelected
-                            ? 'border-brand-primary shadow-sm'
-                            : 'border-border-strong'
+                            ? 'border-brand-primary shadow-md ring-2 ring-brand-primary/10'
+                            : 'border-border-subtle hover:border-brand-primary/40'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="font-token text-xl font-bold text-brand-primary">
+                            <div className="font-token text-xl sm:text-2xl font-extrabold text-brand-primary tracking-wider">
                               {entry.publicCode}
                             </div>
-                            <div className="text-xs sm:text-sm font-bold text-ink-primary">
+                            <div className="text-xs sm:text-sm font-bold text-ink-primary mt-0.5">
                               {deptName} ({entry.roomLabel})
                             </div>
                             {entry.patientSummary?.fullName && (
-                              <div className="text-xs text-ink-secondary mt-0.5">
+                              <div className="text-xs font-medium text-ink-secondary mt-0.5">
                                 {entry.patientSummary.fullName}
                               </div>
                             )}
                           </div>
                           <span
-                            className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                            className={`text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 ${
                               isActiveStatus
-                                ? 'bg-green-50 text-status-serving border-status-serving'
+                                ? 'bg-green-50 text-status-serving border-status-serving/40'
                                 : 'bg-subtle text-ink-secondary border-border-strong'
                             }`}
                           >
@@ -1171,44 +1220,41 @@ export default function App({
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-border-strong/60">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              data-testid={`home-open-slip-${entry.publicCode}`}
-                              onClick={() => {
-                                handleSelectSavedSlip(entry);
-                                setActiveView('slip');
-                              }}
-                              className="touch-target inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary hover:bg-[#133863] text-white font-bold text-xs sm:text-sm border-2 border-brand-primary shadow-sm transition-colors"
-                            >
-                              <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
-                              <span>{t.nav.slip}</span>
-                            </button>
-                            <button
-                              type="button"
-                              data-testid={`home-track-slip-${entry.publicCode}`}
-                              onClick={() => {
-                                handleSelectSavedSlip(entry);
-                                setActiveView('my-turn');
-                              }}
-                              className="touch-target inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealHover text-white font-bold text-xs sm:text-sm border-2 border-brand-teal shadow-sm transition-colors"
-                            >
-                              <Activity className="w-4 h-4 shrink-0" aria-hidden="true" />
-                              <span>{t.nav.myTurn}</span>
-                            </button>
-                          </div>
-
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3 border-t border-border-subtle">
+                          <button
+                            type="button"
+                            data-testid={`home-open-slip-${entry.publicCode}`}
+                            onClick={() => {
+                              handleSelectSavedSlip(entry);
+                              setActiveView('slip');
+                            }}
+                            className="touch-target inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-brand-primary hover:bg-brand-primaryHover text-white font-bold text-xs sm:text-sm border border-brand-primary shadow-sm transition-colors text-center"
+                          >
+                            <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
+                            <span className="leading-snug">{t.nav.slip}</span>
+                          </button>
+                          <button
+                            type="button"
+                            data-testid={`home-track-slip-${entry.publicCode}`}
+                            onClick={() => {
+                              handleSelectSavedSlip(entry);
+                              setActiveView('my-turn');
+                            }}
+                            className="touch-target inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white font-bold text-xs sm:text-sm border border-brand-teal shadow-sm transition-colors text-center"
+                          >
+                            <Activity className="w-4 h-4 shrink-0" aria-hidden="true" />
+                            <span className="leading-snug">{t.nav.myTurn}</span>
+                          </button>
                           <button
                             type="button"
                             data-testid={`home-remove-slip-${entry.publicCode}`}
                             onClick={() =>
                               handleRemoveSavedSlip(entry.ticketId || entry.publicCode)
                             }
-                            className="touch-target px-3.5 py-2 rounded-lg border-2 border-border-strong bg-surface text-ink-secondary hover:text-status-emergency hover:border-status-emergency hover:bg-red-50 font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 transition-colors"
+                            className="col-span-2 sm:col-span-1 touch-target inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-border-strong bg-surface text-ink-secondary hover:text-status-emergency hover:border-status-emergency hover:bg-red-50 font-bold text-xs sm:text-sm transition-colors text-center"
                           >
                             <Trash2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-                            <span>{t.slip.removeFromDeviceBtn}</span>
+                            <span className="leading-snug">{t.slip.removeFromDeviceBtn}</span>
                           </button>
                         </div>
                       </div>
@@ -1221,25 +1267,24 @@ export default function App({
             {/* Live Multi-Department Waiting Room Board */}
             <section
               aria-labelledby="public-board-heading"
-              className="bg-surface border-2 border-border-strong rounded-xl p-5 sm:p-6 shadow-card space-y-4"
+              className="card-surface p-5 sm:p-6 space-y-5"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <Building2
-                    className="w-6 h-6 text-brand-primary shrink-0"
-                    aria-hidden="true"
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
+                    <Building2 className="w-5 h-5" aria-hidden="true" />
+                  </div>
                   <div>
                     <h2
                       id="public-board-heading"
-                      className="text-lg sm:text-xl font-bold text-ink-primary"
+                      className="text-lg sm:text-xl font-extrabold text-ink-primary"
                     >
                       {t.home.boardTitle}
                     </h2>
                     {publicBoard.queueDate && (
                       <p className="text-xs text-ink-secondary">
                         Hospital Queue Date (IST):{' '}
-                        <span className="font-token font-bold">
+                        <span className="font-token font-bold text-brand-primary">
                           {publicBoard.queueDate}
                         </span>
                       </p>
@@ -1251,7 +1296,7 @@ export default function App({
                   type="button"
                   onClick={refreshPublicBoard}
                   disabled={boardLoading}
-                  className="touch-target inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-brand-primary bg-subtle text-brand-primary font-bold text-xs sm:text-sm"
+                  className="btn-secondary text-xs sm:text-sm"
                 >
                   <RefreshCw
                     className={`w-4 h-4 ${boardLoading ? 'animate-spin' : ''}`}
@@ -1264,14 +1309,14 @@ export default function App({
               {isHospitalQueueEmpty && (
                 <div
                   data-testid="empty-queue-banner"
-                  className="p-4 sm:p-5 rounded-xl bg-brand-tealSoft border-2 border-brand-teal flex flex-wrap items-center justify-between gap-4"
+                  className="p-4 sm:p-5 rounded-2xl bg-brand-tealSoft border-2 border-brand-teal/40 flex flex-wrap items-center justify-between gap-4"
                 >
                   <div className="space-y-1 max-w-3xl">
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-status-serving text-white text-xs font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>{t.home.emptyQueueBadge}</span>
                     </div>
-                    <h3 className="font-bold text-base sm:text-lg text-brand-primary pt-0.5">
+                    <h3 className="font-extrabold text-base sm:text-lg text-brand-primary pt-0.5">
                       {t.home.emptyQueueTitle}
                     </h3>
                     <p className="text-xs sm:text-sm text-ink-secondary">
@@ -1286,7 +1331,7 @@ export default function App({
                       setRegStep(1);
                       setActiveView('register');
                     }}
-                    className="touch-target inline-flex items-center gap-2 rounded-xl bg-brand-primary text-white font-bold px-4 py-3 text-xs sm:text-sm shadow-sm"
+                    className="btn-primary text-xs sm:text-sm"
                   >
                     <UserPlus className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{t.home.emptyQueueCta}</span>
@@ -1308,35 +1353,37 @@ export default function App({
                   return (
                     <article
                       key={slug}
-                      className="rounded-xl border-2 border-border-strong bg-canvas p-4 flex flex-col justify-between gap-4"
+                      className="rounded-2xl border border-border-strong/70 bg-canvas p-4 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-token text-xs font-bold px-2.5 py-1 rounded bg-brand-primary text-white">
+                          <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-brand-primary text-white">
                             {prefix}
                           </span>
-                          <span className="font-token text-xs font-bold px-2.5 py-0.5 rounded bg-subtle text-ink-primary border border-border-strong">
+                          <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-surface text-ink-primary border border-border-subtle">
                             {roomLabel} · F{floorNum}
                           </span>
                         </div>
-                        <h3 className="font-bold text-base text-ink-primary">{name}</h3>
+                        <h3 className="font-extrabold text-base text-ink-primary leading-snug">
+                          {name}
+                        </h3>
                       </div>
 
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-surface border border-border-strong text-center">
+                      <div className="space-y-2.5">
+                        <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-surface border border-border-subtle text-center">
                           <div>
                             <div className="text-[11px] font-bold uppercase text-ink-muted">
                               {t.home.nowServing}
                             </div>
-                            <div className="font-token font-bold text-sm sm:text-base text-status-serving mt-0.5">
+                            <div className="font-token font-extrabold text-sm sm:text-base text-status-serving mt-0.5">
                               {nowServing}
                             </div>
                           </div>
-                          <div className="border-l border-border-strong">
+                          <div className="border-l border-border-subtle">
                             <div className="text-[11px] font-bold uppercase text-ink-muted">
                               {t.home.waitingCount}
                             </div>
-                            <div className="font-token font-bold text-base text-ink-primary mt-0.5">
+                            <div className="font-token font-extrabold text-base text-ink-primary mt-0.5">
                               {waiting}
                             </div>
                           </div>
@@ -1345,12 +1392,12 @@ export default function App({
                         {isDeptEmpty ? (
                           <div
                             data-testid={`dept-empty-status-${slug}`}
-                            className="px-2.5 py-1.5 rounded-lg bg-green-50 border border-status-serving text-status-serving text-xs font-bold text-center"
+                            className="px-2.5 py-1.5 rounded-xl bg-green-50 border border-status-serving/40 text-status-serving text-xs font-bold text-center"
                           >
                             {t.home.deptOpenImmediate}
                           </div>
                         ) : (
-                          <div className="px-2.5 py-1.5 rounded-lg bg-subtle border border-border-strong text-ink-secondary text-xs font-bold text-center">
+                          <div className="px-2.5 py-1.5 rounded-xl bg-subtle border border-border-subtle text-ink-secondary text-xs font-bold text-center">
                             {t.home.estWait}: ~{item.estimatedWaitMinutes ?? waiting * 7}{' '}
                             {t.home.mins}
                           </div>
@@ -1366,10 +1413,10 @@ export default function App({
                           setRegStep(2);
                           setActiveView('register');
                         }}
-                        className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-teal hover:bg-brand-tealHover text-white font-bold px-3 py-2.5 text-xs sm:text-sm transition"
+                        className="btn-teal w-full text-xs sm:text-sm py-2.5"
                       >
                         <span>{t.home.registerHere}</span>
-                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                        <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                       </button>
                     </article>
                   );
@@ -1385,54 +1432,70 @@ export default function App({
         {activeView === 'register' && (
           <section
             aria-labelledby="register-heading"
-            className="bg-surface border-2 border-border-strong rounded-xl p-5 sm:p-7 shadow-card space-y-6"
+            className="card-surface p-5 sm:p-7 space-y-6"
           >
-            <div className="border-b-2 border-border-strong pb-4 space-y-2">
-              <h2
-                id="register-heading"
-                className="text-xl sm:text-2xl font-bold text-ink-primary"
-              >
-                {t.register.title}
-              </h2>
-              <p className="text-xs sm:text-sm text-ink-secondary">
-                {t.register.subtitle}
-              </p>
+            <div className="border-b border-border-subtle pb-5 space-y-3">
+              <div>
+                <h2
+                  id="register-heading"
+                  className="text-xl sm:text-2xl font-extrabold text-ink-primary"
+                >
+                  {t.register.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-ink-secondary mt-1">
+                  {t.register.subtitle}
+                </p>
+              </div>
 
-              {/* Step Progress Bar */}
-              <div className="grid grid-cols-3 gap-2 pt-2">
+              {/* 3-Step Visual Progress Bar */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
                 {[
                   { num: 1, label: t.register.step1 },
                   { num: 2, label: t.register.step2 },
                   { num: 3, label: t.register.step3 }
-                ].map((s) => (
-                  <button
-                    key={s.num}
-                    type="button"
-                    onClick={() => {
-                      if (s.num === 3 && !validateStep2Fields()) {
-                        setRegStep(2);
-                        return;
-                      }
-                      setRegStep(s.num);
-                    }}
-                    className={`touch-target rounded-lg px-3 py-2 text-xs sm:text-sm font-bold border-2 text-left transition ${
-                      regStep === s.num
-                        ? 'bg-brand-primary text-white border-brand-primary'
-                        : regStep > s.num
-                          ? 'bg-green-50 text-status-serving border-status-serving'
-                          : 'bg-subtle text-ink-secondary border-border-strong'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                ].map((s) => {
+                  const cleanLabel = String(s.label || '').replace(/^\d+\.\s*/, '');
+                  return (
+                    <button
+                      key={s.num}
+                      type="button"
+                      onClick={() => {
+                        if (s.num === 3 && !validateStep2Fields()) {
+                          setRegStep(2);
+                          return;
+                        }
+                        setRegStep(s.num);
+                      }}
+                      className={`touch-target rounded-xl px-2.5 sm:px-3.5 py-2.5 text-[11px] sm:text-sm font-bold border-2 text-left transition flex flex-col sm:flex-row items-start sm:items-center gap-1.5 sm:gap-2.5 ${
+                        regStep === s.num
+                          ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                          : regStep > s.num
+                            ? 'bg-green-50 text-status-serving border-status-serving/50'
+                            : 'bg-subtle text-ink-secondary border-border-subtle'
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[11px] sm:text-xs font-token font-extrabold inline-flex items-center justify-center shrink-0 ${
+                          regStep === s.num
+                            ? 'bg-white text-brand-primary'
+                            : regStep > s.num
+                              ? 'bg-status-serving text-white'
+                              : 'bg-surface text-ink-secondary border border-border-subtle'
+                        }`}
+                      >
+                        {s.num}
+                      </span>
+                      <span className="leading-snug break-words">{cleanLabel}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {pendingRetryRequestId && (
               <div
                 role="status"
-                className="p-3.5 rounded-lg bg-amber-50 border-2 border-status-next text-ink-primary text-xs sm:text-sm font-semibold"
+                className="p-3.5 rounded-xl bg-amber-50 border-2 border-status-next text-ink-primary text-xs sm:text-sm font-semibold"
               >
                 {t.register.retryNotice}
               </div>
@@ -1459,22 +1522,22 @@ export default function App({
                           setRegError(null);
                           setRegStep(2);
                         }}
-                        className={`text-left rounded-xl p-4 sm:p-5 border-2 transition flex flex-col justify-between gap-3 ${
+                        className={`text-left rounded-2xl p-4 sm:p-5 border-2 transition-all flex flex-col justify-between gap-3 ${
                           isSelected
-                            ? 'bg-brand-primary/5 border-brand-primary ring-2 ring-brand-primary'
-                            : 'bg-canvas border-border-strong hover:bg-subtle'
+                            ? 'bg-brand-primary/5 border-brand-primary ring-2 ring-brand-primary/20 shadow-sm'
+                            : 'bg-canvas border-border-subtle hover:border-brand-primary/50 hover:bg-subtle/60'
                         }`}
                       >
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-token text-xs font-bold px-2.5 py-1 rounded bg-brand-primary text-white">
+                            <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-brand-primary text-white">
                               {dept.token_prefix}
                             </span>
-                            <span className="font-token text-xs font-bold px-2.5 py-1 rounded bg-surface border border-border-strong text-ink-primary">
+                            <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-surface border border-border-subtle text-ink-primary">
                               {dept.room_label} · {t.floors[dept.floor_number]}
                             </span>
                           </div>
-                          <div className="font-bold text-base sm:text-lg text-ink-primary">
+                          <div className="font-extrabold text-base sm:text-lg text-ink-primary">
                             {lang === 'hi' ? dept.name_hi : dept.name_en}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs sm:text-sm text-ink-secondary font-medium">
@@ -1490,7 +1553,7 @@ export default function App({
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-border-strong/60 text-xs text-ink-secondary flex items-center gap-1.5">
+                        <div className="pt-2.5 border-t border-border-subtle text-xs text-ink-secondary flex items-center gap-1.5">
                           <MapPin
                             className="w-4 h-4 text-brand-teal shrink-0"
                             aria-hidden="true"
@@ -1510,9 +1573,9 @@ export default function App({
             {regStep === 2 && (
               <div className="space-y-6">
                 {/* Patient Identity Details Section */}
-                <div className="p-4 sm:p-5 rounded-xl bg-canvas border-2 border-border-strong space-y-4">
-                  <div className="space-y-1 border-b border-border-strong pb-3">
-                    <h3 className="font-bold text-base sm:text-lg text-brand-primary flex items-center gap-2">
+                <div className="p-4 sm:p-6 rounded-2xl bg-canvas border border-border-strong/70 space-y-4">
+                  <div className="space-y-1 border-b border-border-subtle pb-3">
+                    <h3 className="font-extrabold text-base sm:text-lg text-brand-primary flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-brand-teal shrink-0" aria-hidden="true" />
                       <span>{t.register.patientSectionTitle}</span>
                     </h3>
@@ -1526,7 +1589,7 @@ export default function App({
                     <div>
                       <label
                         htmlFor="reg-patient-name"
-                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                       >
                         {t.register.patientNameLabel}
                       </label>
@@ -1544,7 +1607,7 @@ export default function App({
                           }
                         }}
                         placeholder={t.register.patientNamePlaceholder}
-                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 text-sm sm:text-base font-semibold text-ink-primary"
+                        className="touch-target w-full rounded-xl border-2 border-border-strong bg-surface px-3.5 py-2.5 text-sm sm:text-base font-semibold text-ink-primary"
                       />
                       {regFieldErrors.patientName && (
                         <p
@@ -1561,7 +1624,7 @@ export default function App({
                     <div>
                       <label
                         htmlFor="reg-patient-phone"
-                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                       >
                         {t.register.phoneLabel}
                       </label>
@@ -1580,7 +1643,7 @@ export default function App({
                           }
                         }}
                         placeholder={t.register.phonePlaceholder}
-                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-sm sm:text-base font-bold text-ink-primary"
+                        className="touch-target w-full rounded-xl border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-sm sm:text-base font-bold text-ink-primary"
                       />
                       <p className="text-[11px] text-ink-secondary mt-1">
                         {t.register.phoneUnverifiedNote}
@@ -1600,7 +1663,7 @@ export default function App({
                     <div>
                       <label
                         htmlFor="reg-patient-age"
-                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                       >
                         {t.register.ageLabel}
                       </label>
@@ -1620,7 +1683,7 @@ export default function App({
                           }
                         }}
                         placeholder={t.register.agePlaceholder}
-                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-sm sm:text-base font-bold text-ink-primary"
+                        className="touch-target w-full rounded-xl border-2 border-border-strong bg-surface px-3.5 py-2.5 font-token text-sm sm:text-base font-bold text-ink-primary"
                       />
                       {regFieldErrors.age && (
                         <p
@@ -1637,7 +1700,7 @@ export default function App({
                     <div>
                       <label
                         htmlFor="reg-patient-gender"
-                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                        className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                       >
                         {t.register.genderLabel}
                       </label>
@@ -1646,7 +1709,7 @@ export default function App({
                         data-testid="reg-gender-select"
                         value={regGender}
                         onChange={(e) => setRegGender(e.target.value)}
-                        className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2.5 text-sm sm:text-base font-semibold text-ink-primary"
+                        className="touch-target w-full rounded-xl border-2 border-border-strong bg-surface px-3.5 py-2.5 text-sm sm:text-base font-semibold text-ink-primary"
                       >
                         <option value="PREFER_NOT_TO_SAY">{t.register.genderDecline}</option>
                         <option value="FEMALE">{t.register.genderFemale}</option>
@@ -1660,7 +1723,7 @@ export default function App({
                   <div>
                     <label
                       htmlFor="reg-hospital-uhid"
-                      className="block text-xs sm:text-sm font-bold text-ink-primary mb-1"
+                      className="block text-xs sm:text-sm font-bold text-ink-primary mb-1.5"
                     >
                       {t.register.regNoLabel}
                     </label>
@@ -1672,7 +1735,7 @@ export default function App({
                       value={regRegistrationNumber}
                       onChange={(e) => setRegRegistrationNumber(e.target.value)}
                       placeholder={t.register.regNoPlaceholder}
-                      className="touch-target w-full rounded-lg border-2 border-border-strong bg-surface px-3.5 py-2 text-sm font-mono text-ink-primary"
+                      className="touch-target w-full rounded-xl border-2 border-border-strong bg-surface px-3.5 py-2 text-sm font-mono text-ink-primary"
                     />
                     <p className="text-[11px] text-ink-secondary mt-1">
                       {t.register.regNoHint}
@@ -1694,7 +1757,7 @@ export default function App({
                         onClick={() => setRegVisitType(vt)}
                         className={`touch-target rounded-xl p-4 border-2 text-left font-bold text-sm sm:text-base transition ${
                           regVisitType === vt
-                            ? 'bg-brand-primary text-white border-brand-primary'
+                            ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
                             : 'bg-canvas text-ink-primary border-border-strong'
                         }`}
                       >
@@ -1705,7 +1768,7 @@ export default function App({
                 </div>
 
                 {/* Avoid Stairs Accessibility Preference */}
-                <div className="p-4 sm:p-5 rounded-xl bg-subtle border-2 border-border-strong space-y-2">
+                <div className="p-4 sm:p-5 rounded-2xl bg-brand-tealSoft/60 border-2 border-brand-teal/40 space-y-2">
                   <label className="inline-flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1727,13 +1790,13 @@ export default function App({
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setRegStep(1)}
-                    className="touch-target inline-flex items-center gap-2 rounded-lg border-2 border-brand-primary bg-surface text-brand-primary font-bold px-5 py-2.5 text-sm"
+                    className="btn-secondary"
                   >
-                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                    <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{t.register.backBtn}</span>
                   </button>
 
@@ -1741,10 +1804,10 @@ export default function App({
                     type="button"
                     data-testid="reg-step2-continue"
                     onClick={handleContinueFromStep2}
-                    className="touch-target inline-flex items-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-6 py-2.5 text-sm sm:text-base"
+                    className="btn-primary"
                   >
                     <span>{t.register.nextBtn}</span>
-                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                    <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -1753,19 +1816,19 @@ export default function App({
             {/* Step 3: Review & Confirm */}
             {regStep === 3 && selectedRegDept && (
               <div className="space-y-5">
-                <div className="p-5 rounded-xl bg-canvas border-2 border-border-strong space-y-3">
-                  <h3 className="font-bold text-base sm:text-lg text-ink-primary border-b border-border-strong pb-2">
+                <div className="p-5 sm:p-6 rounded-2xl bg-canvas border-2 border-border-strong/70 space-y-4">
+                  <h3 className="font-extrabold text-base sm:text-lg text-ink-primary border-b border-border-subtle pb-2.5">
                     {t.register.summaryHeading}
                   </h3>
 
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div>
                       <dt className="text-xs font-bold uppercase text-ink-muted">
                         {t.register.patientLabel}
                       </dt>
                       <dd
                         data-testid="reg-summary-patient-name"
-                        className="font-bold text-base text-ink-primary mt-0.5"
+                        className="font-extrabold text-base text-ink-primary mt-0.5"
                       >
                         {regPatientName.trim()}
                       </dd>
@@ -1832,7 +1895,7 @@ export default function App({
                   <div
                     role="alert"
                     data-testid="duplicate-ticket-banner"
-                    className="p-5 rounded-xl bg-amber-50 border-2 border-status-next text-ink-primary space-y-3"
+                    className="p-5 rounded-2xl bg-amber-50 border-2 border-status-next text-ink-primary space-y-3"
                   >
                     <div className="font-bold text-base sm:text-lg text-status-next">
                       {t.register.duplicateTitle}:{' '}
@@ -1848,9 +1911,9 @@ export default function App({
                         type="button"
                         data-testid="open-existing-duplicate-slip-btn"
                         onClick={handleOpenDuplicateExistingSlip}
-                        className="touch-target inline-flex items-center gap-2 rounded-lg bg-brand-primary text-white font-bold px-4 py-2.5 text-xs sm:text-sm"
+                        className="btn-primary text-xs sm:text-sm"
                       >
-                        <FileText className="w-4 h-4" aria-hidden="true" />
+                        <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
                           {t.register.duplicateOpenBtn} ({duplicateTicketInfo.publicCode})
                         </span>
@@ -1864,7 +1927,7 @@ export default function App({
                           setRegError(null);
                           setRegStep(1);
                         }}
-                        className="touch-target inline-flex items-center gap-2 rounded-lg border-2 border-brand-primary bg-surface text-brand-primary font-bold px-4 py-2.5 text-xs sm:text-sm"
+                        className="btn-secondary text-xs sm:text-sm"
                       >
                         <span>{t.register.duplicateChangeDeptBtn}</span>
                       </button>
@@ -1885,9 +1948,9 @@ export default function App({
                   <button
                     type="button"
                     onClick={() => setRegStep(2)}
-                    className="touch-target inline-flex items-center gap-2 rounded-lg border-2 border-brand-primary bg-surface text-brand-primary font-bold px-5 py-3 text-sm"
+                    className="btn-secondary"
                   >
-                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                    <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{t.register.backBtn}</span>
                   </button>
 
@@ -1896,9 +1959,9 @@ export default function App({
                     data-testid="reg-confirm-submit-btn"
                     disabled={regSubmitting}
                     onClick={handleConfirmRegistration}
-                    className="touch-target inline-flex items-center gap-2 rounded-xl bg-status-serving text-white font-bold px-6 py-3.5 text-sm sm:text-base shadow-sm disabled:opacity-60"
+                    className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-status-serving hover:bg-emerald-800 text-white font-bold px-6 py-3.5 text-sm sm:text-base shadow-sm disabled:opacity-60 transition"
                   >
-                    <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                    <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
                     <span>
                       {regSubmitting
                         ? t.register.submittingBtn

@@ -726,7 +726,8 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Cookie: cookieHeader
+          Cookie: cookieHeader,
+          Origin: baseUrl
         },
         body: JSON.stringify({})
       }
@@ -851,7 +852,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/queues/general-medicine/call-next`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -862,7 +867,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/tickets/${p1.ticket.id}/no-show`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -872,7 +881,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/tickets/${p1.ticket.id}/requeue`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -887,7 +900,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/queues/general-medicine/call-next`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -899,7 +916,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/tickets/${p2.ticket.id}/start`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -909,7 +930,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/tickets/${p2.ticket.id}/complete`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -920,7 +945,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/departments/general-medicine/doctor-status`,
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({ status: 'UNAVAILABLE', delayMinutes: 0 })
       }
     );
@@ -939,7 +968,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/urgent-flags/${preRegHelpBody.helpRequest.id}/acknowledge`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );
@@ -949,7 +982,11 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
       `${baseUrl}/api/staff/urgent-flags/${preRegHelpBody.helpRequest.id}/resolve`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: staffCookie },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: staffCookie,
+          Origin: baseUrl
+        },
         body: JSON.stringify({})
       }
     );

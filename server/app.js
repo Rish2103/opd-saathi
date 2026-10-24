@@ -141,8 +141,19 @@ export function createApp(options = {}) {
   const runHealthCheck = options.dbHealthCheck ?? checkDbHealth;
   const queueService = options.queueService ?? defaultQueueService;
   const isProduction = options.isProduction ?? env.isProduction;
+  const appOrigin =
+    options.appOrigin !== undefined ? options.appOrigin : env.appOrigin;
+  const trustProxy =
+    options.trustProxy !== undefined ? options.trustProxy : env.trustProxy;
+  const runtimeEnv = {
+    ...env,
+    isProduction,
+    appOrigin,
+    trustProxy,
+    port: options.port ?? env.port
+  };
   const sessionMiddleware =
-    options.sessionMiddleware ?? createSessionMiddleware(env);
+    options.sessionMiddleware ?? createSessionMiddleware(runtimeEnv);
   const staffPinHash =
     options.staffPinHash !== undefined ? options.staffPinHash : env.staffDemoPinHash;
   const skipLimits = Boolean(options.disableRateLimits);
@@ -150,7 +161,10 @@ export function createApp(options = {}) {
   const maybeLimit = (limiter) =>
     skipLimits ? (_req, _res, next) => next() : limiter;
 
-  app.set('trust proxy', 1);
+  if (trustProxy) {
+    app.set('trust proxy', 1);
+  }
+  app.locals.runtimeEnv = runtimeEnv;
   app.locals.sessionMiddleware = sessionMiddleware;
   app.locals.queueService = queueService;
 
