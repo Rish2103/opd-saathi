@@ -347,6 +347,7 @@ export function createQueueService(options = {}) {
   }
 
   function usePostgres() {
+    if (options.forceInMemory === true) return false;
     if (options.runWithTransaction) {
       return true;
     }
@@ -2041,6 +2042,8 @@ export function createQueueService(options = {}) {
   }
 
   return {
+    isInMemory: () => !usePostgres(),
+    getStorageBackend: () => (usePostgres() ? 'postgres' : 'memory'),
     setIoEmitter,
     listDepartments,
     createTicket,

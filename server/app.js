@@ -19,7 +19,7 @@ import {
 import { requestLogger } from './middleware/requestLogger.js';
 import { requireStaff } from './middleware/requireStaff.js';
 import { requireTicketToken } from './middleware/requireTicketToken.js';
-import { createDomainError, defaultQueueService } from './services/queueService.js';
+import { createDomainError, createQueueService, defaultQueueService } from './services/queueService.js';
 import { normalizePatientPhone } from './services/ticketTokenService.js';
 import {
   findAccessibleRoute,
@@ -100,8 +100,8 @@ const createHelpRequestSchema = z.object({
 /**
  * Creates the shared express-session middleware instance.
  */
-export function createSessionMiddleware(customEnv = env) {
-  const { pool } = getPool();
+export function createSessionMiddleware(customEnv = env, options = {}) {
+  const { pool } = options.forceInMemory || customEnv.nodeEnv === 'test' ? { pool: null } : getPool();
   const store = pool
     ? new PgSessionStore({
         pool,
@@ -139,7 +139,8 @@ export function createSessionMiddleware(customEnv = env) {
 export function createApp(options = {}) {
   const app = express();
   const runHealthCheck = options.dbHealthCheck ?? checkDbHealth;
-  const queueService = options.queueService ?? defaultQueueService;
+  const forceInMemory = Boolean(options.forceInMemory || (typeof options.queueService?.isInMemory === 'function' && options.queueService.isInMemory()));
+  const queueService = options.queueService ?? (forceInMemory ? createQueueService({ forceInMemory: true }) : defaultQueueService);
   const isProduction = options.isProduction ?? env.isProduction;
   const appOrigin =
     options.appOrigin !== undefined ? options.appOrigin : env.appOrigin;
@@ -153,7 +154,7 @@ export function createApp(options = {}) {
     port: options.port ?? env.port
   };
   const sessionMiddleware =
-    options.sessionMiddleware ?? createSessionMiddleware(runtimeEnv);
+    options.sessionMiddleware ?? createSessionMiddleware(runtimeEnv, { forceInMemory });
   const staffPinHash =
     options.staffPinHash !== undefined ? options.staffPinHash : env.staffDemoPinHash;
   const skipLimits = Boolean(options.disableRateLimits);
@@ -630,4 +631,4 @@ export function createApp(options = {}) {
   return app;
 }
 
-export const app = createApp();
+export const app = createApp({ forceInMemory: env.nodeEnv === 'test' });

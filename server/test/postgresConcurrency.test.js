@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createQueueService } from '../services/queueService.js';
-import { withTransaction } from '../db/pool.js';
+import crypto from 'node:crypto';
+import { createTestDatabasePool, evaluateTestDatabaseConfig } from '../db/pool.js';
 
 describe('Phase 1.1 — PostgreSQL SQL Transaction & Advisory Lock Contract Verification', () => {
   const sampleDept = {
@@ -286,65 +287,109 @@ describe('Phase 1.1 — PostgreSQL SQL Transaction & Advisory Lock Contract Veri
     );
     expect(counterInsertsAfterDuplicate.length).toBe(1); // Did NOT increment queue_counters!
   });
+
+  it('protects PostgreSQL integration tests by rejecting missing or shared DATABASE_URL configurations', () => {
+    const missingCheck = evaluateTestDatabaseConfig({
+      DATABASE_URL: 'postgresql://user:pass@ep-prod.neon.tech/opd_saathi?sslmode=require',
+      TEST_DATABASE_URL: ''
+    });
+    expect(missingCheck.ok).toBe(false);
+    expect(missingCheck.reason).toBe('test_db_unconfigured');
+    expect(missingCheck.message).toMatch(/Missing TEST_DATABASE_URL/i);
+
+    const sameUrlCheck = evaluateTestDatabaseConfig({
+      DATABASE_URL: 'postgresql://user:pass@ep-prod.neon.tech/opd_saathi?sslmode=require',
+      TEST_DATABASE_URL: 'postgresql://user:pass@ep-prod.neon.tech/opd_saathi'
+    });
+    expect(sameUrlCheck.ok).toBe(false);
+    expect(sameUrlCheck.reason).toBe('test_db_matches_app_db');
+    expect(sameUrlCheck.message).toMatch(/points to the same database as DATABASE_URL/i);
+
+    const validIsolatedCheck = evaluateTestDatabaseConfig({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'postgresql://user:pass@ep-prod.neon.tech/opd_saathi?sslmode=require',
+      TEST_DATABASE_URL: 'postgresql://user:pass@localhost:5432/opd_saathi_test',
+      TEST_DATABASE_SSL_MODE: 'disable'
+    });
+    expect(validIsolatedCheck.ok).toBe(true);
+    expect(validIsolatedCheck.reason).toBe('local_non_tls');
+  });
 });
 
-const hasLiveDatabase = Boolean((process.env.DATABASE_URL || '').trim());
+const isDbTestOptIn =
+  process.env.npm_lifecycle_event === 'test:db' ||
+  String(process.env.RUN_DB_TESTS || '').trim().toLowerCase() === 'true';
 
-describe.runIf(hasLiveDatabase)(
-  'Phase 1.1 — Live PostgreSQL Concurrency Verification (requires DATABASE_URL)',
+describe.runIf(isDbTestOptIn)(
+  'Phase 1.1 — Live PostgreSQL Concurrency Verification (requires isolated TEST_DATABASE_URL)',
   () => {
-    it('serializes simultaneous ticket creation, idempotent retries, call-next, and state transitions against real PostgreSQL', async () => {
-      const liveService = createQueueService({
-        runWithTransaction: withTransaction
-      });
+    it('serializes simultaneous ticket creation, idempotent retries, call-next, and state transitions against an isolated test PostgreSQL database', async () => {
+      const testDb = createTestDatabasePool(process.env);
+      try {
+        // Generate a deterministic, unique synthetic queue date and phone block per run so repeat runs never collide
+        const runSeed = crypto.randomInt(1000, 9999);
+        const syntheticYear = 2090 + (runSeed % 9);
+        const syntheticMonth = String((runSeed % 12) + 1).padStart(2, '0');
+        const syntheticDay = String((runSeed % 28) + 1).padStart(2, '0');
+        const syntheticQueueDate = `${syntheticYear}-${syntheticMonth}-${syntheticDay}`;
+        const phonePrefix = `9${String(runSeed).padStart(4, '0')}`;
 
-      // 1. Concurrent idempotent retry with identical requestId
-      const sharedReqId = crypto.randomUUID();
-      const [retryA, retryB] = await Promise.all([
-        liveService.createTicket({
-          requestId: sharedReqId,
-          departmentId: 'general-medicine',
-          visitType: 'FIRST_VISIT',
-          preferredLang: 'en',
-          avoidStairs: true,
-          patientName: 'Ramesh Kumar',
-          phone: '9876543210',
-          age: 62
-        }),
-        liveService.createTicket({
-          requestId: sharedReqId,
-          departmentId: 'general-medicine',
-          visitType: 'FIRST_VISIT',
-          preferredLang: 'en',
-          avoidStairs: true,
-          patientName: 'Ramesh Kumar',
-          phone: '9876543210',
-          age: 62
-        })
-      ]);
+        const liveService = createQueueService({
+          runWithTransaction: testDb.withTestTransaction,
+          now: () => new Date(`${syntheticQueueDate}T04:00:00.000Z`)
+        });
 
-      expect(retryA.ticket.id).toBe(retryB.ticket.id);
-      expect(retryA.accessToken).toBe(retryB.accessToken);
-      const statuses = [retryA.httpStatus, retryB.httpStatus].sort();
-      expect(statuses).toEqual([200, 201]);
-
-      // 2. Simultaneous registrations for distinct patients in the same department
-      const parallelBatch = await Promise.all(
-        Array.from({ length: 4 }, (_, idx) =>
+        // 1. Concurrent idempotent retry with identical requestId
+        const sharedReqId = crypto.randomUUID();
+        const primaryPhone = `${phonePrefix}54321`;
+        const [retryA, retryB] = await Promise.all([
           liveService.createTicket({
-            requestId: crypto.randomUUID(),
-            departmentId: 'orthopaedics',
+            requestId: sharedReqId,
+            departmentId: 'general-medicine',
             visitType: 'FIRST_VISIT',
-            preferredLang: 'hi',
-            avoidStairs: false,
-            patientName: `Patient ${idx + 1}`,
-            phone: `987654320${idx}`,
-            age: 30 + idx
+            preferredLang: 'en',
+            avoidStairs: true,
+            patientName: `Synthetic Test Patient ${runSeed}`,
+            phone: primaryPhone,
+            age: 62
+          }),
+          liveService.createTicket({
+            requestId: sharedReqId,
+            departmentId: 'general-medicine',
+            visitType: 'FIRST_VISIT',
+            preferredLang: 'en',
+            avoidStairs: true,
+            patientName: `Synthetic Test Patient ${runSeed}`,
+            phone: primaryPhone,
+            age: 62
           })
-        )
-      );
-      const codes = new Set(parallelBatch.map((r) => r.ticket.publicCode));
-      expect(codes.size).toBe(4);
+        ]);
+
+        expect(retryA.ticket.id).toBe(retryB.ticket.id);
+        expect(retryA.accessToken).toBe(retryB.accessToken);
+        const statuses = [retryA.httpStatus, retryB.httpStatus].sort();
+        expect(statuses).toEqual([200, 201]);
+
+        // 2. Simultaneous registrations for distinct synthetic patients in the same department
+        const parallelBatch = await Promise.all(
+          Array.from({ length: 4 }, (_, idx) =>
+            liveService.createTicket({
+              requestId: crypto.randomUUID(),
+              departmentId: 'orthopaedics',
+              visitType: 'FIRST_VISIT',
+              preferredLang: 'hi',
+              avoidStairs: false,
+              patientName: `Synthetic Batch ${runSeed}-${idx + 1}`,
+              phone: `${phonePrefix}1000${idx}`,
+              age: 30 + idx
+            })
+          )
+        );
+        const codes = new Set(parallelBatch.map((r) => r.ticket.publicCode));
+        expect(codes.size).toBe(4);
+      } finally {
+        await testDb.closeTestPool();
+      }
     });
   }
 );

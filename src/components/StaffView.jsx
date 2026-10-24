@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -8,12 +8,30 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
+  Search,
   ShieldAlert,
   UserCheck,
   UserMinus,
   Users,
+  Volume2,
+  VolumeX,
   XCircle
 } from 'lucide-react';
+import { playStaffUrgentChime } from '../utils/soundAlerts.js';
+import { getLocalizedDepartment } from '../i18n/translations.js';
+
+const STAFF_SOUND_KEY = 'opd_staff_urgent_sound_enabled';
+
+function formatShortTimestamp(isoString) {
+  if (!isoString) return null;
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return null;
+  }
+}
 
 export default function StaffView({
   lang,
@@ -35,10 +53,61 @@ export default function StaffView({
   const [loadingQueue, setLoadingQueue] = useState(false);
   const [actionBanner, setActionBanner] = useState(null);
 
+  // Checkpoint 3: Staff Urgent Audio Chime Mute/Unmute
+  const [urgentSoundEnabled, setUrgentSoundEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem(STAFF_SOUND_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Checkpoint 4: Command Centre Search, Filter Tabs & Destructive Action Confirmation
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [pendingDestructiveAction, setPendingDestructiveAction] = useState(null);
+
   const [docStatusForm, setDocStatusForm] = useState({
     status: 'AVAILABLE',
     delayMinutes: 0
   });
+
+  function handleToggleUrgentSound() {
+    const nextValue = !urgentSoundEnabled;
+    setUrgentSoundEnabled(nextValue);
+    try {
+      window.localStorage.setItem(STAFF_SOUND_KEY, String(nextValue));
+    } catch {
+      // ignore storage errors
+    }
+    if (nextValue) {
+      playStaffUrgentChime();
+    }
+  }
+
+  // Deduplicated chime when genuinely new urgent help requests arrive
+  useEffect(() => {
+    if (!urgentFlags.length) return;
+    const newFlags = urgentFlags.filter((f) => f.status === 'NEW');
+    if (!newFlags.length) return;
+
+    let hasGenuinelyNewFlag = false;
+    for (const flag of newFlags) {
+      const storageKey = `opd_staff_alerted_flag_${flag.id}`;
+      try {
+        if (!window.localStorage.getItem(storageKey)) {
+          window.localStorage.setItem(storageKey, 'NEW');
+          hasGenuinelyNewFlag = true;
+        }
+      } catch {
+        hasGenuinelyNewFlag = true;
+      }
+    }
+
+    if (hasGenuinelyNewFlag && urgentSoundEnabled) {
+      playStaffUrgentChime();
+    }
+  }, [urgentFlags, urgentSoundEnabled]);
 
   const fetchStaffDashboard = useCallback(
     async (deptSlug = selectedDeptSlug) => {
@@ -173,6 +242,7 @@ export default function StaffView({
 
   async function executeStaffMutation(url, method = 'POST', body = {}) {
     setActionBanner(null);
+    setPendingDestructiveAction(null);
     try {
       const res = await fetch(url, {
         method,
@@ -221,7 +291,10 @@ export default function StaffView({
             <Lock className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="staff-login-heading" className="text-xl font-extrabold text-ink-primary tracking-tight">
+            <h2
+              id="staff-login-heading"
+              className="text-xl font-extrabold text-ink-primary tracking-tight"
+            >
               {t.staff.loginTitle}
             </h2>
             <p className="text-xs sm:text-sm text-ink-secondary">{t.staff.loginDesc}</p>
@@ -279,6 +352,78 @@ export default function StaffView({
   const historyTickets = queueData?.historyTickets || [];
   const deptInfo = queueData?.department || {};
 
+  // Department Summary Counters
+  const completedCount = historyTickets.filter((x) => x.status === 'COMPLETED').length;
+  const noShowCount = historyTickets.filter((x) => x.status === 'NO_SHOW').length;
+  const cancelledCount = historyTickets.filter((x) => x.status === 'CANCELLED').length;
+
+  const normalizedQuery = searchQuery.trim().toUpperCase();
+
+  const filteredWaitingTickets = waitingTickets.filter((ticket) => {
+    if (statusFilter !== 'ALL' && statusFilter !== 'WAITING') {
+      return false;
+    }
+    if (normalizedQuery && !String(ticket.public_code).toUpperCase().includes(normalizedQuery)) {
+      return false;
+    }
+    return true;
+  });
+
+  const filteredHistoryTickets = historyTickets.filter((ticket) => {
+    if (
+      statusFilter !== 'ALL' &&
+      statusFilter !== 'COMPLETED' &&
+      statusFilter !== 'NO_SHOW' &&
+      statusFilter !== 'CANCELLED'
+    ) {
+      return false;
+    }
+    if (
+      statusFilter === 'COMPLETED' ||
+      statusFilter === 'NO_SHOW' ||
+      statusFilter === 'CANCELLED'
+    ) {
+      if (ticket.status !== statusFilter) return false;
+    }
+    if (normalizedQuery && !String(ticket.public_code).toUpperCase().includes(normalizedQuery)) {
+      return false;
+    }
+    return true;
+  });
+
+  const filterTabs = [
+    {
+      id: 'ALL',
+      label: t.staff.filterAll || 'All Tickets',
+      count: waitingTickets.length + (activeTicket ? 1 : 0) + historyTickets.length
+    },
+    {
+      id: 'WAITING',
+      label: t.staff.filterWaiting || 'Waiting',
+      count: waitingTickets.length
+    },
+    {
+      id: 'ACTIVE',
+      label: t.staff.filterActive || 'Called / Active',
+      count: activeTicket ? 1 : 0
+    },
+    {
+      id: 'COMPLETED',
+      label: t.staff.filterCompleted || 'Completed',
+      count: completedCount
+    },
+    {
+      id: 'NO_SHOW',
+      label: t.staff.filterNoShow || 'No-Show',
+      count: noShowCount
+    },
+    {
+      id: 'CANCELLED',
+      label: t.staff.filterCancelled || 'Cancelled',
+      count: cancelledCount
+    }
+  ];
+
   return (
     <section
       aria-labelledby="staff-desk-heading"
@@ -287,13 +432,39 @@ export default function StaffView({
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div>
-          <h2 id="staff-desk-heading" className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight">
+          <h2
+            id="staff-desk-heading"
+            className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight"
+          >
             {t.staff.title}
           </h2>
           <p className="text-xs sm:text-sm text-ink-secondary">{t.staff.subtitle}</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            data-testid="staff-sound-toggle-btn"
+            aria-pressed={urgentSoundEnabled}
+            onClick={handleToggleUrgentSound}
+            className={`touch-target inline-flex items-center justify-center gap-1.5 rounded-xl border font-bold px-3.5 py-2 text-xs sm:text-sm transition-colors ${
+              urgentSoundEnabled
+                ? 'bg-brand-primary text-white border-brand-primary'
+                : 'bg-canvas text-ink-primary border-border-strong hover:bg-subtle'
+            }`}
+          >
+            {urgentSoundEnabled ? (
+              <Volume2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <VolumeX className="w-4 h-4 shrink-0" aria-hidden="true" />
+            )}
+            <span>
+              {urgentSoundEnabled
+                ? t.staff.soundOnBtn || 'Urgent Chime: ON'
+                : t.staff.soundMutedBtn || 'Urgent Chime: Muted'}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => fetchStaffDashboard(selectedDeptSlug)}
@@ -310,7 +481,7 @@ export default function StaffView({
           <button
             type="button"
             onClick={handleLogout}
-            className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-red-50 text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm hover:bg-red-100 transition-colors"
+            className="touch-target col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-red-50 text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm hover:bg-red-100 transition-colors"
           >
             <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{t.staff.logoutBtn}</span>
@@ -350,8 +521,62 @@ export default function StaffView({
         </div>
       )}
 
+      {/* Destructive Action Confirmation Modal/Bar (Checkpoint 4) */}
+      {pendingDestructiveAction && (
+        <div
+          role="alertdialog"
+          aria-labelledby="staff-confirm-heading"
+          data-testid="staff-destructive-confirm-bar"
+          className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-status-next flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
+        >
+          <div className="space-y-1">
+            <h3
+              id="staff-confirm-heading"
+              className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2"
+            >
+              <AlertTriangle className="w-5 h-5 text-status-next shrink-0" aria-hidden="true" />
+              <span>
+                {t.staff.confirmActionTitle || 'Confirm Status Change'}:{' '}
+                <span className="font-token">{pendingDestructiveAction.publicCode}</span>
+              </span>
+            </h3>
+            <p className="text-xs sm:text-sm text-ink-secondary">
+              {pendingDestructiveAction.description}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              data-testid="staff-confirm-destructive-btn"
+              onClick={() =>
+                executeStaffMutation(
+                  pendingDestructiveAction.url,
+                  pendingDestructiveAction.method,
+                  pendingDestructiveAction.body
+                )
+              }
+              className="touch-target px-4 py-2 rounded-xl bg-status-emergency text-white font-bold text-xs sm:text-sm shadow-xs"
+            >
+              {t.staff.confirmYesBtn || 'Confirm Action'}
+            </button>
+            <button
+              type="button"
+              data-testid="staff-cancel-destructive-btn"
+              onClick={() => setPendingDestructiveAction(null)}
+              className="btn-secondary px-3.5 py-2 text-xs sm:text-sm"
+            >
+              {t.staff.confirmCancelBtn || 'Keep Current Status'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Urgent Help & Triage Requests Panel */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-red-50/70 border border-red-200 space-y-3">
+      <div
+        data-testid="staff-urgent-panel"
+        className="p-4 sm:p-5 rounded-2xl bg-red-50/70 border border-red-200 space-y-3"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-extrabold text-sm sm:text-base text-status-emergency flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 shrink-0" aria-hidden="true" />
@@ -369,17 +594,33 @@ export default function StaffView({
             {urgentFlags.slice(0, 5).map((flag) => (
               <div
                 key={flag.id}
-                className="p-3.5 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs"
+                data-testid={`urgent-flag-card-${flag.id}`}
+                className={`p-3.5 rounded-xl bg-surface border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs ${
+                  flag.status === 'NEW'
+                    ? 'border-status-emergency ring-2 ring-status-emergency/20'
+                    : 'border-border-subtle'
+                }`}
               >
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-token font-extrabold px-2 py-0.5 rounded-md bg-subtle border border-border-strong text-xs">
+                    <span
+                      className={`font-token font-extrabold px-2 py-0.5 rounded-md text-xs ${
+                        flag.status === 'NEW'
+                          ? 'bg-status-emergency text-white'
+                          : 'bg-subtle border border-border-strong text-ink-primary'
+                      }`}
+                    >
                       {flag.status}
                     </span>
                     <strong className="text-ink-primary">{flag.location_label}</strong>
                     {flag.public_code && (
                       <span className="font-token font-extrabold text-brand-primary">
                         ({flag.public_code})
+                      </span>
+                    )}
+                    {flag.created_at && (
+                      <span className="text-[11px] font-mono text-ink-muted">
+                        {formatShortTimestamp(flag.created_at)}
                       </span>
                     )}
                   </div>
@@ -467,7 +708,7 @@ export default function StaffView({
                     </span>
                   </div>
                   <span className="text-xs font-bold leading-snug line-clamp-1">
-                    {lang === 'hi' ? dept.name_hi : dept.name_en}
+                    {getLocalizedDepartment(dept, lang, t).name}
                   </span>
                 </button>
               );
@@ -482,7 +723,7 @@ export default function StaffView({
           >
             {departments.map((dept) => (
               <option key={dept.slug} value={dept.slug}>
-                [{dept.token_prefix}] {lang === 'hi' ? dept.name_hi : dept.name_en} (
+                [{dept.token_prefix}] {getLocalizedDepartment(dept, lang, t).name} (
                 {dept.room_label})
               </option>
             ))}
@@ -545,6 +786,122 @@ export default function StaffView({
         </div>
       </div>
 
+      {/* CHECKPOINT 4: Department Summary Counters, Search by Token Code & Filter Tabs */}
+      <div
+        data-testid="staff-summary-counters"
+        className="grid grid-cols-2 sm:grid-cols-5 gap-2.5"
+      >
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterWaiting || 'Waiting'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-brand-primary mt-0.5">
+            {waitingTickets.length}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterActive || 'Called / Active'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-status-serving mt-0.5">
+            {activeTicket ? 1 : 0}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterCompleted || 'Completed'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-brand-teal mt-0.5">
+            {completedCount}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterNoShow || 'No-Show'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-status-next mt-0.5">
+            {noShowCount}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle col-span-2 sm:col-span-1">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterCancelled || 'Cancelled'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-status-emergency mt-0.5">
+            {cancelledCount}
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Status Filter Bar */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-subtle/70 border border-border-subtle space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="relative flex-1">
+            <Search
+              className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              data-testid="staff-token-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={
+                t.staff.searchPlaceholder || 'Search by token code (e.g. OPD-GEN-001)…'
+              }
+              aria-label={
+                t.staff.searchPlaceholder || 'Search by token code (e.g. OPD-GEN-001)…'
+              }
+              className="touch-target w-full rounded-xl border border-border-strong bg-surface pl-10 pr-4 py-2 text-xs sm:text-sm font-token font-bold uppercase"
+            />
+          </div>
+          {searchQuery && (
+            <button
+              type="button"
+              data-testid="staff-token-search-clear"
+              onClick={() => setSearchQuery('')}
+              className="btn-secondary px-3 py-2 text-xs"
+            >
+              {t.staff.clearSearchBtn || 'Clear Search'}
+            </button>
+          )}
+        </div>
+
+        <div
+          role="tablist"
+          aria-label="Queue Status Filter"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {filterTabs.map((tab) => {
+            const active = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-testid={`staff-filter-tab-${tab.id}`}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`touch-target px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all inline-flex items-center gap-1.5 ${
+                  active
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-xs'
+                    : 'bg-surface text-ink-primary border-border-subtle hover:bg-canvas'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={`font-token px-1.5 py-0.5 rounded text-[11px] ${
+                    active ? 'bg-white/20 text-white' : 'bg-subtle text-ink-secondary'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Active Patient Card & Full-Width Mobile Call Next Button */}
       <div className="p-4 sm:p-5 rounded-2xl bg-canvas border border-border-subtle space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -587,10 +944,15 @@ export default function StaffView({
               </div>
               <div className="text-xs sm:text-sm font-bold text-ink-secondary">
                 Status: {activeTicket.status} · {activeTicket.visit_type}
+                {activeTicket.called_at && (
+                  <span className="ml-2 font-mono text-xs">
+                    · Called {formatShortTimestamp(activeTicket.called_at)}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Row 2: Full-Width Multi-Column Action Footer (Never Clips at 360px) */}
+            {/* Row 2: Full-Width Multi-Column Action Footer */}
             <div
               className={`grid gap-2.5 ${
                 activeTicket.status === 'CALLED'
@@ -650,11 +1012,13 @@ export default function StaffView({
                 type="button"
                 data-testid="staff-cancel-btn"
                 onClick={() =>
-                  executeStaffMutation(
-                    `/api/staff/tickets/${activeTicket.id}/cancel`,
-                    'POST',
-                    { cancelReason: 'PATIENT_LEFT' }
-                  )
+                  setPendingDestructiveAction({
+                    publicCode: activeTicket.public_code,
+                    url: `/api/staff/tickets/${activeTicket.id}/cancel`,
+                    method: 'POST',
+                    body: { cancelReason: 'PATIENT_LEFT' },
+                    description: `Cancel active token ${activeTicket.public_code}? You can still requeue it from History later if needed.`
+                  })
                 }
                 className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold px-3.5 py-2.5 text-xs sm:text-sm hover:bg-red-50 transition-colors"
               >
@@ -676,17 +1040,17 @@ export default function StaffView({
           <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
             <Users className="w-4 h-4 text-brand-primary shrink-0" aria-hidden="true" />
             <span>
-              {t.staff.waitingHeading} ({waitingTickets.length})
+              {t.staff.waitingHeading} ({filteredWaitingTickets.length})
             </span>
           </h3>
 
-          {waitingTickets.length === 0 ? (
+          {filteredWaitingTickets.length === 0 ? (
             <div className="p-4 rounded-2xl bg-subtle border border-border-subtle text-xs font-medium text-ink-secondary">
-              No waiting patients in this department.
+              No waiting patients match the current filter.
             </div>
           ) : (
             <ul className="space-y-2.5">
-              {waitingTickets.map((ticket, index) => (
+              {filteredWaitingTickets.map((ticket, index) => (
                 <li
                   key={ticket.id}
                   className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -699,6 +1063,11 @@ export default function StaffView({
                       <span className="font-token font-extrabold text-base text-ink-primary">
                         {ticket.public_code}
                       </span>
+                      {ticket.created_at && (
+                        <span className="text-[11px] font-mono text-ink-muted">
+                          {formatShortTimestamp(ticket.created_at)}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs font-medium text-ink-secondary mt-1">
                       {ticket.visit_type} · Sort #{ticket.queue_sort_order}
@@ -710,12 +1079,15 @@ export default function StaffView({
 
                   <button
                     type="button"
+                    data-testid={`waiting-cancel-btn-${ticket.public_code}`}
                     onClick={() =>
-                      executeStaffMutation(
-                        `/api/staff/tickets/${ticket.id}/cancel`,
-                        'POST',
-                        { cancelReason: 'PATIENT_LEFT' }
-                      )
+                      setPendingDestructiveAction({
+                        publicCode: ticket.public_code,
+                        url: `/api/staff/tickets/${ticket.id}/cancel`,
+                        method: 'POST',
+                        body: { cancelReason: 'PATIENT_LEFT' },
+                        description: `Cancel waiting token ${ticket.public_code}?`
+                      })
                     }
                     className="touch-target w-full sm:w-auto px-3.5 py-2 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold text-xs hover:bg-red-50 transition-colors"
                   >
@@ -731,29 +1103,44 @@ export default function StaffView({
           <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
             <span>
-              {t.staff.historyHeading} ({historyTickets.length})
+              {t.staff.historyHeading} ({filteredHistoryTickets.length})
             </span>
           </h3>
 
-          {historyTickets.length === 0 ? (
+          {filteredHistoryTickets.length === 0 ? (
             <div className="p-4 rounded-2xl bg-subtle border border-border-subtle text-xs font-medium text-ink-secondary">
-              No completed, no-show, or cancelled tickets yet today.
+              No completed, no-show, or cancelled tickets match the current filter.
             </div>
           ) : (
             <ul className="space-y-2.5">
-              {historyTickets.slice(0, 10).map((ticket) => (
+              {filteredHistoryTickets.slice(0, 15).map((ticket) => (
                 <li
                   key={ticket.id}
                   className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-token font-extrabold text-base text-ink-primary">
                         {ticket.public_code}
                       </span>
-                      <span className="font-token text-xs font-bold px-2 py-0.5 rounded-md bg-surface border border-border-strong">
+                      <span
+                        className={`font-token text-xs font-bold px-2 py-0.5 rounded-md border ${
+                          ticket.status === 'COMPLETED'
+                            ? 'bg-emerald-50 text-status-serving border-emerald-200'
+                            : ticket.status === 'NO_SHOW'
+                            ? 'bg-amber-50 text-status-next border-amber-200'
+                            : 'bg-red-50 text-status-emergency border-red-200'
+                        }`}
+                      >
                         {ticket.status}
                       </span>
+                      {(ticket.completed_at || ticket.cancelled_at || ticket.no_show_at) && (
+                        <span className="text-[11px] font-mono text-ink-muted">
+                          {formatShortTimestamp(
+                            ticket.completed_at || ticket.cancelled_at || ticket.no_show_at
+                          )}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs font-medium text-ink-secondary mt-1">
                       Sort #{ticket.queue_sort_order} · Requeued: {ticket.requeued_count}

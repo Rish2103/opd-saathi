@@ -157,7 +157,11 @@ export default function EmergencyModal({
                 onClick={() => setSubmittedFlag(null)}
                 className="btn-secondary mt-2 px-4 py-2 text-xs"
               >
-                Send Another Alert
+                {lang === 'hi'
+                  ? 'दूसरा सहायता अनुरोध भेजें'
+                  : lang === 'ta'
+                    ? 'மற்றொரு உதவி கோரிக்கையை அனுப்புக'
+                    : 'Send Another Alert'}
               </button>
             </div>
           ) : (
@@ -179,14 +183,36 @@ export default function EmergencyModal({
                     {nodes.length > 0 ? (
                       nodes.map((node) => (
                         <option key={node.id} value={node.name_en}>
-                          {lang === 'hi' ? `${node.name_hi} (${node.name_en})` : node.name_en}
+                          {lang === 'hi'
+                            ? `${node.name_hi} (${node.name_en})`
+                            : lang === 'ta'
+                              ? `${node.name_ta || node.name_en} (${node.name_en})`
+                              : node.name_en}
                         </option>
                       ))
                     ) : (
                       <>
-                        <option value="Main Entrance & Ramp">Main Entrance & Ramp</option>
-                        <option value="Registration & Help Desk">Registration & Help Desk</option>
-                        <option value="Ground Floor Waiting Area">Ground Floor Waiting Area</option>
+                        <option value="Main Entrance & Ramp">
+                          {lang === 'hi'
+                            ? 'मुख्य प्रवेश द्वार एवं रैंप (Main Entrance & Ramp)'
+                            : lang === 'ta'
+                              ? 'பிரதான நுழைவாயில் மற்றும் சாய்வுதளம் (Main Entrance & Ramp)'
+                              : 'Main Entrance & Ramp'}
+                        </option>
+                        <option value="Registration & Help Desk">
+                          {lang === 'hi'
+                            ? 'पंजीकरण एवं सहायता पटल (Registration & Help Desk)'
+                            : lang === 'ta'
+                              ? 'ஓபிடி பதிவு மற்றும் உதவி மையம் (Registration & Help Desk)'
+                              : 'Registration & Help Desk'}
+                        </option>
+                        <option value="Ground Floor Waiting Area">
+                          {lang === 'hi'
+                            ? 'भूतल प्रतीक्षालय (Ground Floor Waiting Area)'
+                            : lang === 'ta'
+                              ? 'தரைத்தள காத்திருப்பு பகுதி (Ground Floor Waiting Area)'
+                              : 'Ground Floor Waiting Area'}
+                        </option>
                       </>
                     )}
                   </select>

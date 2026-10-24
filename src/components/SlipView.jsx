@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Volume2,
@@ -17,6 +17,9 @@ import {
   FileText,
   Info
 } from 'lucide-react';
+import { findAccessibleRoute } from '../../shared/navigation/pathfinder.js';
+import { getSpeechCapabilities } from '../utils/soundAlerts.js';
+import { getLocalizedDepartment } from '../i18n/translations.js';
 
 function getSlipCategoryTag(status, t) {
   if (['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(status)) {
@@ -58,6 +61,19 @@ export default function SlipView({
   const effectiveCancelHandler = onCancelActiveSlip || onCancelSlip || null;
   const effectiveCanCancel = Boolean(activeAccessToken || canCancelSlip);
 
+  const dept = slip?.department || {};
+  const avoidStairsFlag = Boolean(slip?.avoidStairs ?? true);
+
+  const slipRoute = useMemo(() => {
+    if (!slip) return null;
+    const toNodeId = dept.destination_node_id || 'room_204_med';
+    return findAccessibleRoute({
+      fromNodeId: 'registration_desk',
+      toNodeId,
+      avoidStairs: avoidStairsFlag
+    });
+  }, [slip, dept.destination_node_id, avoidStairsFlag]);
+
   const renderSavedSlipsSwitcher = () => {
     if (!savedSlips || savedSlips.length === 0) {
       return null;
@@ -93,9 +109,9 @@ export default function SlipView({
             const isSelected = slip && entry.ticketId === slip.id;
             const entrySlip = entry.ticket || {};
             const deptName =
-              lang === 'hi'
-                ? entry.departmentName_hi || entrySlip.department?.name_hi || entry.departmentName_en
-                : entry.departmentName_en || entrySlip.department?.name_en;
+              getLocalizedDepartment(entrySlip.department || entry, lang, t).name ||
+              entry.departmentName_en ||
+              entrySlip.department?.name_en;
             const status = entry.status || entrySlip.status || 'WAITING';
             const tag = getSlipCategoryTag(status, t);
             const patientName =
@@ -155,10 +171,14 @@ export default function SlipView({
                         {isSelected
                           ? lang === 'hi'
                             ? 'अभी खुली है'
+                            : lang === 'ta'
+                            ? 'திறந்துள்ளது'
                             : 'Currently Viewing'
                           : lang === 'hi'
-                            ? 'पर्ची खोलें'
-                            : 'Open Slip'}
+                          ? 'पर्ची खोलें'
+                          : lang === 'ta'
+                          ? 'சீட்டைத் திற'
+                          : 'Open Slip'}
                       </span>
                     </button>
                   )}
@@ -211,12 +231,12 @@ export default function SlipView({
     );
   }
 
-  const dept = slip.department || {};
   const queue = slip.queue || {};
   const patientSummary = slip.patientSummary || null;
-  const deptName = lang === 'hi' ? dept.name_hi : dept.name_en;
-  const docName = lang === 'hi' ? dept.doctor_name_hi : dept.doctor_name_en;
-  const landmark = lang === 'hi' ? dept.landmark_hi : dept.landmark_en;
+  const localizedDept = getLocalizedDepartment(dept, lang, t);
+  const deptName = localizedDept.name;
+  const docName = localizedDept.doctor;
+  const landmark = localizedDept.landmark;
   const floorLabel = t.floors[dept.floor_number] || `Floor ${dept.floor_number}`;
 
   // QR contains only the safe public lookup URL or publicCode, never accessToken
@@ -226,7 +246,8 @@ export default function SlipView({
       : `/my-turn?code=${encodeURIComponent(slip.publicCode)}`;
 
   const handleReadAloud = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    const caps = getSpeechCapabilities(lang);
+    if (!caps.supported) {
       return;
     }
 
@@ -240,10 +261,15 @@ export default function SlipView({
     const spokenText =
       lang === 'hi'
         ? `आपका ओपीडी टोकन नंबर ${slip.publicCode} है। विभाग: ${dept.name_hi}। डॉक्टर: ${dept.doctor_name_hi}। कमरा नंबर: ${dept.room_label}, ${floorLabel}। पहचान चिह्न: ${dept.landmark_hi}। आपसे आगे ${queue.peopleAheadWaiting ?? 0} मरीज प्रतीक्षा में हैं।`
+        : lang === 'ta'
+        ? `உங்கள் ஓபிடி டோக்கன் எண் ${slip.publicCode}. துறை: ${deptName}. மருத்துவர்: ${docName}. அறை: ${dept.room_label}, ${floorLabel}. உங்களுக்கு முன் ${queue.peopleAheadWaiting ?? 0} நோயாளிகள் காத்திருக்கின்றனர்.`
         : `Your OPD token number is ${slip.publicCode}. Department: ${dept.name_en}. Doctor: ${dept.doctor_name_en}. Proceed to ${dept.room_label} on ${floorLabel}, ${dept.landmark_en}. People waiting ahead of you: ${queue.peopleAheadWaiting ?? 0}.`;
 
     const utterance = new SpeechSynthesisUtterance(spokenText);
-    utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+    utterance.lang = caps.targetBcp47;
+    if (caps.voice) {
+      utterance.voice = caps.voice;
+    }
     utterance.rate = 0.92;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
@@ -275,10 +301,10 @@ export default function SlipView({
       {/* Main Digital OPD Slip Card */}
       <article
         aria-label={t.slip.title}
-        className="card-surface overflow-hidden border-2 border-brand-primary shadow-elevated"
+        className="card-surface print-slip-card overflow-hidden border-2 border-brand-primary shadow-elevated"
       >
         {/* Top Boarding-Pass Banner */}
-        <div className="bg-gradient-to-r from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="print-slip-header bg-gradient-to-r from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-widest text-teal-200 block mb-1">
               {t.slip.tokenLabel}
@@ -468,10 +494,44 @@ export default function SlipView({
                 <p className="text-sm font-medium text-ink-secondary">{landmark}</p>
               </div>
             </div>
+
+            {/* Checkpoint 5: Printable Step-by-Step Route Summary Respecting Avoid Stairs */}
+            {slipRoute?.found && slipRoute.steps?.length > 0 && (
+              <div
+                data-testid="slip-printable-route-steps"
+                className="p-4 rounded-2xl bg-subtle/80 border border-border-subtle space-y-2.5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-brand-primary flex items-center gap-1.5">
+                    <Navigation className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
+                    <span>
+                      {t.slip.printRouteHeading ||
+                        'Step-by-Step Route from Ground Floor Registration Desk'}
+                    </span>
+                  </span>
+                  <span className="font-token text-xs font-bold text-ink-secondary">
+                    {slipRoute.totalDistanceMeters}m · ~
+                    {Math.max(1, Math.round(slipRoute.estimatedWalkSeconds / 60))}{' '}
+                    {t.home.mins}
+                  </span>
+                </div>
+                <ol className="space-y-1.5 text-xs sm:text-sm text-ink-primary list-decimal list-inside">
+                  {slipRoute.steps.map((step) => (
+                    <li key={step.stepNumber} className="font-medium leading-snug">
+                      {lang === 'hi'
+                        ? step.instruction_hi
+                        : lang === 'ta'
+                        ? step.instruction_ta || step.instruction_en
+                        : step.instruction_en}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
 
           {/* Right Column: QR Code for Cross-Device Lookup */}
-          <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-subtle border border-border-subtle text-center space-y-3">
+          <div className="print-qr-box flex flex-col items-center justify-center p-5 rounded-2xl bg-subtle border border-border-subtle text-center space-y-3">
             <span className="text-sm font-bold text-ink-primary">{t.slip.qrTitle}</span>
             <div className="bg-white p-4 rounded-2xl border border-border-strong shadow-sm">
               <QRCodeSVG
@@ -531,12 +591,18 @@ export default function SlipView({
               >
                 {speaking ? (
                   <>
-                    <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-status-emergency shrink-0" aria-hidden="true" />
+                    <VolumeX
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-status-emergency shrink-0"
+                      aria-hidden="true"
+                    />
                     <span className="truncate">{t.slip.stopReadingBtn}</span>
                   </>
                 ) : (
                   <>
-                    <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-brand-teal shrink-0" aria-hidden="true" />
+                    <Volume2
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-brand-teal shrink-0"
+                      aria-hidden="true"
+                    />
                     <span className="truncate">{t.slip.readAloudBtn}</span>
                   </>
                 )}
@@ -548,7 +614,10 @@ export default function SlipView({
                 className="btn-secondary text-xs sm:text-sm px-3 py-2.5"
                 data-testid="print-slip-btn"
               >
-                <Printer className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary shrink-0" aria-hidden="true" />
+                <Printer
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary shrink-0"
+                  aria-hidden="true"
+                />
                 <span className="truncate">{t.slip.printBtn}</span>
               </button>
             </div>

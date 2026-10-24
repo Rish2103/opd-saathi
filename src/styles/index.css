@@ -51,7 +51,7 @@
 }
 
 html {
-  font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
   font-size: calc(16px * var(--base-font-scale));
   background-color: var(--bg-canvas);
   color: var(--text-primary);
@@ -67,10 +67,17 @@ body {
   background-attachment: fixed;
 }
 
-/* Prevent clipping of Devanagari top/bottom matras */
+/* Prevent clipping of Devanagari and Tamil top/bottom matras */
 [lang='hi'],
 .font-devanagari {
   font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
+  line-height: 1.65;
+  letter-spacing: 0 !important;
+}
+
+[lang='ta'],
+.font-tamil {
+  font-family: 'Noto Sans Tamil', 'Plus Jakarta Sans', system-ui, sans-serif;
   line-height: 1.65;
   letter-spacing: 0 !important;
 }
@@ -90,6 +97,36 @@ body {
 /* Minimum touch target helper */
 .touch-target {
   min-height: var(--min-touch-target);
+}
+
+/* Subtle schematic route draw animation (disabled when prefers-reduced-motion is active) */
+@keyframes schematicRouteDraw {
+  from {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+  }
+  to {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 0;
+  }
+}
+
+.schematic-route-line {
+  animation: schematicRouteDraw 0.65s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schematic-route-line {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Shared Liquid-Glass, Card, Token Display & Button Component System */
@@ -159,13 +196,59 @@ dialog::backdrop {
   backdrop-filter: blur(4px);
 }
 
-/* Print stylesheet for token slip */
+/* Print stylesheet for OPD token slip (Checkpoint 5: Ink-friendly, no QR cropping, no unnecessary page breaks) */
 @media print {
-  .no-print {
+  .no-print,
+  header,
+  nav,
+  dialog {
     display: none !important;
   }
+
+  html,
   body {
     background: #ffffff !important;
+    background-image: none !important;
     color: #000000 !important;
+    font-size: 12pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-slip-card {
+    box-shadow: none !important;
+    border: 2px solid #0f172a !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .print-slip-header {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    border-bottom: 2px solid #0f172a !important;
+  }
+
+  .print-slip-header * {
+    color: #0f172a !important;
+    background: transparent !important;
+    border-color: #0f172a !important;
+  }
+
+  .print-qr-box {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    border: 1.5px solid #0f172a !important;
   }
 }

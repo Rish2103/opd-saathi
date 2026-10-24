@@ -14,6 +14,7 @@ import { findAccessibleRoute } from '../../shared/navigation/pathfinder.js';
 
 function createTestHarness(options = {}) {
   const queueService = createQueueService({
+    forceInMemory: true,
     getHospitalDateIST: () => '2026-10-24',
     ...options.queueOptions
   });
@@ -875,6 +876,7 @@ describe('Phase 1 Checkpoint A, C & E — Privacy, Rate Limiting, Capability Aut
     // 2. Production environment with canonical APP_ORIGIN configured
     const strongPinHash = bcrypt.hashSync('849207', 8);
     const prodQueueService = createQueueService({
+      forceInMemory: true,
       getHospitalDateIST: () => '2026-10-24'
     });
     const prodApp = createApp({
@@ -1095,6 +1097,7 @@ describe('Phase 1.1 — Staff PIN Hardening & Zero Frontend Secret Exposure', ()
 
     const prodWeakApp = createApp({
       isProduction: true,
+      forceInMemory: true,
       staffPinHash: weakHash,
       disableRateLimits: true
     });
@@ -1108,6 +1111,7 @@ describe('Phase 1.1 — Staff PIN Hardening & Zero Frontend Secret Exposure', ()
     const strongHash = bcrypt.hashSync('849207', 8);
     const prodStrongApp = createApp({
       isProduction: true,
+      forceInMemory: true,
       staffPinHash: strongHash,
       disableRateLimits: true
     });
@@ -1116,5 +1120,61 @@ describe('Phase 1.1 — Staff PIN Hardening & Zero Frontend Secret Exposure', ()
       .send({ pin: '849207' });
     expect(strongLoginRes.status).toBe(200);
     expect(strongLoginRes.body.authenticated).toBe(true);
+  });
+
+  it('keeps forceInMemory test harnesses isolated from PostgreSQL and from each other while preserving production PostgreSQL backend selection', async () => {
+    let txCalled = false;
+    const memoryService = createQueueService({
+      forceInMemory: true,
+      getHospitalDateIST: () => '2026-10-24',
+      runWithTransaction: async () => {
+        txCalled = true;
+        throw new Error('Should never execute transaction runner when forceInMemory is true');
+      }
+    });
+
+    expect(memoryService.isInMemory()).toBe(true);
+    expect(memoryService.getStorageBackend()).toBe('memory');
+    const deptList = await memoryService.listDepartments();
+    expect(deptList.source).toBe('local-store');
+    expect(txCalled).toBe(false);
+
+    const harnessA = createTestHarness();
+    const harnessB = createTestHarness();
+
+    const resA = await request(harnessA.app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: 'Isolated Patient',
+      phone: '9876543210',
+      age: 45,
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd1'
+    });
+    expect(resA.status).toBe(201);
+    expect(resA.body.ticket.publicCode).toBe('OPD-GEN-001');
+
+    const boardB = await request(harnessB.app).get('/api/queues/public-board');
+    expect(boardB.body.queues.every((q) => q.waitingCount === 0)).toBe(true);
+
+    const resB = await request(harnessB.app).post('/api/tickets').send({
+      departmentId: 'general-medicine',
+      patientName: 'Isolated Patient',
+      phone: '9876543210',
+      age: 45,
+      visitType: 'FIRST_VISIT',
+      preferredLang: 'en',
+      avoidStairs: true,
+      requestId: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd2'
+    });
+    expect(resB.status).toBe(201);
+    expect(resB.body.ticket.publicCode).toBe('OPD-GEN-001');
+
+    const pgBackedService = createQueueService({
+      runWithTransaction: async (fn) => fn({ query: async () => ({ rows: [] }) })
+    });
+    expect(pgBackedService.isInMemory()).toBe(false);
+    expect(pgBackedService.getStorageBackend()).toBe('postgres');
   });
 });

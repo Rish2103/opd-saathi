@@ -23,7 +23,7 @@ import {
   Trash2,
   UserPlus
 } from 'lucide-react';
-import { TRANSLATIONS } from './i18n/translations.js';
+import { TRANSLATIONS, getLocalizedDepartment, resolveDepartmentCode } from './i18n/translations.js';
 import BrandLogo from './components/BrandLogo.jsx';
 import EmergencyModal from './components/EmergencyModal.jsx';
 import SlipView from './components/SlipView.jsx';
@@ -86,15 +86,24 @@ export function buildSavedSlipEntry(bundle, existingEntry = null) {
     ...(preservedPatientSummary ? { patientSummary: preservedPatientSummary } : {})
   };
 
+  const deptCode = resolveDepartmentCode(mergedTicket.department || existingEntry);
+  const taDeptName =
+    mergedTicket.department?.name_ta ||
+    (deptCode && TRANSLATIONS.ta?.departments?.[deptCode]?.name) ||
+    existingEntry?.departmentName_ta ||
+    '';
+
   return {
     ticketId: mergedTicket.id,
     publicCode: mergedTicket.publicCode,
+    departmentCode: deptCode,
     departmentSlug:
       mergedTicket.department?.slug || existingEntry?.departmentSlug || '',
     departmentName_en:
       mergedTicket.department?.name_en || existingEntry?.departmentName_en || '',
     departmentName_hi:
       mergedTicket.department?.name_hi || existingEntry?.departmentName_hi || '',
+    departmentName_ta: taDeptName,
     roomLabel:
       mergedTicket.department?.room_label || existingEntry?.roomLabel || '',
     floorNumber:
@@ -210,16 +219,22 @@ export default function App({
   disableSockets = false,
   initialView = null,
   initialSavedSlips = null,
-  initialRegStep = 1
+  initialRegStep = 1,
+  initialLang = 'en',
+  initialDepartments = null
 }) {
   const initialNav = getInitialViewFromLocation(initialView);
 
-  const [lang, setLang] = useState('en');
+  const [lang, setLang] = useState(
+    ['en', 'hi', 'ta'].includes(initialLang) ? initialLang : 'en'
+  );
   const [assistedMode, setAssistedMode] = useState(false);
   const [activeView, setActiveView] = useState(initialNav.view);
   const [mobileNavOpen, setMobileNavOpen] = useState(true);
 
-  const [departments, setDepartments] = useState([]);
+  const [departments, setDepartments] = useState(() =>
+    Array.isArray(initialDepartments) ? initialDepartments : []
+  );
   const [hospitalNodes, setHospitalNodes] = useState([]);
   const [publicBoard, setPublicBoard] = useState({ queues: [], queueDate: null });
   const [boardLoading, setBoardLoading] = useState(false);
@@ -914,7 +929,9 @@ export default function App({
       className={
         lang === 'hi'
           ? 'font-devanagari min-h-screen flex flex-col'
-          : 'min-h-screen flex flex-col'
+          : lang === 'ta'
+            ? 'font-tamil min-h-screen flex flex-col'
+            : 'min-h-screen flex flex-col'
       }
     >
       {/* Accessibility Skip Link */}
@@ -945,8 +962,8 @@ export default function App({
             {/* Right-Hand Utilities & Persistent Emergency Button */}
             <div className="contents sm:flex sm:items-center sm:gap-1.5 xl:gap-2 sm:order-2 lg:order-3 shrink-0">
               {/* Utility Strip: Assisted Mode + Language + Mobile Nav Collapse Toggle */}
-              <div className="col-span-2 row-start-2 flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/80 sm:border-t-0 sm:pt-0 sm:justify-end">
-                <div className="flex items-center gap-1.5">
+              <div className="col-span-2 row-start-2 flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/80 sm:border-t-0 sm:pt-0 sm:justify-end">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     data-testid="assisted-mode-toggle"
@@ -962,15 +979,41 @@ export default function App({
                     <span>{assistedMode ? t.assistedOn : t.assistedOff}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    data-testid="language-toggle-btn"
-                    onClick={() => setLang((prev) => (prev === 'en' ? 'hi' : 'en'))}
-                    className="touch-target inline-flex items-center justify-center gap-1.5 px-2.5 lg:px-2.5 xl:px-3 py-1.5 rounded-xl lg:rounded-full bg-brand-primary hover:bg-brand-primaryHover text-white font-bold text-[11px] sm:text-[12px] whitespace-nowrap shadow-sm transition"
+                  <div
+                    role="group"
+                    aria-label="Language Selector"
+                    data-testid="language-selector"
+                    className="inline-flex items-center rounded-xl lg:rounded-full bg-subtle/90 border border-brand-primary/30 p-0.5 gap-0.5"
                   >
-                    <Languages className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    <span>{t.langToggle}</span>
-                  </button>
+                    <Languages
+                      className="w-3.5 h-3.5 text-brand-primary ml-1.5 hidden sm:inline shrink-0"
+                      aria-hidden="true"
+                    />
+                    {[
+                      { code: 'en', label: 'EN', fullLabel: 'English (EN)' },
+                      { code: 'hi', label: 'हिन्दी', fullLabel: 'हिन्दी (HI)' },
+                      { code: 'ta', label: 'தமிழ்', fullLabel: 'தமிழ் (TA)' }
+                    ].map((opt) => {
+                      const isActive = lang === opt.code;
+                      return (
+                        <button
+                          key={opt.code}
+                          type="button"
+                          data-testid={`lang-select-${opt.code}`}
+                          aria-pressed={isActive}
+                          aria-label={opt.fullLabel}
+                          onClick={() => setLang(opt.code)}
+                          className={`touch-target inline-flex items-center justify-center px-2 sm:px-2.5 py-1 rounded-lg lg:rounded-full font-bold text-[11px] sm:text-[12px] whitespace-nowrap transition ${
+                            isActive
+                              ? 'bg-brand-primary text-white shadow-sm'
+                              : 'text-brand-primary hover:bg-slate-200/70'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Mobile-Only Navigation Grid Collapse/Expand Toggle */}
@@ -982,7 +1025,13 @@ export default function App({
                   onClick={() => setMobileNavOpen((prev) => !prev)}
                   className="sm:hidden touch-target inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl border border-border-strong bg-surface text-ink-primary font-bold text-xs"
                 >
-                  <span>{lang === 'hi' ? 'मेनू' : 'Menu'}</span>
+                  <span>
+                    {lang === 'hi'
+                      ? 'मेनू'
+                      : lang === 'ta'
+                        ? 'பட்டியல்'
+                        : 'Menu'}
+                  </span>
                   {mobileNavOpen ? (
                     <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   ) : (
@@ -1079,7 +1128,9 @@ export default function App({
                   <span>
                     {lang === 'hi'
                       ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
-                      : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
+                      : lang === 'ta'
+                        ? 'அரசு மருத்துவமனை டிஜிட்டல் ஓபிடி வழிகாட்டி'
+                        : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
@@ -1171,9 +1222,8 @@ export default function App({
                       activeSavedEntry?.ticketId === entry.ticketId &&
                       activeSavedEntry?.publicCode === entry.publicCode;
                     const deptName =
-                      lang === 'hi'
-                        ? entry.departmentName_hi || entry.departmentName_en
-                        : entry.departmentName_en;
+                      getLocalizedDepartment(entry.ticket?.department || entry, lang, t).name ||
+                      entry.departmentName_en;
                     const isActiveStatus = [
                       'WAITING',
                       'CALLED',
@@ -1345,7 +1395,7 @@ export default function App({
                   const prefix = item.tokenPrefix || item.token_prefix;
                   const roomLabel = item.room_label;
                   const floorNum = item.floor_number;
-                  const name = lang === 'hi' ? item.name_hi : item.name_en;
+                  const name = getLocalizedDepartment(item, lang, t).name;
                   const nowServing = item.nowServingCode || t.home.noActiveToken;
                   const waiting = item.waitingCount ?? 0;
                   const isDeptEmpty = waiting === 0 && !item.nowServingCode;
@@ -1538,7 +1588,7 @@ export default function App({
                             </span>
                           </div>
                           <div className="font-extrabold text-base sm:text-lg text-ink-primary">
-                            {lang === 'hi' ? dept.name_hi : dept.name_en}
+                            {getLocalizedDepartment(dept, lang, t).name}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs sm:text-sm text-ink-secondary font-medium">
                             <Stethoscope
@@ -1546,9 +1596,7 @@ export default function App({
                               aria-hidden="true"
                             />
                             <span>
-                              {lang === 'hi'
-                                ? dept.doctor_name_hi
-                                : dept.doctor_name_en}
+                              {getLocalizedDepartment(dept, lang, t).doctor}
                             </span>
                           </div>
                         </div>
@@ -1559,7 +1607,7 @@ export default function App({
                             aria-hidden="true"
                           />
                           <span>
-                            {lang === 'hi' ? dept.landmark_hi : dept.landmark_en}
+                            {getLocalizedDepartment(dept, lang, t).landmark}
                           </span>
                         </div>
                       </button>
@@ -1851,9 +1899,7 @@ export default function App({
                         {t.register.deptLabel}
                       </dt>
                       <dd className="font-bold text-base text-ink-primary mt-0.5">
-                        {lang === 'hi'
-                          ? selectedRegDept.name_hi
-                          : selectedRegDept.name_en}
+                        {getLocalizedDepartment(selectedRegDept, lang, t).name}
                       </dd>
                     </div>
 
@@ -1862,9 +1908,7 @@ export default function App({
                         {t.register.doctorLabel}
                       </dt>
                       <dd className="font-bold text-base text-ink-primary mt-0.5">
-                        {lang === 'hi'
-                          ? selectedRegDept.doctor_name_hi
-                          : selectedRegDept.doctor_name_en}
+                        {getLocalizedDepartment(selectedRegDept, lang, t).doctor}
                       </dd>
                     </div>
 
@@ -1884,7 +1928,7 @@ export default function App({
                       </dt>
                       <dd className="font-bold text-sm text-ink-primary mt-0.5">
                         {t.visitTypes[regVisitType]} ·{' '}
-                        {regAvoidStairs ? 'Lift / Ramp Route' : 'Standard Route'}
+                        {regAvoidStairs ? t.slip.routeAvoidStairs : t.slip.routeStandard}
                       </dd>
                     </div>
                   </dl>
