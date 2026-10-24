@@ -29,6 +29,7 @@ import EmergencyModal from './components/EmergencyModal.jsx';
 import SlipView from './components/SlipView.jsx';
 import MyTurnView from './components/MyTurnView.jsx';
 import NavigationView from './components/NavigationView.jsx';
+import RegistrationVoiceGuide from './components/RegistrationVoiceGuide.jsx';
 import StaffView from './components/StaffView.jsx';
 
 export const STORAGE_SAVED_SLIPS_KEY = 'opd_saved_slips_v1';
@@ -1556,6 +1557,9 @@ export default function App({
                   );
                 })}
               </div>
+
+              {/* Voice-Assisted Registration Step Guide (Privacy-Safe, Multilingual EN/HI/TA) */}
+              <RegistrationVoiceGuide lang={lang} regStep={regStep} />
             </div>
 
             {pendingRetryRequestId && (
