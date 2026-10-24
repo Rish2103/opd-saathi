@@ -69,7 +69,7 @@ export default function SlipView({
         data-testid="my-slips-switcher"
         className="card-surface p-5 border-2 border-brand-primary/20 no-print"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-brand-primary" aria-hidden="true" />
             <h3 className="text-lg font-extrabold text-brand-primary">
@@ -79,10 +79,10 @@ export default function SlipView({
           <button
             type="button"
             onClick={onRegisterNew}
-            className="text-xs font-bold text-brand-teal hover:underline inline-flex items-center gap-1"
+            className="touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white font-bold px-4 py-2 text-xs sm:text-sm border-2 border-brand-teal shadow-sm transition-colors"
           >
-            <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
-            {t.slip.newRegBtn}
+            <UserPlus className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{t.slip.newRegBtn}</span>
           </button>
         </div>
 
@@ -137,16 +137,16 @@ export default function SlipView({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border-subtle/80">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-border-subtle">
                   {onSelectSavedSlip && (
                     <button
                       type="button"
                       data-testid={`open-saved-slip-${entry.publicCode}`}
                       onClick={() => onSelectSavedSlip(entry)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      className={`touch-target inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-bold border-2 transition-colors ${
                         isSelected
-                          ? 'bg-brand-primary text-white'
-                          : 'text-brand-primary border border-brand-primary hover:bg-blue-50'
+                          ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                          : 'bg-surface text-brand-primary border-brand-primary hover:bg-blue-50'
                       }`}
                     >
                       {isSelected
@@ -165,9 +165,9 @@ export default function SlipView({
                       data-testid={`remove-saved-slip-${entry.publicCode}`}
                       onClick={() => onRemoveSavedSlip(entry.ticketId || entry.publicCode)}
                       title={t.slip.removeFromDeviceBtn}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-status-emergency hover:bg-red-50 inline-flex items-center gap-1 transition-colors"
+                      className="touch-target px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold border-2 border-border-strong bg-surface text-ink-secondary hover:text-status-emergency hover:border-status-emergency hover:bg-red-50 inline-flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      <Trash2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                       <span>{t.slip.removeFromDeviceBtn}</span>
                     </button>
                   )}
@@ -481,66 +481,9 @@ export default function SlipView({
         </div>
 
         {/* Action Bar (Hidden in Print) */}
-        <div className="bg-subtle px-6 py-4 border-t border-border-subtle flex flex-wrap items-center justify-between gap-3 no-print">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleReadAloud}
-              className="btn-secondary"
-              data-testid="read-slip-aloud-btn"
-            >
-              {speaking ? (
-                <>
-                  <VolumeX className="w-5 h-5 text-status-emergency" aria-hidden="true" />
-                  {t.slip.stopReadingBtn}
-                </>
-              ) : (
-                <>
-                  <Volume2 className="w-5 h-5 text-brand-teal" aria-hidden="true" />
-                  {t.slip.readAloudBtn}
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="btn-secondary"
-              data-testid="print-slip-btn"
-            >
-              <Printer className="w-5 h-5 text-brand-primary" aria-hidden="true" />
-              {t.slip.printBtn}
-            </button>
-
-            {effectiveCanCancel &&
-              ['WAITING', 'CALLED'].includes(slip.status) &&
-              effectiveCancelHandler && (
-                <button
-                  type="button"
-                  onClick={handleCancelToken}
-                  disabled={cancelling}
-                  data-testid="cancel-slip-btn"
-                  className="px-4 py-2.5 rounded-xl font-bold text-sm border-2 border-red-300 text-status-emergency hover:bg-red-50 inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <XCircle className="w-4 h-4" aria-hidden="true" />
-                  {cancelling ? t.slip.cancellingTokenBtn : t.slip.cancelTokenBtn}
-                </button>
-              )}
-
-            {onRemoveSavedSlip && (
-              <button
-                type="button"
-                onClick={() => onRemoveSavedSlip(slip.id || slip.publicCode)}
-                data-testid="remove-slip-local-btn"
-                className="px-3.5 py-2.5 rounded-xl font-semibold text-xs border border-border-strong text-ink-secondary hover:text-status-emergency hover:bg-red-50 inline-flex items-center gap-1.5 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" aria-hidden="true" />
-                <span>{t.slip.removeFromDeviceBtn}</span>
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="bg-subtle px-5 sm:px-6 py-4 border-t-2 border-border-strong space-y-3 no-print">
+          {/* Primary Navigation & Queue Tracking Actions */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() =>
@@ -550,22 +493,87 @@ export default function SlipView({
                   avoidStairs: Boolean(slip.avoidStairs ?? true)
                 })
               }
-              className="btn-teal"
+              className="btn-teal w-full"
               data-testid="slip-directions-btn"
             >
-              <Navigation className="w-5 h-5" aria-hidden="true" />
-              {t.slip.directionsBtn}
+              <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
+              <span>{t.slip.directionsBtn}</span>
             </button>
 
             <button
               type="button"
               onClick={() => onOpenMyTurn(slip.publicCode)}
-              className="btn-primary"
+              className="btn-primary w-full"
               data-testid="slip-my-turn-btn"
             >
-              <Clock className="w-5 h-5" aria-hidden="true" />
-              {t.slip.trackTurnBtn}
+              <Clock className="w-5 h-5 shrink-0" aria-hidden="true" />
+              <span>{t.slip.trackTurnBtn}</span>
             </button>
+          </div>
+
+          {/* Utility & Slip Management Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border-strong/60">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleReadAloud}
+                className="btn-secondary"
+                data-testid="read-slip-aloud-btn"
+              >
+                {speaking ? (
+                  <>
+                    <VolumeX className="w-5 h-5 text-status-emergency shrink-0" aria-hidden="true" />
+                    <span>{t.slip.stopReadingBtn}</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-5 h-5 text-brand-teal shrink-0" aria-hidden="true" />
+                    <span>{t.slip.readAloudBtn}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="btn-secondary"
+                data-testid="print-slip-btn"
+              >
+                <Printer className="w-5 h-5 text-brand-primary shrink-0" aria-hidden="true" />
+                <span>{t.slip.printBtn}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {effectiveCanCancel &&
+                ['WAITING', 'CALLED'].includes(slip.status) &&
+                effectiveCancelHandler && (
+                  <button
+                    type="button"
+                    onClick={handleCancelToken}
+                    disabled={cancelling}
+                    data-testid="cancel-slip-btn"
+                    className="btn-danger"
+                  >
+                    <XCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>
+                      {cancelling ? t.slip.cancellingTokenBtn : t.slip.cancelTokenBtn}
+                    </span>
+                  </button>
+                )}
+
+              {onRemoveSavedSlip && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveSavedSlip(slip.id || slip.publicCode)}
+                  data-testid="remove-slip-local-btn"
+                  className="btn-neutral"
+                >
+                  <Trash2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>{t.slip.removeFromDeviceBtn}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </article>

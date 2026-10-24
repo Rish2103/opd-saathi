@@ -7,6 +7,7 @@ export default {
         canvas: '#F4F7FA',
         surface: '#FFFFFF',
         subtle: '#E8EEF5',
+        'border-subtle': '#CBD5E1',
         'border-strong': '#94A3B8',
         ink: {
           primary: '#0F172A',

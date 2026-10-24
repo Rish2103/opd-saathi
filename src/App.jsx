@@ -1171,8 +1171,8 @@ export default function App({
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border-strong/60">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-border-strong/60">
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
                               type="button"
                               data-testid={`home-open-slip-${entry.publicCode}`}
@@ -1180,9 +1180,10 @@ export default function App({
                                 handleSelectSavedSlip(entry);
                                 setActiveView('slip');
                               }}
-                              className="px-3 py-1.5 rounded-lg bg-brand-primary text-white font-bold text-xs"
+                              className="touch-target inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary hover:bg-[#133863] text-white font-bold text-xs sm:text-sm border-2 border-brand-primary shadow-sm transition-colors"
                             >
-                              {t.nav.slip}
+                              <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
+                              <span>{t.nav.slip}</span>
                             </button>
                             <button
                               type="button"
@@ -1191,9 +1192,10 @@ export default function App({
                                 handleSelectSavedSlip(entry);
                                 setActiveView('my-turn');
                               }}
-                              className="px-3 py-1.5 rounded-lg bg-status-serving text-white font-bold text-xs"
+                              className="touch-target inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-teal hover:bg-brand-tealHover text-white font-bold text-xs sm:text-sm border-2 border-brand-teal shadow-sm transition-colors"
                             >
-                              {t.nav.myTurn}
+                              <Activity className="w-4 h-4 shrink-0" aria-hidden="true" />
+                              <span>{t.nav.myTurn}</span>
                             </button>
                           </div>
 
@@ -1203,9 +1205,9 @@ export default function App({
                             onClick={() =>
                               handleRemoveSavedSlip(entry.ticketId || entry.publicCode)
                             }
-                            className="px-2.5 py-1.5 rounded-lg bg-subtle text-ink-secondary hover:text-status-emergency font-bold text-xs inline-flex items-center gap-1"
+                            className="touch-target px-3.5 py-2 rounded-lg border-2 border-border-strong bg-surface text-ink-secondary hover:text-status-emergency hover:border-status-emergency hover:bg-red-50 font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 transition-colors"
                           >
-                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            <Trash2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                             <span>{t.slip.removeFromDeviceBtn}</span>
                           </button>
                         </div>

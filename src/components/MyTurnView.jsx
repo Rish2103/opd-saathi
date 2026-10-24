@@ -184,9 +184,9 @@ export default function MyTurnView({
       {Array.isArray(savedSlips) && savedSlips.length > 0 && (
         <div
           data-testid="my-turn-saved-slips-bar"
-          className="p-3.5 rounded-xl bg-canvas border border-border-strong flex flex-wrap items-center gap-2"
+          className="p-4 rounded-xl bg-canvas border-2 border-border-strong flex flex-wrap items-center gap-2.5"
         >
-          <span className="text-xs font-bold uppercase text-ink-secondary mr-1">
+          <span className="text-xs sm:text-sm font-bold uppercase text-ink-secondary mr-1">
             {t.slip?.mySlipsSwitcherTitle || 'Saved OPD Slips on This Device'}:
           </span>
           {savedSlips.map((entry) => {
@@ -203,10 +203,10 @@ export default function MyTurnView({
                   }
                   onLookupCode(entry.publicCode);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold font-token border transition ${
+                className={`touch-target inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-bold font-token border-2 transition-colors ${
                   isCurrent
-                    ? 'bg-brand-primary text-white border-brand-primary'
-                    : 'bg-surface text-brand-primary border-border-strong hover:bg-subtle'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                    : 'bg-surface text-brand-primary border-brand-primary hover:bg-subtle'
                 }`}
               >
                 {entry.publicCode} ·{' '}
