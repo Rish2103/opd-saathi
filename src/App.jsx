@@ -18,7 +18,6 @@ import {
   Navigation,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Stethoscope,
   Trash2,
   UserPlus
@@ -31,6 +30,17 @@ import SlipView from './components/SlipView.jsx';
 import MyTurnView from './components/MyTurnView.jsx';
 import NavigationView from './components/NavigationView.jsx';
 import StaffView from './components/StaffView.jsx';
+import {
+  AboutPageView,
+  ClinicalFooter,
+  FaqSection,
+  NotFoundPageView,
+  PrivacyPolicyView,
+  TermsPageView,
+  ThankYouPageView,
+  getUniquePageTitle,
+  sanitizeUiErrorMessage
+} from './components/InfoPagesView.jsx';
 
 export const STORAGE_SAVED_SLIPS_KEY = 'opd_saved_slips_v1';
 export const STORAGE_ACTIVE_TICKET_KEY = 'opd_active_ticket_v1';
@@ -216,7 +226,25 @@ function getInitialViewFromLocation(overrideView = null) {
   if (pathname.startsWith('/register')) {
     return { view: 'register', code: '' };
   }
-  return { view: 'home', code: '' };
+  if (pathname.startsWith('/about')) {
+    return { view: 'about', code: '' };
+  }
+  if (pathname.startsWith('/faq')) {
+    return { view: 'faq', code: '' };
+  }
+  if (pathname.startsWith('/privacy')) {
+    return { view: 'privacy', code: '' };
+  }
+  if (pathname.startsWith('/terms')) {
+    return { view: 'terms', code: '' };
+  }
+  if (pathname.startsWith('/thank-you')) {
+    return { view: 'thank-you', code: '' };
+  }
+  if (pathname === '/' || pathname === '' || pathname === '/index.html') {
+    return { view: 'home', code: '' };
+  }
+  return { view: 'not-found', code: '' };
 }
 
 export default function App({
@@ -233,8 +261,11 @@ export default function App({
     ['en', 'hi', 'ta'].includes(initialLang) ? initialLang : 'en'
   );
   const [assistedMode, setAssistedMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState(initialNav.view);
-  const [mobileNavOpen, setMobileNavOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const [departments, setDepartments] = useState(() =>
     Array.isArray(initialDepartments) ? initialDepartments : []
@@ -317,6 +348,63 @@ export default function App({
   const savedSlipsRef = useRef(savedSlips);
   savedSlipsRef.current = savedSlips;
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  const navigateToView = useCallback((nextView) => {
+    setActiveView(nextView);
+    setMobileNavOpen(false);
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      try {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        window.scrollTo(0, 0);
+      }
+    }
+  }, []);
+
+  const handleScrollToTop = useCallback(() => {
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      try {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        window.scrollTo(0, 0);
+      }
+    }
+  }, []);
+
+  // Dynamically update document.title for unique page titles (Item 17)
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = getUniquePageTitle(activeView, lang);
+    }
+  }, [activeView, lang]);
+
+  // Apply optional clinical dark mode attribute (Item 5)
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (darkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+  }, [darkMode]);
+
+  // Scroll progress bar & Back to Top button listener (Items 6 & 8)
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      const docHeight =
+        (document.documentElement.scrollHeight || 0) -
+        (document.documentElement.clientHeight || 0);
+      const ratio = docHeight > 0 ? Math.min(1, Math.max(0, scrollTop / docHeight)) : 0;
+      setScrollProgress(ratio);
+      setShowBackToTop(scrollTop > 280);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Upsert a slip into savedSlips without overwriting other saved slips
   const upsertSavedSlip = useCallback((bundle, selectAsActive = true) => {
@@ -502,7 +590,12 @@ export default function App({
           upsertSavedSlip({ ticket: slipData }, false);
         }
       } catch (err) {
-        setMyTurnError(err.message || 'Failed to look up token status.');
+        setMyTurnError(
+          sanitizeUiErrorMessage(
+            err.message,
+            'Could not verify token status right now. Please check your token code and try again.'
+          )
+        );
       } finally {
         setMyTurnLoading(false);
       }
@@ -849,8 +942,10 @@ export default function App({
       setActiveView('slip');
     } catch (err) {
       setRegError(
-        err.message ||
+        sanitizeUiErrorMessage(
+          err.message,
           'Network connection interrupted. Click Confirm again to safely recover your token without creating a duplicate.'
+        )
       );
     } finally {
       setRegSubmitting(false);
@@ -947,6 +1042,7 @@ export default function App({
   return (
     <div
       data-assisted={assistedMode ? 'true' : 'false'}
+      data-theme={darkMode ? 'dark' : 'light'}
       lang={lang}
       className={
         lang === 'hi'
@@ -964,204 +1060,267 @@ export default function App({
         {t.skipLink}
       </a>
 
-      {/* Responsive Floating Liquid-Glass Navbar (Single-line pill on Laptop/Desktop xl+, multi-row on Mobile/Tablet) */}
-      <header className="no-print sticky top-0 sm:top-2.5 z-40 px-2 sm:px-3 lg:px-4 pt-1.5 sm:pt-0">
-        <div className="max-w-[99vw] 2xl:max-w-[1600px] w-full mx-auto glass-nav rounded-2xl xl:rounded-full px-3 sm:px-4 xl:px-4 2xl:px-5 py-2 xl:py-1.5 transition-all duration-200">
+      {/* Structured Institutional Navigation Header (shadcn / HeroUI / Apple SKILL.md §1, §12, §16) */}
+      <header className="no-print sticky top-0 z-40 apple-nav-bar">
+        {/* Top Scroll Progress Indicator (Item 8) */}
+        <div
+          data-testid="scroll-progress-bar"
+          aria-hidden="true"
+          className="h-[3px] w-full bg-transparent overflow-hidden"
+        >
           <div
-            className={`grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between xl:gap-2 2xl:gap-3 ${
-              assistedMode && lang !== 'en' ? 'xl:flex-wrap' : 'xl:flex-nowrap'
-            }`}
-          >
-            {/* Brand Identity (Left) */}
-            <button
-              type="button"
-              onClick={() => setActiveView('home')}
-              className="col-start-1 row-start-1 sm:order-1 xl:order-1 text-left focus:outline-none rounded-xl xl:rounded-full px-1 py-0.5 hover:bg-slate-100/70 transition shrink-0"
-            >
-              <BrandLogo
-                title={t.brandTitle}
-                subtitle={t.brandSubtitle}
-                compact={false}
-              />
-            </button>
+            className="h-full bg-brand-teal origin-left transition-transform duration-100"
+            style={{ transform: `scaleX(${scrollProgress})` }}
+          />
+        </div>
 
-            {/* Right-Hand Utilities & Persistent Emergency Button */}
-            <div className="contents sm:flex sm:items-center sm:gap-1.5 xl:gap-1.5 2xl:gap-2 sm:order-2 xl:order-3 shrink-0 relative z-10">
-              {/* Utility Strip: Assisted Mode + Language + Mobile Nav Collapse Toggle */}
-              <div className="col-span-2 row-start-2 flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/80 sm:border-t-0 sm:pt-0 sm:justify-end">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    data-testid="assisted-mode-toggle"
-                    onClick={() => setAssistedMode((prev) => !prev)}
-                    aria-pressed={assistedMode}
-                    className={`min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2.5 xl:px-2.5 py-1 rounded-xl xl:rounded-full border text-[11px] sm:text-[11.5px] font-bold whitespace-nowrap transition ${
-                      assistedMode
-                        ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
-                        : 'bg-subtle text-brand-primary border-brand-primary/30 hover:bg-slate-200'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    <span>{assistedMode ? t.assistedOn : t.assistedOff}</span>
-                  </button>
-
-                  <div
-                    role="group"
-                    aria-label="Language Selector"
-                    data-testid="language-selector"
-                    className="inline-flex items-center rounded-xl xl:rounded-full bg-subtle border border-brand-primary/30 p-0.5 gap-0.5"
-                  >
-                    <Languages
-                      className="w-3.5 h-3.5 text-brand-primary ml-1.5 hidden sm:inline shrink-0"
-                      aria-hidden="true"
-                    />
-                    {[
-                      { code: 'en', label: 'EN', fullLabel: 'English (EN)' },
-                      { code: 'hi', label: 'हिन्दी', fullLabel: 'हिन्दी (HI)' },
-                      { code: 'ta', label: 'தமிழ்', fullLabel: 'தமிழ் (TA)' }
-                    ].map((opt) => {
-                      const isActive = lang === opt.code;
-                      return (
-                        <button
-                          key={opt.code}
-                          type="button"
-                          data-testid={`lang-select-${opt.code}`}
-                          aria-pressed={isActive}
-                          aria-label={opt.fullLabel}
-                          onClick={() => setLang(opt.code)}
-                          className={`min-h-[30px] inline-flex items-center justify-center px-2 sm:px-2.5 py-0.5 rounded-lg xl:rounded-full font-bold text-[11px] sm:text-[11.5px] whitespace-nowrap transition ${
-                            isActive
-                              ? 'bg-brand-primary text-white shadow-sm'
-                              : 'text-brand-primary hover:bg-slate-200/80'
-                          }`}
-                        >
-                          <span>{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Mobile-Only Navigation Grid Collapse/Expand Toggle */}
-                <button
-                  type="button"
-                  data-testid="mobile-nav-toggle-btn"
-                  aria-expanded={mobileNavOpen}
-                  aria-controls="primary-navigation-links"
-                  onClick={() => setMobileNavOpen((prev) => !prev)}
-                  className="sm:hidden min-h-[34px] inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-xl border border-border-strong bg-surface text-ink-primary font-bold text-xs"
-                >
-                  <span>
-                    {lang === 'hi'
-                      ? 'मेनू'
-                      : lang === 'ta'
-                        ? 'பட்டியல்'
-                        : 'Menu'}
-                  </span>
-                  {mobileNavOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  )}
-                </button>
-              </div>
-
-              {/* Persistent Pre-Registration Emergency Help Button (Row 1 Right on Mobile, Rightmost on Laptop) */}
+        {/* Tier 1: Slim Institutional Utility Strip (Language, Accessibility & Dark Mode) */}
+        <div className="border-b border-border-subtle/80 bg-subtle/75">
+          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 min-h-[38px] py-1 flex flex-wrap items-center justify-between gap-2">
+            {/* Left: Hospital Operational Status & Kiosk Quick Link */}
+            <div className="hidden md:flex items-center gap-3 text-xs font-medium text-ink-secondary">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-status-serving" aria-hidden="true" />
+                <span>
+                  {lang === 'hi'
+                    ? 'ओपीडी समय: सोम–शनि 08:00–16:00 IST'
+                    : lang === 'ta'
+                      ? 'ஓபிடி நேரம்: திங்கள்–சனி 08:00–16:00 IST'
+                      : 'OPD Hours: Mon–Sat 08:00–16:00 IST'}
+                </span>
+              </span>
+              <span className="text-border-strong" aria-hidden="true">·</span>
+              <span>
+                {lang === 'hi'
+                  ? 'आपातकालीन कक्ष 101 (24×7)'
+                  : lang === 'ta'
+                    ? 'அவசர சிகிச்சை அறை 101 (24×7)'
+                    : 'Casualty Room 101 (24×7)'}
+              </span>
+              <span className="text-border-strong" aria-hidden="true">·</span>
               <button
                 type="button"
-                data-testid="persistent-emergency-btn"
-                onClick={openEmergencyModal}
-                className="col-start-2 row-start-1 justify-self-end min-h-[34px] inline-flex items-center justify-center gap-1.5 bg-status-emergency hover:bg-[#991b1b] text-white font-bold px-2.5 xl:px-3 py-1 rounded-xl xl:rounded-full shadow-sm transition shrink-0 whitespace-nowrap"
-                aria-haspopup="dialog"
+                onClick={() => navigateToView('kiosk')}
+                className="font-bold text-brand-teal hover:underline"
               >
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <div className="text-left leading-tight">
-                  <span className="block text-[11px] sm:text-[11.5px] font-extrabold">
-                    {t.emergencyBtn}
-                  </span>
-                </div>
+                <span>
+                  {lang === 'hi'
+                    ? 'स्वयं-सेवा कियोस्क (/kiosk)'
+                    : lang === 'ta'
+                      ? 'சுய-சேவை கியோஸ்க் (/kiosk)'
+                      : 'Self-Service Kiosk (/kiosk)'}
+                </span>
               </button>
             </div>
 
-            {/* Primary Navigation Tabs:
-                - Mobile (<640px): Zero-horizontal-scroll 3x2 grid (collapsible via Menu toggle)
-                - Tablet / Compact Laptop (640-1279px): Full-width Row 2 6-column balanced pill grid
-                - Desktop (1280px+): Center single-line inline pill bar with strict overflow containment */}
-            <nav
-              id="primary-navigation-links"
-              aria-label="Primary Navigation"
-              className={`${
-                mobileNavOpen ? 'grid' : 'hidden sm:grid'
-              } col-span-2 row-start-3 w-full sm:order-3 grid-cols-3 sm:grid-cols-6 items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/90 max-w-full overflow-hidden ${
-                assistedMode && lang !== 'en'
-                  ? 'xl:w-full xl:order-3 xl:grid xl:grid-cols-6'
-                  : 'xl:w-auto xl:order-2 xl:flex xl:flex-nowrap xl:rounded-full xl:shrink-0'
-              }`}
-            >
-              {[
-                { id: 'home', label: t.nav.home, icon: Home },
-                { id: 'register', label: t.nav.register, icon: UserPlus },
-                {
-                  id: 'slip',
-                  label:
-                    savedSlips.length > 0
-                      ? `${t.nav.slip} (${savedSlips.length})`
-                      : activeSavedEntry?.publicCode
-                        ? `${t.nav.slip} (1)`
-                        : t.nav.slip,
-                  icon: FileText
-                },
-                { id: 'my-turn', label: t.nav.myTurn, icon: Activity },
-                { id: 'navigate', label: t.nav.navigate, icon: Navigation },
-                { id: 'staff', label: t.nav.staff, icon: ShieldCheck }
-              ].map((item) => {
-                const Icon = item.icon;
-                const isCurrent = activeView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    data-testid={`nav-tab-${item.id}`}
-                    aria-current={isCurrent ? 'page' : undefined}
-                    onClick={() => setActiveView(item.id)}
-                    className={`min-h-[34px] inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 xl:px-2.5 2xl:px-3 py-1 rounded-lg xl:rounded-full font-bold text-[11px] sm:text-[11.5px] 2xl:text-[12.5px] text-center leading-tight whitespace-nowrap transition-all ${
-                      isCurrent
-                        ? 'bg-brand-primary text-white shadow-sm'
-                        : 'bg-surface/80 xl:bg-transparent text-ink-primary hover:bg-white hover:text-brand-primary'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+            {/* Right: Trilingual Switcher, Large Text & Dark Mode */}
+            <div className="flex flex-wrap items-center justify-between md:justify-end w-full md:w-auto gap-1.5 sm:gap-2">
+              {/* Trilingual Native Script Selector */}
+              <div
+                role="group"
+                aria-label="Language Selector"
+                data-testid="language-selector"
+                className="inline-flex items-center rounded-lg bg-surface border border-border-subtle p-0.5 gap-0.5 shadow-sm"
+              >
+                {[
+                  { code: 'en', label: 'EN', fullLabel: 'English (EN)' },
+                  { code: 'hi', label: 'हिन्दी', fullLabel: 'हिन्दी (HI)' },
+                  { code: 'ta', label: 'தமிழ்', fullLabel: 'தமிழ் (TA)' }
+                ].map((opt) => {
+                  const isActive = lang === opt.code;
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      data-testid={`lang-select-${opt.code}`}
+                      aria-pressed={isActive}
+                      aria-label={opt.fullLabel}
+                      onClick={() => setLang(opt.code)}
+                      className={`h-7 inline-flex items-center justify-center px-2.5 rounded-md font-bold text-[11px] sm:text-xs whitespace-nowrap transition-all ${
+                        isActive
+                          ? 'bg-brand-primary text-white shadow-sm'
+                          : 'text-ink-secondary hover:text-ink-primary hover:bg-subtle/70'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {/* Large Text / Assisted Mode Toggle */}
+                <button
+                  type="button"
+                  data-testid="assisted-mode-toggle"
+                  onClick={() => setAssistedMode((prev) => !prev)}
+                  aria-pressed={assistedMode}
+                  className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg border text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all ${
+                    assistedMode
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                      : 'bg-surface text-ink-secondary hover:text-ink-primary border-border-subtle hover:bg-subtle'
+                  }`}
+                >
+                  <span>{assistedMode ? t.assistedOn : t.assistedOff}</span>
+                </button>
+
+                {/* Optional Restrained Clinical Dark Mode Toggle (Item 5) */}
+                <button
+                  type="button"
+                  data-testid="dark-mode-toggle"
+                  onClick={() => setDarkMode((prev) => !prev)}
+                  aria-pressed={darkMode}
+                  className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg border text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all ${
+                    darkMode
+                      ? 'bg-brand-teal text-white border-brand-teal shadow-sm'
+                      : 'bg-surface text-ink-secondary hover:text-ink-primary border-border-subtle hover:bg-subtle'
+                  }`}
+                >
+                  <span>
+                    {darkMode
+                      ? lang === 'hi'
+                        ? 'लाइट मोड'
+                        : lang === 'ta'
+                          ? 'ஒளி முறை'
+                          : 'Light Mode'
+                      : lang === 'hi'
+                        ? 'डार्क मोड'
+                        : lang === 'ta'
+                          ? 'இருள் முறை'
+                          : 'Dark Mode'}
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Tier 2: Main Navigation Bar (Brand Left — Navigation Center — Emergency CTA Right) */}
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-2.5 lg:py-0 lg:min-h-[64px] flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
+          {/* Left: Clickable Brand Identity */}
+          <div className="flex items-center gap-2.5 lg:order-1 shrink-0">
+            <button
+              type="button"
+              data-testid="brand-logo-home-btn"
+              onClick={() => navigateToView('home')}
+              className="text-left focus:outline-none rounded-xl px-1.5 py-1 hover:bg-subtle/70 transition shrink-0"
+            >
+              <BrandLogo
+                title={t.brandTitle}
+                subtitle=""
+                compact={false}
+              />
+            </button>
+            <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-md bg-subtle border border-border-subtle text-[11px] font-semibold text-ink-secondary">
+              {lang === 'hi'
+                ? 'ओपीडी पोर्टल'
+                : lang === 'ta'
+                  ? 'ஓபிடி தளம்'
+                  : 'OPD Portal'}
+            </span>
+          </div>
+
+          {/* Right: Persistent Emergency Action + Mobile Menu Trigger */}
+          <div className="flex items-center gap-2 lg:order-3 shrink-0">
+            <button
+              type="button"
+              data-testid="persistent-emergency-btn"
+              onClick={openEmergencyModal}
+              className="h-9 sm:h-10 inline-flex items-center justify-center gap-1.5 bg-status-emergency hover:bg-[#991b1b] active:scale-[0.97] text-white font-bold px-3.5 sm:px-4 rounded-xl shadow-sm transition shrink-0 whitespace-nowrap text-xs sm:text-[13px]"
+              aria-haspopup="dialog"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>{t.emergencyBtn}</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="mobile-nav-toggle-btn"
+              aria-expanded={mobileNavOpen}
+              aria-controls="primary-navigation-links"
+              onClick={() => setMobileNavOpen((prev) => !prev)}
+              className="lg:hidden h-9 sm:h-10 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl border border-border-strong bg-surface hover:bg-subtle text-ink-primary font-semibold text-xs"
+            >
+              <span>
+                {lang === 'hi'
+                  ? 'मेनू'
+                  : lang === 'ta'
+                    ? 'பட்டியல்'
+                    : 'Menu'}
+              </span>
+              {mobileNavOpen ? (
+                <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+
+          {/* Center (Desktop lg+) / Collapsible Drawer (<lg): Primary Navigation Links */}
+          <nav
+            id="primary-navigation-links"
+            aria-label="Primary Navigation"
+            className={`${
+              mobileNavOpen ? 'grid' : 'hidden lg:flex'
+            } w-full lg:w-auto lg:order-2 grid-cols-2 sm:grid-cols-3 lg:flex-nowrap items-center gap-1 bg-subtle/80 p-1 rounded-xl border border-border-subtle`}
+          >
+            {[
+              { id: 'home', label: t.nav.home },
+              { id: 'register', label: t.nav.register },
+              {
+                id: 'slip',
+                label:
+                  savedSlips.length > 0
+                    ? `${t.nav.slip} (${savedSlips.length})`
+                    : activeSavedEntry?.publicCode
+                      ? `${t.nav.slip} (1)`
+                      : t.nav.slip
+              },
+              { id: 'my-turn', label: t.nav.myTurn },
+              { id: 'navigate', label: t.nav.navigate },
+              { id: 'staff', label: t.nav.staff }
+            ].map((item) => {
+              const isCurrent = activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-testid={`nav-tab-${item.id}`}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  onClick={() => navigateToView(item.id)}
+                  className={`h-9 inline-flex items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold text-xs xl:text-[13px] text-center leading-tight whitespace-nowrap transition-all duration-150 active:scale-[0.97] ${
+                    isCurrent
+                      ? 'bg-brand-primary text-white shadow-sm'
+                      : 'text-ink-secondary hover:text-ink-primary hover:bg-surface'
+                  }`}
+                >
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </header>
 
       {/* Main Content Container */}
       <main
         id="main-content"
-        className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 sm:py-7 space-y-6"
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8"
       >
         {/* =================================================================
             VIEW 1: HOME & LIVE WAITING ROOM BOARD
            ================================================================= */}
         {activeView === 'home' && (
-          <div className="space-y-6">
-            {/* Premium Clinical Hero Action Banner */}
-            <section className="bg-gradient-to-br from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white rounded-2xl p-5 sm:p-8 shadow-elevated border border-white/10 space-y-6">
+          <div className="space-y-8">
+            {/* Solid High-Contrast Clinical Hero Banner (No harsh gradients or vibecoded badges) */}
+            <section className="bg-brand-primary text-white rounded-2xl p-6 sm:p-8 shadow-card border border-brand-primary space-y-6">
               <div className="space-y-3 max-w-3xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-teal-200 text-xs font-bold tracking-wide">
-                  <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    {lang === 'hi'
-                      ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
-                      : lang === 'ta'
-                        ? 'அரசு மருத்துவமனை டிஜிட்டல் ஓபிடி வழிகாட்டி'
-                        : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
-                  </span>
+                <div className="text-xs font-extrabold uppercase tracking-wider text-teal-200">
+                  {lang === 'hi'
+                    ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
+                    : lang === 'ta'
+                      ? 'அரசு மருத்துவமனை டிஜிட்டல் ஓபிடி வழிகாட்டி'
+                      : 'PUBLIC HOSPITAL DIGITAL OPD COMPANION'}
                 </div>
                 <h1
                   className={`font-extrabold text-white ${
@@ -1179,15 +1338,15 @@ export default function App({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 items-stretch">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1 items-stretch">
                 <button
                   type="button"
                   data-testid="home-cta-register"
                   onClick={() => {
                     setRegStep(1);
-                    setActiveView('register');
+                    navigateToView('register');
                   }}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-extrabold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md transition-all"
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-extrabold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
                 >
                   <UserPlus className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaRegister}</span>
@@ -1196,8 +1355,8 @@ export default function App({
                 <button
                   type="button"
                   data-testid="home-cta-my-turn"
-                  onClick={() => setActiveView('my-turn')}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-teal-300/40 text-white font-bold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md transition-all"
+                  onClick={() => navigateToView('my-turn')}
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-teal-300/40 text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
                 >
                   <Activity className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaMyTurn}</span>
@@ -1206,8 +1365,8 @@ export default function App({
                 <button
                   type="button"
                   data-testid="home-cta-navigate"
-                  onClick={() => setActiveView('navigate')}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
+                  onClick={() => navigateToView('navigate')}
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
                 >
                   <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaRoute}</span>
@@ -1216,8 +1375,8 @@ export default function App({
                 <button
                   type="button"
                   data-testid="home-cta-staff"
-                  onClick={() => setActiveView('staff')}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-3.5 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
+                  onClick={() => navigateToView('staff')}
+                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
                 >
                   <ShieldCheck className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaStaff}</span>
@@ -1246,7 +1405,7 @@ export default function App({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveView('slip')}
+                    onClick={() => navigateToView('slip')}
                     className="btn-primary text-xs sm:text-sm"
                   >
                     <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -1314,7 +1473,7 @@ export default function App({
                             data-testid={`home-open-slip-${entry.publicCode}`}
                             onClick={() => {
                               handleSelectSavedSlip(entry);
-                              setActiveView('slip');
+                              navigateToView('slip');
                             }}
                             className="touch-target inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-brand-primary hover:bg-brand-primaryHover text-white font-bold text-xs sm:text-sm border border-brand-primary shadow-sm transition-colors text-center"
                           >
@@ -1326,7 +1485,7 @@ export default function App({
                             data-testid={`home-track-slip-${entry.publicCode}`}
                             onClick={() => {
                               handleSelectSavedSlip(entry);
-                              setActiveView('my-turn');
+                              navigateToView('my-turn');
                             }}
                             className="touch-target inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white font-bold text-xs sm:text-sm border border-brand-teal shadow-sm transition-colors text-center"
                           >
@@ -1417,7 +1576,7 @@ export default function App({
                     data-testid="empty-queue-register-btn"
                     onClick={() => {
                       setRegStep(1);
-                      setActiveView('register');
+                      navigateToView('register');
                     }}
                     className="btn-primary text-xs sm:text-sm"
                   >
@@ -1427,7 +1586,32 @@ export default function App({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Skeleton Loading Cards (Item 7) */}
+              {boardLoading && boardItems.length === 0 && (
+                <div
+                  data-testid="board-skeleton-loader"
+                  aria-busy="true"
+                  aria-label="Loading hospital department queues"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+                >
+                  {[1, 2, 3, 4].map((n) => (
+                    <div
+                      key={n}
+                      className="rounded-2xl border border-border-subtle bg-canvas p-4 space-y-4"
+                    >
+                      <div className="flex justify-between gap-2">
+                        <div className="skeleton-block h-6 w-16" />
+                        <div className="skeleton-block h-6 w-20" />
+                      </div>
+                      <div className="skeleton-block h-6 w-3/4" />
+                      <div className="skeleton-block h-16 w-full" />
+                      <div className="skeleton-block h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
                 {boardItems.map((item) => {
                   const slug = item.slug;
                   const prefix = item.tokenPrefix || item.token_prefix;
@@ -1441,9 +1625,9 @@ export default function App({
                   return (
                     <article
                       key={slug}
-                      className="rounded-2xl border border-border-strong/70 bg-canvas p-4 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow"
+                      className="h-full rounded-2xl border border-border-strong/70 bg-canvas p-4 sm:p-5 flex flex-col justify-between gap-4 shadow-sm"
                     >
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-token text-xs font-bold px-2.5 py-1 rounded-lg bg-brand-primary text-white">
                             {prefix}
@@ -1452,12 +1636,12 @@ export default function App({
                             {roomLabel} · F{floorNum}
                           </span>
                         </div>
-                        <h3 className="font-extrabold text-base text-ink-primary leading-snug">
+                        <h3 className="font-extrabold text-base text-ink-primary leading-snug min-h-[2.5rem] flex items-start">
                           {name}
                         </h3>
                       </div>
 
-                      <div className="space-y-2.5">
+                      <div className="space-y-2.5 mt-auto">
                         <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-surface border border-border-subtle text-center">
                           <div>
                             <div className="text-[11px] font-bold uppercase text-ink-muted">
@@ -1499,7 +1683,7 @@ export default function App({
                           setDuplicateTicketInfo(null);
                           setRegError(null);
                           setRegStep(2);
-                          setActiveView('register');
+                          navigateToView('register');
                         }}
                         className="btn-teal w-full text-xs sm:text-sm py-2.5"
                       >
@@ -1511,6 +1695,13 @@ export default function App({
                 })}
               </div>
             </section>
+
+            {/* 5 Patient FAQs on Home Screen (Item 15) */}
+            <FaqSection
+              lang={lang}
+              standalone={false}
+              onNavigate={navigateToView}
+            />
           </div>
         )}
 
@@ -2163,7 +2354,80 @@ export default function App({
             socketRef={socketRef}
           />
         )}
+
+        {/* =================================================================
+            VIEW 7: ABOUT, FAQ, PRIVACY, TERMS, THANK YOU & 404 PAGES
+           ================================================================= */}
+        {activeView === 'about' && (
+          <AboutPageView
+            lang={lang}
+            onNavigate={navigateToView}
+            onStartRegister={() => {
+              setDuplicateTicketInfo(null);
+              setRegError(null);
+              setRegStep(1);
+              navigateToView('register');
+            }}
+          />
+        )}
+
+        {activeView === 'faq' && (
+          <div className="space-y-4">
+            <FaqSection lang={lang} />
+          </div>
+        )}
+
+        {activeView === 'privacy' && (
+          <PrivacyPolicyView
+            lang={lang}
+            onNavigate={navigateToView}
+          />
+        )}
+
+        {activeView === 'terms' && (
+          <TermsPageView
+            lang={lang}
+            onNavigate={navigateToView}
+          />
+        )}
+
+        {activeView === 'thank-you' && (
+          <ThankYouPageView
+            lang={lang}
+            activeSlip={activeSavedEntry?.ticket || trackedSlip}
+            onNavigate={navigateToView}
+          />
+        )}
+
+        {activeView === 'not-found' && (
+          <NotFoundPageView
+            lang={lang}
+            onNavigate={navigateToView}
+          />
+        )}
       </main>
+
+      {/* Clinical Footer with Verified Links */}
+      <ClinicalFooter
+        lang={lang}
+        t={t}
+        onNavigate={navigateToView}
+        onOpenEmergency={openEmergencyModal}
+      />
+
+      {/* Back to Top Floating Control */}
+      <button
+        type="button"
+        onClick={handleScrollToTop}
+        data-testid="back-to-top-btn"
+        aria-label="Scroll back to top"
+        className={`fixed bottom-5 right-5 z-30 inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3.5 py-2.5 text-xs font-bold text-text-primary shadow-card transition-all duration-150 hover:bg-subtle active:scale-[0.97] ${
+          showBackToTop ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0'
+        }`}
+      >
+        <ChevronUp className="h-4 w-4 text-brand-primary" aria-hidden="true" />
+        <span>Top</span>
+      </button>
 
       {/* Persistent Pre-Registration Native <dialog> Emergency Modal */}
       <EmergencyModal

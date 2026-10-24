@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --bg-canvas: #f4f7fa;
+  --bg-canvas: #f4f6f9;
   --bg-surface: #ffffff;
-  --bg-subtle: #e8eef5;
+  --bg-subtle: #e9eef4;
   --text-primary: #0f172a;
-  --text-secondary: #334155;
+  --text-secondary: #1e293b;
   --text-muted: #475569;
   --brand-primary: #0b2545;
   --brand-navy: #0b2545;
@@ -31,6 +31,36 @@
   --min-touch-target: 44px;
 }
 
+/* Optional Restrained Clinical Dark Mode (SKILL.md §14 smooth theme transition) */
+[data-theme='dark'] {
+  --bg-canvas: #0b1320;
+  --bg-surface: #111c2d;
+  --bg-subtle: #1a2940;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-strong: #475569;
+  --brand-teal-soft: #112e34;
+}
+
+[data-theme='dark'] body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .card-surface,
+[data-theme='dark'] .glass-card {
+  background-color: #111c2d;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme='dark'] .apple-nav-bar,
+[data-theme='dark'] .glass-nav {
+  background: rgba(17, 28, 45, 0.88);
+  border-bottom-color: rgba(71, 85, 105, 0.6);
+}
+
 /* Assisted Mode increases font scale and applies zero-layout-shift high-contrast boundaries */
 [data-assisted='true'] {
   --base-font-scale: 1.125;
@@ -47,37 +77,57 @@
 [data-assisted='true'] .glass-card,
 [data-assisted='true'] input,
 [data-assisted='true'] select {
-  box-shadow: inset 0 0 0 2px #0f172a, 0 2px 8px rgba(11, 37, 69, 0.08);
+  box-shadow: inset 0 0 0 2px #0f172a;
 }
 
+/* Apple Typography Foundation (SKILL.md §15: optical sizing, size-specific tracking & leading) */
 html {
-  font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Noto Sans Devanagari', 'Noto Sans Tamil', system-ui, sans-serif;
   font-size: calc(16px * var(--base-font-scale));
+  line-height: 1.55;
+  font-optical-sizing: auto;
   background-color: var(--bg-canvas);
   color: var(--text-primary);
-  overflow-x: hidden;
+  overflow-x: clip;
   scroll-behavior: smooth;
 }
 
 body {
-  overflow-x: hidden;
-  background-image:
-    radial-gradient(circle at 12% 0%, rgba(13, 110, 110, 0.07) 0%, transparent 42%),
-    radial-gradient(circle at 88% 8%, rgba(11, 37, 69, 0.06) 0%, transparent 38%);
-  background-attachment: fixed;
+  overflow-x: clip;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Size-specific tracking & leading per Apple WWDC Typography guidelines (SKILL.md §15) */
+h1 {
+  letter-spacing: -0.022em;
+  line-height: 1.12;
+  font-optical-sizing: auto;
+}
+
+h2 {
+  letter-spacing: -0.016em;
+  line-height: 1.18;
+  font-optical-sizing: auto;
+}
+
+h3 {
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
 /* Prevent clipping of Devanagari and Tamil top/bottom matras */
 [lang='hi'],
 .font-devanagari {
-  font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Noto Sans Devanagari', -apple-system, 'Plus Jakarta Sans', system-ui, sans-serif;
   line-height: 1.65;
   letter-spacing: 0 !important;
 }
 
 [lang='ta'],
 .font-tamil {
-  font-family: 'Noto Sans Tamil', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Noto Sans Tamil', -apple-system, 'Plus Jakarta Sans', system-ui, sans-serif;
   line-height: 1.65;
   letter-spacing: 0 !important;
 }
@@ -103,7 +153,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* High-visibility NHS-inspired keyboard focus ring */
+/* High-visibility keyboard focus ring */
 *:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
@@ -113,6 +163,13 @@ body {
 /* Minimum touch target helper */
 .touch-target {
   min-height: var(--min-touch-target);
+}
+
+/* Instant pointer-down response per Apple Fluid Interface guidelines (SKILL.md §1) */
+button:active:not(:disabled),
+a[role='button']:active {
+  transform: scale(0.975);
+  transition: transform 90ms ease-out;
 }
 
 /* Subtle schematic route draw animation (disabled when prefers-reduced-motion is active) */
@@ -131,8 +188,30 @@ body {
   animation: schematicRouteDraw 0.65s ease-out forwards;
 }
 
+/* Skeleton Loader Animation (Item 7) */
+@keyframes clinicalPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.48;
+  }
+}
+
+.skeleton-block {
+  background-color: #dde5ed;
+  border-radius: 0.75rem;
+  animation: clinicalPulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+[data-theme='dark'] .skeleton-block {
+  background-color: #1e293b;
+}
+
+/* Accessibility media queries per SKILL.md §14 */
 @media (prefers-reduced-motion: reduce) {
-  .schematic-route-line {
+  .schematic-route-line,
+  .skeleton-block {
     animation: none !important;
   }
   *,
@@ -145,29 +224,45 @@ body {
   }
 }
 
-/* Shared Liquid-Glass, Card, Token Display & Button Component System */
+@media (prefers-reduced-transparency: reduce) {
+  .apple-nav-bar,
+  .glass-nav,
+  .glass-card {
+    background: var(--bg-surface) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .card-surface,
+  .glass-card,
+  .apple-nav-bar {
+    border-width: 2px !important;
+    border-color: var(--text-primary) !important;
+  }
+}
+
+/* Clean, Non-Vibecoded Apple Clinical Component System (SKILL.md §1, §12, §16) */
 @layer components {
+  .apple-nav-bar,
   .glass-nav {
-    background: rgba(255, 255, 255, 0.84);
-    backdrop-filter: blur(18px) saturate(180%);
-    -webkit-backdrop-filter: blur(18px) saturate(180%);
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    box-shadow:
-      0 10px 30px -6px rgba(11, 37, 69, 0.1),
-      0 2px 8px -2px rgba(13, 110, 110, 0.06),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.42);
   }
 
   .glass-card {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(148, 163, 184, 0.55);
-    @apply rounded-2xl shadow-card;
+    @apply bg-surface border border-border-strong/70 rounded-xl shadow-card;
   }
 
   .card-surface {
-    @apply bg-surface border border-border-strong rounded-2xl shadow-card;
+    @apply bg-surface border border-border-strong/80 rounded-xl shadow-card;
+  }
+
+  .bg-hero-gradient {
+    @apply bg-brand-primary;
   }
 
   .ticket-perforation {
@@ -181,42 +276,44 @@ body {
     @apply font-token text-3xl sm:text-4xl font-extrabold tracking-wider leading-tight;
   }
 
+  /* Solid, high-contrast clinical buttons with instant press response (zero harsh gradients) */
   .btn-primary {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#0E315A] to-brand-primary hover:from-[#133C6D] hover:to-[#0E315A] active:scale-[0.99] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-primary shadow-sm transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary hover:bg-[#10345e] active:scale-[0.975] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-primary shadow-sm transition-all duration-100 disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-secondary {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-slate-50 active:scale-[0.99] text-brand-primary font-bold px-4 py-2.5 text-sm sm:text-base border border-slate-300 hover:border-brand-primary shadow-sm transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-subtle active:scale-[0.975] text-brand-primary font-bold px-4 py-2.5 text-sm sm:text-base border border-border-strong hover:border-brand-primary shadow-sm transition-all duration-100 disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-teal {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#0F7E7E] to-brand-teal hover:from-brand-teal hover:to-brand-tealHover active:scale-[0.99] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-teal shadow-sm transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover active:scale-[0.975] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-teal shadow-sm transition-all duration-100 disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-subtle {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 active:scale-[0.99] text-ink-primary font-semibold px-3.5 py-2 text-xs sm:text-sm border border-slate-300/90 transition-all duration-150 disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-subtle hover:bg-slate-200 active:scale-[0.975] text-ink-primary font-semibold px-3.5 py-2 text-xs sm:text-sm border border-border-strong/70 transition-all duration-100 disabled:opacity-60;
   }
 
   .btn-danger {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 hover:bg-red-100 active:scale-[0.99] text-status-emergency font-bold px-4 py-2.5 text-sm sm:text-base border border-status-emergency shadow-sm transition-all duration-150 disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 hover:bg-red-100 active:scale-[0.975] text-status-emergency font-bold px-4 py-2.5 text-sm sm:text-base border border-status-emergency shadow-sm transition-all duration-100 disabled:opacity-60;
   }
 
   .btn-neutral {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-red-50 active:scale-[0.99] text-ink-secondary hover:text-status-emergency hover:border-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm border border-border-strong shadow-sm transition-all duration-150 disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-red-50 active:scale-[0.975] text-ink-secondary hover:text-status-emergency hover:border-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm border border-border-strong shadow-sm transition-all duration-100 disabled:opacity-60;
   }
 }
 
-/* Native dialog backdrop styling */
+/* Native dialog backdrop styling (SKILL.md §12: Dim to focus) */
 dialog::backdrop {
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(6px);
 }
 
-/* Print stylesheet for OPD token slip (Checkpoint 5: Ink-friendly, no QR cropping, no unnecessary page breaks) */
+/* Print stylesheet for OPD token slip (Ink-friendly, no QR cropping, no unnecessary page breaks) */
 @media print {
   .no-print,
   header,
   nav,
+  footer,
   dialog {
     display: none !important;
   }

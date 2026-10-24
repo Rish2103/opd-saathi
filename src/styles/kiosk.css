@@ -6,16 +6,13 @@
 .kiosk-shell {
   --kiosk-touch-min: 60px;
   --kiosk-touch-primary: 64px;
-  background-color: var(--bg-canvas, #f4f7fa);
-  background-image:
-    radial-gradient(circle at 10% 0%, rgba(13, 110, 110, 0.09) 0%, transparent 45%),
-    radial-gradient(circle at 90% 10%, rgba(11, 37, 69, 0.08) 0%, transparent 40%);
+  background-color: var(--bg-canvas, #f4f6f9);
   color: var(--text-primary, #0f172a);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow-x: clip;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -33,7 +30,7 @@
   user-select: text;
 }
 
-/* Primary Touch Target Sizing (56px–64px+ minimum height) */
+/* Primary Touch Target Sizing (60px–64px+ minimum height, instant press response per SKILL.md §1) */
 .kiosk-btn-primary {
   min-height: var(--kiosk-touch-primary);
   display: inline-flex;
@@ -41,18 +38,21 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 0.875rem 1.5rem;
-  border-radius: 1rem;
+  border-radius: 0.875rem;
   font-weight: 800;
-  background: linear-gradient(180deg, #0e315a 0%, #0b2545 100%);
+  background-color: #0b2545;
   color: #ffffff;
   border: 2px solid #0b2545;
-  box-shadow: 0 6px 18px -4px rgba(11, 37, 69, 0.28);
-  transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+  transition: transform 90ms ease-out, background-color 120ms ease;
+}
+
+.kiosk-btn-primary:hover:not(:disabled) {
+  background-color: #10345e;
 }
 
 .kiosk-btn-primary:active:not(:disabled) {
-  transform: scale(0.985);
-  background: #07192f;
+  transform: scale(0.98);
+  background-color: #07192f;
 }
 
 .kiosk-btn-primary:disabled {
@@ -67,18 +67,21 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 0.875rem 1.5rem;
-  border-radius: 1rem;
+  border-radius: 0.875rem;
   font-weight: 800;
-  background: linear-gradient(180deg, #0f7e7e 0%, #0d6e6e 100%);
+  background-color: #0d6e6e;
   color: #ffffff;
   border: 2px solid #0d6e6e;
-  box-shadow: 0 6px 18px -4px rgba(13, 110, 110, 0.28);
-  transition: transform 120ms ease, background-color 120ms ease;
+  transition: transform 90ms ease-out, background-color 120ms ease;
+}
+
+.kiosk-btn-teal:hover:not(:disabled) {
+  background-color: #095252;
 }
 
 .kiosk-btn-teal:active:not(:disabled) {
-  transform: scale(0.985);
-  background: #095252;
+  transform: scale(0.98);
+  background-color: #074242;
 }
 
 .kiosk-btn-teal:disabled {
@@ -93,18 +96,21 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 1rem 1.75rem;
-  border-radius: 1rem;
+  border-radius: 0.875rem;
   font-weight: 800;
-  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  background-color: #15803d;
   color: #ffffff;
   border: 2px solid #14532d;
-  box-shadow: 0 8px 22px -4px rgba(21, 128, 61, 0.35);
-  transition: transform 120ms ease, background-color 120ms ease;
+  transition: transform 90ms ease-out, background-color 120ms ease;
+}
+
+.kiosk-btn-confirm:hover:not(:disabled) {
+  background-color: #166534;
 }
 
 .kiosk-btn-confirm:active:not(:disabled) {
-  transform: scale(0.985);
-  background: #14532d;
+  transform: scale(0.98);
+  background-color: #14532d;
 }
 
 .kiosk-btn-confirm:disabled {
@@ -119,17 +125,21 @@
   justify-content: center;
   gap: 0.625rem;
   padding: 0.75rem 1.25rem;
-  border-radius: 1rem;
+  border-radius: 0.875rem;
   font-weight: 800;
   background-color: #ffffff;
   color: #0b2545;
   border: 2px solid #94a3b8;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
-  transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  transition: transform 90ms ease-out, border-color 120ms ease, background-color 120ms ease;
+}
+
+.kiosk-btn-secondary:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #0b2545;
 }
 
 .kiosk-btn-secondary:active:not(:disabled) {
-  transform: scale(0.985);
+  transform: scale(0.98);
   background-color: #e8eef5;
   border-color: #0b2545;
 }
@@ -146,8 +156,7 @@
   background-color: #b91c1c;
   color: #ffffff;
   border: 2px solid #7f1d1d;
-  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.3);
-  transition: transform 120ms ease, background-color 120ms ease;
+  transition: transform 90ms ease-out, background-color 120ms ease;
 }
 
 .kiosk-btn-emergency:active {
@@ -179,22 +188,22 @@
 /* Department & Option Selection Cards */
 .kiosk-select-card {
   min-height: 64px;
-  border-radius: 1.25rem;
-  border: 2.5px solid #cbd5e1;
+  border-radius: 1rem;
+  border: 2px solid #cbd5e1;
   background-color: #ffffff;
   padding: 1.125rem 1.25rem;
   text-align: left;
-  transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+  transition: transform 90ms ease-out, border-color 120ms ease, background-color 120ms ease;
 }
 
 .kiosk-select-card:active {
-  transform: scale(0.99);
+  transform: scale(0.985);
 }
 
-.kiosk-select-card[data-selected="true"] {
+.kiosk-select-card[data-selected='true'] {
   border-color: #0b2545;
   background-color: #f0f7ff;
-  box-shadow: 0 0 0 3px rgba(11, 37, 69, 0.16), 0 8px 20px -4px rgba(11, 37, 69, 0.14);
+  box-shadow: 0 0 0 2px rgba(11, 37, 69, 0.2);
 }
 
 /* Large Kiosk Token Code Display */
