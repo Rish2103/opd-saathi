@@ -333,7 +333,7 @@ describe.runIf(hasLiveDatabase)(
         Array.from({ length: 4 }, (_, idx) =>
           liveService.createTicket({
             requestId: crypto.randomUUID(),
-            departmentId: 'orthopedics',
+            departmentId: 'orthopaedics',
             visitType: 'FIRST_VISIT',
             preferredLang: 'hi',
             avoidStairs: false,
