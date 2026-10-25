@@ -68,8 +68,8 @@ export default function VoiceListenButton({
         : 'bg-subtle/80 text-ink-secondary border-border-strong/70 hover:bg-surface hover:text-brand-primary'
       : variant === 'inverse'
         ? speaking
-          ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-sm'
-          : 'bg-slate-900/45 hover:bg-slate-900/65 text-white border-teal-300/40'
+          ? 'bg-amber-500 text-[#1E1915] border-amber-300 shadow-sm'
+          : 'bg-[#120E0C]/55 hover:bg-[#120E0C]/80 text-[#FFFDF9] border-[#E59838]/45'
         : speaking
           ? 'bg-brand-teal text-white border-brand-teal shadow-sm'
           : 'bg-subtle hover:bg-brand-tealSoft text-brand-primary border-border-strong/80 hover:border-brand-teal';

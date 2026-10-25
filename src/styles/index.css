@@ -3,17 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --bg-canvas: #f4f6f9;
-  --bg-surface: #ffffff;
-  --bg-subtle: #e9eef4;
-  --text-primary: #0f172a;
-  --text-secondary: #1e293b;
-  --text-muted: #475569;
-  --brand-primary: #0b2545;
-  --brand-navy: #0b2545;
-  --brand-teal: #0d6e6e;
-  --brand-teal-hover: #095252;
-  --brand-teal-soft: #e6f4f4;
+  /* Warm Cream / Half-White / Alabaster Light Theme (Zero Blue, Zero Navy, Zero Neon) */
+  --bg-canvas: #faf6f0;
+  --bg-surface: #fffdf9;
+  --bg-subtle: #f2eae0;
+  --border-subtle: #e3d8c8;
+  --border-strong: #c6b6a2;
+  --text-primary: #1c1714;
+  --text-secondary: #4a3f37;
+  --text-muted: #6e6055;
+
+  /* Mastercard-Inspired Warm Espresso, Terracotta-Copper & Burnished Amber Gold */
+  --brand-primary: #1e1915;
+  --brand-primary-hover: #332a23;
+  --brand-navy: #1e1915;
+  --brand-teal: #c84b31;
+  --brand-teal-hover: #a83820;
+  --brand-teal-soft: #fbece8;
+  --brand-gold: #e59838;
+  --brand-gold-soft: #fef5e7;
+
+  /* Semantic Clinical Status Tokens */
   --status-serving: #15803d;
   --status-next: #b45309;
   --status-emergency: #b91c1c;
@@ -25,22 +35,26 @@
   --status-success: #15803d;
   --status-success-bg: #f0fdf4;
   --status-success-border: #4ade80;
-  --border-strong: #94a3b8;
-  --focus-ring: #ffbf47;
+  --focus-ring: #e59838;
   --base-font-scale: 1;
   --min-touch-target: 44px;
 }
 
-/* Optional Restrained Clinical Dark Mode (SKILL.md §14 smooth theme transition) */
+/* Optional Warm Espresso Dark Mode (Zero Cold Navy/Blue) */
 [data-theme='dark'] {
-  --bg-canvas: #0b1320;
-  --bg-surface: #111c2d;
-  --bg-subtle: #1a2940;
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --border-strong: #475569;
-  --brand-teal-soft: #112e34;
+  --bg-canvas: #16120f;
+  --bg-surface: #211b17;
+  --bg-subtle: #2d251f;
+  --border-subtle: #3d332b;
+  --border-strong: #57493e;
+  --text-primary: #faf6f0;
+  --text-secondary: #d8cdc0;
+  --text-muted: #a39586;
+  --brand-primary: #2b231d;
+  --brand-primary-hover: #3d3229;
+  --brand-teal: #d95b40;
+  --brand-teal-hover: #c84b31;
+  --brand-teal-soft: #36211c;
 }
 
 [data-theme='dark'] body {
@@ -49,19 +63,108 @@
 }
 
 [data-theme='dark'] .card-surface,
-[data-theme='dark'] .glass-card {
-  background-color: #111c2d;
-  border-color: #334155;
-  color: #f1f5f9;
+[data-theme='dark'] .glass-card,
+[data-theme='dark'] .card-3d {
+  background-color: #211b17;
+  border-color: #4a3e35;
+  color: #faf6f0;
 }
 
 [data-theme='dark'] .apple-nav-bar,
 [data-theme='dark'] .glass-nav {
-  background: rgba(17, 28, 45, 0.88);
-  border-bottom-color: rgba(71, 85, 105, 0.6);
+  background: rgba(33, 27, 23, 0.92);
+  border-bottom-color: rgba(87, 73, 62, 0.65);
 }
 
-/* Assisted / Large Text Mode increases root font scale (19px base = +18.75% across all rem text) and touch targets without ugly border outlines */
+/* Override Tailwind utility classes so the entire app renders in Warm Cream / Espresso / Terracotta-Gold */
+html body .bg-canvas {
+  background-color: var(--bg-canvas) !important;
+}
+
+html body .bg-surface {
+  background-color: var(--bg-surface) !important;
+}
+
+html body .bg-subtle {
+  background-color: var(--bg-subtle) !important;
+}
+
+html body .bg-brand-primary {
+  background-color: var(--brand-primary) !important;
+}
+
+html body .hover\:bg-brand-primaryHover:hover {
+  background-color: var(--brand-primary-hover) !important;
+}
+
+html body .text-brand-primary {
+  color: var(--brand-primary) !important;
+}
+
+html body .border-brand-primary {
+  border-color: var(--brand-primary) !important;
+}
+
+html body .bg-brand-teal {
+  background-color: var(--brand-teal) !important;
+}
+
+html body .hover\:bg-brand-tealHover:hover {
+  background-color: var(--brand-teal-hover) !important;
+}
+
+html body .text-brand-teal {
+  color: var(--brand-teal) !important;
+}
+
+html body .border-brand-teal {
+  border-color: var(--brand-teal) !important;
+}
+
+html body .bg-brand-tealSoft {
+  background-color: var(--brand-teal-soft) !important;
+}
+
+html body .text-ink-primary {
+  color: var(--text-primary) !important;
+}
+
+html body .text-ink-secondary {
+  color: var(--text-secondary) !important;
+}
+
+html body .text-ink-muted {
+  color: var(--text-muted) !important;
+}
+
+html body .border-border-subtle {
+  border-color: var(--border-subtle) !important;
+}
+
+html body .border-border-strong {
+  border-color: var(--border-strong) !important;
+}
+
+/* Warm overrides for any legacy cold slate/teal/blue tint utilities */
+html body .text-teal-200,
+html body .text-teal-300 {
+  color: #f6c478 !important;
+}
+
+html body .bg-slate-50,
+html body .bg-slate-100 {
+  background-color: var(--bg-subtle) !important;
+}
+
+html body .bg-blue-50 {
+  background-color: var(--brand-teal-soft) !important;
+}
+
+html body .border-blue-200 {
+  border-color: #e6b8ad !important;
+}
+
+/* Assisted / Large Text Mode increases root font scale (19px base = +18.75% across all rem text) and touch targets */
 html[data-assisted='true'],
 :root[data-assisted='true'],
 [data-assisted='true'] {
@@ -90,7 +193,7 @@ html[data-assisted='true'] button,
   font-size: calc(1em * 1.06);
 }
 
-/* Apple Typography Foundation (SKILL.md §15: optical sizing, size-specific tracking & leading) */
+/* Typography & Warm Cream Canvas Foundation */
 html {
   font-family: -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Noto Sans Devanagari', 'Noto Sans Tamil', system-ui, sans-serif;
   font-size: calc(16px * var(--base-font-scale));
@@ -105,11 +208,13 @@ html {
 body {
   overflow-x: clip;
   background-color: var(--bg-canvas);
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(229, 152, 56, 0.08), transparent 38%),
+    radial-gradient(circle at 88% 8%, rgba(200, 75, 49, 0.06), transparent 36%);
   color: var(--text-primary);
   transition: background-color 200ms ease, color 200ms ease;
 }
 
-/* Size-specific tracking & leading per Apple WWDC Typography guidelines (SKILL.md §15) */
 h1 {
   letter-spacing: -0.022em;
   line-height: 1.12;
@@ -170,19 +275,18 @@ h3 {
   box-shadow: 0 0 0 5px var(--text-primary);
 }
 
-/* Minimum touch target helper */
 .touch-target {
   min-height: var(--min-touch-target);
 }
 
-/* Instant pointer-down response per Apple Fluid Interface guidelines (SKILL.md §1) */
+/* Tactile physical keycap press response */
 button:active:not(:disabled),
 a[role='button']:active {
-  transform: scale(0.975);
-  transition: transform 90ms ease-out;
+  transform: translateY(1.5px) scale(0.985);
+  transition: transform 80ms ease-out;
 }
 
-/* Subtle schematic route draw animation (disabled when prefers-reduced-motion is active) */
+/* Subtle schematic route draw animation */
 @keyframes schematicRouteDraw {
   from {
     stroke-dasharray: 600;
@@ -198,7 +302,7 @@ a[role='button']:active {
   animation: schematicRouteDraw 0.65s ease-out forwards;
 }
 
-/* Skeleton Loader Animation (Item 7) */
+/* Skeleton Loader Animation */
 @keyframes clinicalPulse {
   0%, 100% {
     opacity: 1;
@@ -209,16 +313,16 @@ a[role='button']:active {
 }
 
 .skeleton-block {
-  background-color: #dde5ed;
+  background-color: #e6dccf;
   border-radius: 0.75rem;
   animation: clinicalPulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 [data-theme='dark'] .skeleton-block {
-  background-color: #1e293b;
+  background-color: #362c25;
 }
 
-/* Accessibility media queries per SKILL.md §14 */
+/* Accessibility media queries */
 @media (prefers-reduced-motion: reduce) {
   .schematic-route-line,
   .skeleton-block {
@@ -253,30 +357,72 @@ a[role='button']:active {
   }
 }
 
-/* Clean, Non-Vibecoded Apple Clinical Component System (SKILL.md §1, §12, §16) */
+/* Tactile 3D Component System (shadcn / 21st.dev / HeroUI / Mastercard Warm Aesthetic) */
 @layer components {
   .apple-nav-bar,
   .glass-nav {
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.42);
+    background: rgba(255, 253, 249, 0.92);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid rgba(198, 182, 162, 0.65);
+    box-shadow: 0 4px 20px -6px rgba(30, 25, 21, 0.07);
   }
 
   .glass-card {
-    @apply bg-surface border border-border-strong/70 rounded-xl shadow-card;
+    @apply bg-surface border border-border-strong/70 rounded-2xl shadow-card;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+      0 10px 24px -8px rgba(30, 25, 21, 0.09),
+      0 3px 0 0 rgba(198, 182, 162, 0.55);
   }
 
   .card-surface {
-    @apply bg-surface border border-border-strong/80 rounded-xl shadow-card;
+    @apply bg-surface border border-border-strong/80 rounded-2xl shadow-card;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.95) inset,
+      0 12px 28px -10px rgba(30, 25, 21, 0.09),
+      0 3px 0 0 rgba(198, 182, 162, 0.6);
+  }
+
+  /* Tactile 3D Interactive Card (21st.dev / HeroUI physical elevation) */
+  .card-3d {
+    background-color: var(--bg-surface);
+    border: 1.5px solid var(--border-strong);
+    border-bottom-width: 4px;
+    border-bottom-color: #b5a38d;
+    border-radius: 1.15rem;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.95) inset,
+      0 12px 24px -8px rgba(30, 25, 21, 0.1);
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease;
+  }
+
+  .card-3d:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 1) inset,
+      0 18px 34px -10px rgba(30, 25, 21, 0.14);
+  }
+
+  /* Mastercard-inspired warm espresso & terracotta-gold executive surface */
+  .mastercard-3d-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1e1915 0%, #2c221c 58%, #3a281e 100%);
+    border: 1.5px solid #4a382b;
+    border-bottom: 4px solid #120e0c;
+    box-shadow:
+      0 1px 0 0 rgba(255, 248, 235, 0.14) inset,
+      0 22px 44px -14px rgba(30, 25, 21, 0.34);
   }
 
   .bg-hero-gradient {
     @apply bg-brand-primary;
+    background: linear-gradient(135deg, #1e1915 0%, #2e231c 65%, #3d2a1f 100%);
   }
 
   .ticket-perforation {
-    background-image: linear-gradient(to right, #94a3b8 50%, rgba(255, 255, 255, 0) 0%);
+    background-image: linear-gradient(to right, #c6b6a2 50%, rgba(255, 255, 255, 0) 0%);
     background-position: bottom;
     background-size: 14px 2px;
     background-repeat: repeat-x;
@@ -286,35 +432,66 @@ a[role='button']:active {
     @apply font-token text-3xl sm:text-4xl font-extrabold tracking-wider leading-tight;
   }
 
-  /* Solid, high-contrast clinical buttons with instant press response (zero harsh gradients) */
+  /* Tactile 3D Keycap Buttons (shadcn + 21st.dev physical depth) */
   .btn-primary {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary hover:bg-[#10345e] active:scale-[0.975] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-primary shadow-sm transition-all duration-100 disabled:opacity-60 disabled:pointer-events-none;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary hover:bg-brand-primaryHover text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-primary transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+    border-bottom-width: 3px;
+    border-bottom-color: #0d0a08;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      0 4px 10px -2px rgba(30, 25, 21, 0.22);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
   }
 
   .btn-secondary {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-subtle active:scale-[0.975] text-brand-primary font-bold px-4 py-2.5 text-sm sm:text-base border border-border-strong hover:border-brand-primary shadow-sm transition-all duration-100 disabled:opacity-60 disabled:pointer-events-none;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-subtle text-brand-primary font-bold px-4 py-2.5 text-sm sm:text-base border border-border-strong hover:border-brand-primary transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+    border-bottom-width: 3px;
+    border-bottom-color: #b3a18b;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+      0 3px 8px -2px rgba(30, 25, 21, 0.08);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
   }
 
   .btn-teal {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover active:scale-[0.975] text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-teal shadow-sm transition-all duration-100 disabled:opacity-60 disabled:pointer-events-none;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white font-bold px-4 sm:px-5 py-2.5 text-sm sm:text-base border border-brand-teal transition-all duration-150 disabled:opacity-60 disabled:pointer-events-none;
+    border-bottom-width: 3px;
+    border-bottom-color: #872b17;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.22) inset,
+      0 5px 12px -2px rgba(200, 75, 49, 0.3);
+  }
+
+  .btn-teal:hover:not(:disabled) {
+    transform: translateY(-1px);
   }
 
   .btn-subtle {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-subtle hover:bg-slate-200 active:scale-[0.975] text-ink-primary font-semibold px-3.5 py-2 text-xs sm:text-sm border border-border-strong/70 transition-all duration-100 disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-subtle hover:bg-[#e6dacb] text-ink-primary font-semibold px-3.5 py-2 text-xs sm:text-sm border border-border-strong/80 transition-all duration-150 disabled:opacity-60;
+    border-bottom-width: 2px;
+    border-bottom-color: #b5a38d;
   }
 
   .btn-danger {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 hover:bg-red-100 active:scale-[0.975] text-status-emergency font-bold px-4 py-2.5 text-sm sm:text-base border border-status-emergency shadow-sm transition-all duration-100 disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 hover:bg-red-100 text-status-emergency font-bold px-4 py-2.5 text-sm sm:text-base border border-status-emergency transition-all duration-150 disabled:opacity-60;
+    border-bottom-width: 3px;
+    border-bottom-color: #991b1b;
   }
 
   .btn-neutral {
-    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-red-50 active:scale-[0.975] text-ink-secondary hover:text-status-emergency hover:border-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm border border-border-strong shadow-sm transition-all duration-100 disabled:opacity-60;
+    @apply touch-target inline-flex items-center justify-center gap-2 rounded-xl bg-surface hover:bg-red-50 text-ink-secondary hover:text-status-emergency hover:border-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm border border-border-strong shadow-sm transition-all duration-150 disabled:opacity-60;
   }
 }
 
-/* Native dialog backdrop styling (SKILL.md §12: Dim to focus) */
+/* Native dialog backdrop styling */
 dialog::backdrop {
-  background: rgba(15, 23, 42, 0.68);
+  background: rgba(28, 23, 20, 0.68);
   backdrop-filter: blur(6px);
 }
 
@@ -347,7 +524,7 @@ dialog::backdrop {
 
   .print-slip-card {
     box-shadow: none !important;
-    border: 2px solid #0f172a !important;
+    border: 2px solid #1e1915 !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
     background: #ffffff !important;
@@ -357,14 +534,14 @@ dialog::backdrop {
   .print-slip-header {
     background: #ffffff !important;
     background-image: none !important;
-    color: #0f172a !important;
-    border-bottom: 2px solid #0f172a !important;
+    color: #1e1915 !important;
+    border-bottom: 2px solid #1e1915 !important;
   }
 
   .print-slip-header * {
-    color: #0f172a !important;
+    color: #1e1915 !important;
     background: transparent !important;
-    border-color: #0f172a !important;
+    border-color: #1e1915 !important;
   }
 
   .print-qr-box {
@@ -372,6 +549,6 @@ dialog::backdrop {
     page-break-inside: avoid !important;
     overflow: visible !important;
     background: #ffffff !important;
-    border: 1.5px solid #0f172a !important;
+    border: 1.5px solid #1e1915 !important;
   }
 }

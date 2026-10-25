@@ -1043,8 +1043,8 @@ export default function KioskModeView({
             className="space-y-6"
           >
             {/* Hero Welcome Card */}
-            <div className="bg-gradient-to-br from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white rounded-3xl p-6 sm:p-10 shadow-elevated border border-white/15 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-teal-200 text-xs sm:text-sm font-extrabold tracking-wide">
+            <div className="mastercard-3d-hero text-white rounded-3xl p-6 sm:p-10 shadow-elevated border border-white/15 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-[#F5A623] text-xs sm:text-sm font-extrabold tracking-wide">
                 <Building2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{t.kiosk.badge}</span>
               </div>
@@ -1064,7 +1064,7 @@ export default function KioskModeView({
               {/* Prominent Language Selection Cards (Native Scripts) */}
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/15 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-sm sm:text-base font-extrabold text-teal-200 uppercase tracking-wider flex items-center gap-2">
+                  <h2 className="text-sm sm:text-base font-extrabold text-[#F5A623] uppercase tracking-wider flex items-center gap-2">
                     <Languages className="w-5 h-5 shrink-0" aria-hidden="true" />
                     <span>{t.kiosk.selectLanguageHeading}</span>
                   </h2>
@@ -1104,8 +1104,8 @@ export default function KioskModeView({
                         }}
                         className={`min-h-[72px] rounded-2xl p-4 text-left border-2 transition-all flex items-center justify-between gap-3 ${
                           isSelected
-                            ? 'bg-white text-brand-primary border-teal-300 shadow-lg ring-4 ring-teal-300/30'
-                            : 'bg-slate-900/50 text-white border-white/25 hover:bg-slate-900/70'
+                            ? 'bg-white text-brand-primary border-[#E59838] shadow-lg ring-4 ring-[#E59838]/30'
+                            : 'bg-[#2D251E]/80 text-white border-white/25 hover:bg-[#3A3028]'
                         }`}
                       >
                         <div>
@@ -1149,7 +1149,7 @@ export default function KioskModeView({
                     setRegStep(1);
                     setKioskScreen('register');
                   }}
-                  className="lg:col-span-2 min-h-[76px] w-full rounded-2xl bg-white hover:bg-slate-50 active:scale-[0.99] text-brand-primary border-4 border-teal-300 px-6 py-4 shadow-xl flex items-center justify-between gap-4 text-left transition"
+                  className="lg:col-span-2 min-h-[76px] w-full rounded-2xl bg-white hover:bg-slate-50 active:scale-[0.99] text-brand-primary border-4 border-[#E59838] px-6 py-4 shadow-xl flex items-center justify-between gap-4 text-left transition"
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-14 h-14 rounded-2xl bg-brand-primary text-white flex items-center justify-center shrink-0">
@@ -1181,7 +1181,7 @@ export default function KioskModeView({
                     setLookupSlip(null);
                     setKioskScreen('lookup');
                   }}
-                  className="min-h-[76px] w-full rounded-2xl bg-brand-teal hover:bg-brand-tealHover active:scale-[0.99] text-white border-2 border-teal-300/50 px-5 py-4 shadow-lg flex items-center justify-between gap-3 text-left transition"
+                  className="min-h-[76px] w-full rounded-2xl bg-brand-teal hover:bg-brand-tealHover active:scale-[0.99] text-white border-2 border-[#E59838]/50 px-5 py-4 shadow-lg flex items-center justify-between gap-3 text-left transition"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
@@ -1191,7 +1191,7 @@ export default function KioskModeView({
                       <div className="text-base sm:text-lg font-extrabold leading-snug">
                         {t.kiosk.checkExistingTokenBtn}
                       </div>
-                      <div className="text-xs text-teal-100 mt-0.5 line-clamp-2">
+                      <div className="text-xs text-[#EAE0D5] mt-0.5 line-clamp-2">
                         {t.kiosk.checkExistingTokenSub}
                       </div>
                     </div>
@@ -1945,9 +1945,9 @@ export default function KioskModeView({
             {/* Printable Official OPD Slip Card */}
             <article className="card-surface print-slip-card overflow-hidden border-2 border-brand-primary shadow-elevated">
               {/* Top Token Header */}
-              <div className="print-slip-header bg-gradient-to-r from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="print-slip-header mastercard-3d-hero text-white p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <span className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-teal-200 block mb-1">
+                  <span className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#F5A623] block mb-1">
                     {t.slip.tokenLabel}
                   </span>
                   <div
@@ -1962,7 +1962,7 @@ export default function KioskModeView({
                   <span className="px-4 py-1.5 rounded-full text-sm font-extrabold uppercase tracking-wide bg-amber-400 text-slate-950">
                     {t.statuses?.[kioskSlip.status] || kioskSlip.status}
                   </span>
-                  <span className="text-xs sm:text-sm text-blue-200 font-semibold">
+                  <span className="text-xs sm:text-sm text-[#EAE0D5] font-semibold">
                     {t.visitTypes[kioskSlip.visitType] || kioskSlip.visitType} ·{' '}
                     {kioskSlip.queueDate}
                   </span>
@@ -1982,7 +1982,7 @@ export default function KioskModeView({
                   {(kioskSlip.patientSummary?.fullName || patientName.trim()) && (
                     <div
                       data-testid="kiosk-slip-patient-summary"
-                      className="p-4 rounded-2xl bg-blue-50/80 border border-brand-primary/30 flex flex-wrap items-center justify-between gap-2"
+                      className="p-4 rounded-2xl bg-[#FAF6F0] border border-brand-primary/30 flex flex-wrap items-center justify-between gap-2"
                     >
                       <div>
                         <span className="text-xs font-extrabold uppercase tracking-wider text-brand-primary block">
@@ -2174,7 +2174,7 @@ export default function KioskModeView({
               <div
                 role="status"
                 data-testid="kiosk-printed-notice"
-                className="kiosk-no-print p-4 rounded-2xl bg-blue-50 border-2 border-brand-primary text-brand-primary font-bold text-sm sm:text-base"
+                className="kiosk-no-print p-4 rounded-2xl bg-[#FAF6F0] border-2 border-brand-primary text-brand-primary font-bold text-sm sm:text-base"
               >
                 {t.kiosk.printedSuccessNote}
               </div>

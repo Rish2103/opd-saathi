@@ -1504,7 +1504,7 @@ export default function App({
                 >
                   <NavIcon
                     className={`w-3.5 h-3.5 shrink-0 ${
-                      isCurrent ? 'text-teal-300' : 'text-brand-teal'
+                      isCurrent ? 'text-[#F5A623]' : 'text-brand-teal'
                     }`}
                     aria-hidden="true"
                   />
@@ -1526,11 +1526,11 @@ export default function App({
            ================================================================= */}
         {activeView === 'home' && (
           <div className="space-y-8">
-            {/* Solid High-Contrast Clinical Hero Banner (No harsh gradients or vibecoded badges) */}
-            <section className="bg-brand-primary text-white rounded-2xl p-6 sm:p-8 shadow-card border border-brand-primary space-y-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
+            {/* Tactile 3D Warm Espresso & Terracotta-Gold Hero Banner */}
+            <section className="mastercard-3d-hero text-white rounded-2xl p-6 sm:p-8 space-y-6 relative overflow-hidden">
+              <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-3 max-w-3xl">
-                  <div className="text-xs font-extrabold uppercase tracking-wider text-teal-200">
+                  <div className="text-xs font-extrabold uppercase tracking-wider text-[#F5A623]">
                     {lang === 'hi'
                       ? 'सरकारी अस्पताल डिजिटल ओपीडी सहायता'
                       : lang === 'ta'
@@ -1548,7 +1548,7 @@ export default function App({
                   >
                     {t.home.heroTitle}
                   </h1>
-                  <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-2xl">
+                  <p className="text-sm sm:text-base text-[#EAE0D5] leading-relaxed max-w-2xl">
                     {t.home.heroDesc}
                   </p>
                 </div>
@@ -1561,7 +1561,7 @@ export default function App({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1 items-stretch">
+              <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1 items-stretch">
                 <button
                   type="button"
                   data-testid="home-cta-register"
@@ -1569,9 +1569,9 @@ export default function App({
                     setRegStep(1);
                     navigateToView('register');
                   }}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-white text-brand-primary font-extrabold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
+                  className="touch-target h-full min-h-[54px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#FFFDF9] hover:bg-[#F2EAE0] border-2 border-[#E2D5C4] border-b-[4px] border-b-[#CBB9A3] text-brand-primary font-extrabold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
                 >
-                  <UserPlus className="w-5 h-5 shrink-0" aria-hidden="true" />
+                  <UserPlus className="w-5 h-5 shrink-0 text-[#C84B31]" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaRegister}</span>
                 </button>
 
@@ -1579,7 +1579,7 @@ export default function App({
                   type="button"
                   data-testid="home-cta-my-turn"
                   onClick={() => navigateToView('my-turn')}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-teal-300/40 text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
+                  className="touch-target h-full min-h-[54px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-teal hover:bg-brand-tealHover border-2 border-[#E06D53]/50 border-b-[4px] border-b-[#8C2D19] text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
                 >
                   <Activity className="w-5 h-5 shrink-0" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaMyTurn}</span>
@@ -1589,9 +1589,9 @@ export default function App({
                   type="button"
                   data-testid="home-cta-navigate"
                   onClick={() => navigateToView('navigate')}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
+                  className="touch-target h-full min-h-[54px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#2D251E] hover:bg-[#3A3028] border-2 border-[#E59838]/45 border-b-[4px] border-b-[#120E0C] text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
                 >
-                  <Navigation className="w-5 h-5 shrink-0" aria-hidden="true" />
+                  <Navigation className="w-5 h-5 shrink-0 text-[#F5A623]" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaRoute}</span>
                 </button>
 
@@ -1599,9 +1599,9 @@ export default function App({
                   type="button"
                   data-testid="home-cta-staff"
                   onClick={() => navigateToView('staff')}
-                  className="touch-target h-full min-h-[52px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#133863] hover:bg-[#1b497d] border-2 border-slate-300/40 text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-sm transition-all"
+                  className="touch-target h-full min-h-[54px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#2D251E] hover:bg-[#3A3028] border-2 border-[#D6C7B2]/35 border-b-[4px] border-b-[#120E0C] text-white font-bold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
                 >
-                  <ShieldCheck className="w-5 h-5 shrink-0" aria-hidden="true" />
+                  <ShieldCheck className="w-5 h-5 shrink-0 text-[#E59838]" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaStaff}</span>
                 </button>
               </div>
@@ -1853,7 +1853,7 @@ export default function App({
                   return (
                     <article
                       key={slug}
-                      className="h-full rounded-2xl border border-border-strong/70 bg-canvas p-4 sm:p-5 flex flex-col justify-between gap-4 shadow-sm"
+                      className="card-3d h-full rounded-2xl border border-border-strong/70 bg-canvas p-4 sm:p-5 flex flex-col justify-between gap-4"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
@@ -2044,7 +2044,7 @@ export default function App({
                     return (
                       <div
                         key={dept.slug}
-                        className={`rounded-2xl p-4 sm:p-5 border-2 transition-all flex flex-col justify-between gap-3 ${
+                        className={`card-3d rounded-2xl p-4 sm:p-5 border-2 transition-all flex flex-col justify-between gap-3 ${
                           isSelected
                             ? 'bg-brand-primary/5 border-brand-primary ring-2 ring-brand-primary/20 shadow-sm'
                             : 'bg-canvas border-border-subtle hover:border-brand-primary/50 hover:bg-subtle/60'

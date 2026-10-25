@@ -74,8 +74,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'MAIN ENTRANCE & RAMP BAY',
       title_hi: 'मुख्य प्रवेश एवं रैंप ज़ोन',
       title_ta: 'பிரதான வாயில் & சாய்வுதளம்',
-      fill: '#F1F5F9',
-      stroke: '#CBD5E1'
+      fill: '#F5EFE6',
+      stroke: '#D6C7B2'
     },
     {
       id: 'f1-central',
@@ -86,8 +86,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'ATRIUM · TRIAGE & WAITING',
       title_hi: 'केंद्रीय हॉल · पंजीकरण व प्रतीक्षालय',
       title_ta: 'மத்திய கூடம் · பதிவு & காத்திருப்பு',
-      fill: '#F8FAFC',
-      stroke: '#CBD5E1'
+      fill: '#FAF6F0',
+      stroke: '#D6C7B2'
     },
     {
       id: 'f1-east',
@@ -98,8 +98,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'PHARMACY & VERTICAL TRANSIT CORE',
       title_hi: 'फार्मेसी एवं लिफ्ट / सीढ़ी कोर',
       title_ta: 'மருந்தகம் & லிஃப்ட் / படிக்கட்டு',
-      fill: '#F1F5F9',
-      stroke: '#CBD5E1'
+      fill: '#F5EFE6',
+      stroke: '#D6C7B2'
     }
   ],
   2: [
@@ -112,8 +112,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'WEST CLINICAL WING (OPD 204 & 208)',
       title_hi: 'पश्चिमी ओपीडी विंग (कमरा 204 व 208)',
       title_ta: 'மேற்கு ஓபிடி பிரிவு (அறை 204 & 208)',
-      fill: '#F1F5F9',
-      stroke: '#CBD5E1'
+      fill: '#F5EFE6',
+      stroke: '#D6C7B2'
     },
     {
       id: 'f2-central',
@@ -124,8 +124,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'CENTRAL WAITING & PATHOLOGY LAB',
       title_hi: 'प्रतीक्षालय एवं पैथोलॉजी लैब',
       title_ta: 'காத்திருப்பு கூடம் & இரத்தப் பரிசோதனை',
-      fill: '#F8FAFC',
-      stroke: '#CBD5E1'
+      fill: '#FAF6F0',
+      stroke: '#D6C7B2'
     },
     {
       id: 'f2-east',
@@ -136,8 +136,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'RADIOLOGY & LIFT / STAIR CORE',
       title_hi: 'एक्स-रे एवं लिफ्ट / सीढ़ी कोर',
       title_ta: 'எக்ஸ்-ரே & லிஃப்ட் / படிக்கட்டு',
-      fill: '#F1F5F9',
-      stroke: '#CBD5E1'
+      fill: '#F5EFE6',
+      stroke: '#D6C7B2'
     }
   ],
   3: [
@@ -150,8 +150,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'SPECIALTY OPD WING (RM 302 & 305)',
       title_hi: 'विशेषज्ञ ओपीडी विंग (कमरा 302 व 305)',
       title_ta: 'சிறப்பு ஓபிடி பிரிவு (அறை 302 & 305)',
-      fill: '#F1F5F9',
-      stroke: '#CBD5E1'
+      fill: '#F5EFE6',
+      stroke: '#D6C7B2'
     },
     {
       id: 'f3-central',
@@ -162,8 +162,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'FLOOR 3 WAITING & OPTOMETRY HALL',
       title_hi: 'तल 3 प्रतीक्षालय एवं नेत्र जांच हॉल',
       title_ta: 'தளம் 3 காத்திருப்பு கூடம்',
-      fill: '#F8FAFC',
-      stroke: '#CBD5E1'
+      fill: '#FAF6F0',
+      stroke: '#D6C7B2'
     },
     {
       id: 'f3-east',
@@ -174,8 +174,8 @@ const FLOOR_WING_BLUEPRINTS = {
       title_en: 'VERTICAL TRANSIT CORE (LIFT & STAIRS)',
       title_hi: 'लिफ्ट एवं सीढ़ी ट्रांजिट कोर',
       title_ta: 'லிஃப்ட் & படிக்கட்டு மையம்',
-      fill: '#F1F5F9',
-      stroke: '#CBD5E1'
+      fill: '#F5EFE6',
+      stroke: '#D6C7B2'
     }
   ]
 };
@@ -933,10 +933,32 @@ export default function NavigationView({
                   <path
                     d="M 24 0 L 0 0 0 24"
                     fill="none"
-                    stroke="#E2E8F0"
+                    stroke="#E6DCD0"
                     strokeWidth="1"
                   />
                 </pattern>
+                <filter
+                  id="room-3d-shadow"
+                  x="-15%"
+                  y="-15%"
+                  width="130%"
+                  height="145%"
+                >
+                  <feDropShadow
+                    dx="0"
+                    dy="3.5"
+                    stdDeviation="0.5"
+                    floodColor="#CBB9A3"
+                    floodOpacity="0.9"
+                  />
+                  <feDropShadow
+                    dx="0"
+                    dy="6"
+                    stdDeviation="4"
+                    floodColor="#1E1915"
+                    floodOpacity="0.14"
+                  />
+                </filter>
                 <marker
                   id="route-arrow-active"
                   viewBox="0 0 10 10"
@@ -957,7 +979,7 @@ export default function NavigationView({
                   markerHeight="5"
                   orient="auto-start-reverse"
                 >
-                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#0F4C81" />
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#C84B31" />
                 </marker>
               </defs>
 
@@ -969,8 +991,8 @@ export default function NavigationView({
                 width="872"
                 height="402"
                 rx="18"
-                fill="#FFFFFF"
-                stroke="#94A3B8"
+                fill="#FFFDF9"
+                stroke="#CBB9A3"
                 strokeWidth="2.5"
               />
 
@@ -981,12 +1003,12 @@ export default function NavigationView({
                 width="868"
                 height="28"
                 rx="14"
-                fill="#0F172A"
+                fill="#1E1915"
               />
               <text
                 x="44"
                 y="38"
-                fill="#F8FAFC"
+                fill="#FAF6F0"
                 fontSize="11"
                 fontWeight="800"
                 letterSpacing="1"
@@ -997,7 +1019,7 @@ export default function NavigationView({
                 x="874"
                 y="38"
                 textAnchor="end"
-                fill="#5EEAD4"
+                fill="#F5A623"
                 fontSize="11"
                 fontWeight="800"
                 letterSpacing="0.8"
@@ -1024,7 +1046,7 @@ export default function NavigationView({
                   <text
                     x={wing.x + 12}
                     y={wing.y + 18}
-                    fill="#475569"
+                    fill="#5C5044"
                     fontSize="10"
                     fontWeight="800"
                     letterSpacing="0.8"
@@ -1045,20 +1067,20 @@ export default function NavigationView({
                 width="770"
                 height="56"
                 rx="14"
-                fill="#E2E8F0"
-                stroke="#CBD5E1"
+                fill="#EDE3D5"
+                stroke="#D6C7B2"
                 strokeWidth="1.5"
-                opacity="0.7"
+                opacity="0.85"
               />
               <text
                 x="455"
                 y="224"
                 textAnchor="middle"
-                fill="#64748B"
+                fill="#6E6053"
                 fontSize="10"
                 fontWeight="800"
                 letterSpacing="2"
-                opacity="0.65"
+                opacity="0.75"
               >
                 MAIN ACCESSIBLE HOSPITAL CORRIDOR SPINE
               </text>
@@ -1074,17 +1096,17 @@ export default function NavigationView({
                       y1={edge.fromNode.y}
                       x2={edge.toNode.x}
                       y2={edge.toNode.y}
-                      stroke={isExcluded ? '#CBD5E1' : '#94A3B8'}
+                      stroke={isExcluded ? '#E2D5C4' : '#CBB9A3'}
                       strokeWidth="12"
                       strokeLinecap="round"
-                      opacity={isExcluded ? 0.25 : 0.35}
+                      opacity={isExcluded ? 0.25 : 0.4}
                     />
                     <line
                       x1={edge.fromNode.x}
                       y1={edge.fromNode.y}
                       x2={edge.toNode.x}
                       y2={edge.toNode.y}
-                      stroke={isExcluded ? '#CBD5E1' : '#64748B'}
+                      stroke={isExcluded ? '#D6C7B2' : '#7D6E60'}
                       strokeWidth="4"
                       strokeLinecap="round"
                       strokeDasharray={
@@ -1112,10 +1134,10 @@ export default function NavigationView({
                       y1={seg.fromNode.y}
                       x2={seg.toNode.x}
                       y2={seg.toNode.y}
-                      stroke={seg.isCurrentStep ? '#F59E0B' : '#0D9488'}
+                      stroke={seg.isCurrentStep ? '#F59E0B' : '#C84B31'}
                       strokeWidth={seg.isCurrentStep ? '18' : '14'}
                       strokeLinecap="round"
-                      opacity="0.26"
+                      opacity="0.24"
                     />
                     {/* Main Animated Route Line with Directional Arrow */}
                     <line
@@ -1124,7 +1146,7 @@ export default function NavigationView({
                       y1={seg.fromNode.y}
                       x2={seg.toNode.x}
                       y2={seg.toNode.y}
-                      stroke={seg.isCurrentStep ? '#D97706' : '#0F4C81'}
+                      stroke={seg.isCurrentStep ? '#D97706' : '#C84B31'}
                       strokeWidth={seg.isCurrentStep ? '7' : '5.5'}
                       strokeLinecap="round"
                       strokeDasharray={seg.isCurrentStep ? '12 6' : undefined}
@@ -1143,8 +1165,8 @@ export default function NavigationView({
                         width="56"
                         height="24"
                         rx="12"
-                        fill={seg.isCurrentStep ? '#D97706' : '#0F4C81'}
-                        stroke="#FFFFFF"
+                        fill={seg.isCurrentStep ? '#D97706' : '#1E1915'}
+                        stroke="#FFFDF9"
                         strokeWidth="2"
                       />
                       <text
@@ -1176,8 +1198,8 @@ export default function NavigationView({
                     width="160"
                     height="28"
                     rx="14"
-                    fill={vt.step.mode === 'lift' ? '#0D9488' : '#D97706'}
-                    stroke="#FFFFFF"
+                    fill={vt.step.mode === 'lift' ? '#C84B31' : '#D97706'}
+                    stroke="#FFFDF9"
                     strokeWidth="2"
                   />
                   <text
@@ -1202,11 +1224,11 @@ export default function NavigationView({
                 const isLiftNode = node.type === 'lift';
                 const isEmergency = node.type === 'emergency';
 
-                let fillColor = '#FFFFFF';
-                let headerBandColor = '#E2E8F0';
-                let headerTextColor = '#334155';
-                let strokeColor = '#64748B';
-                let textColor = '#0F172A';
+                let fillColor = '#FFFDF9';
+                let headerBandColor = '#EDE3D5';
+                let headerTextColor = '#3A3028';
+                let strokeColor = '#A89682';
+                let textColor = '#1E1915';
 
                 if (isStart) {
                   fillColor = '#15803D';
@@ -1215,17 +1237,17 @@ export default function NavigationView({
                   strokeColor = '#14532D';
                   textColor = '#FFFFFF';
                 } else if (isDest) {
-                  fillColor = '#0F4C81';
-                  headerBandColor = '#072F54';
-                  headerTextColor = '#E0F2FE';
-                  strokeColor = '#0D9488';
+                  fillColor = '#1E1915';
+                  headerBandColor = '#C84B31';
+                  headerTextColor = '#FFFDF9';
+                  strokeColor = '#E59838';
                   textColor = '#FFFFFF';
                 } else if (isOnRoute) {
-                  fillColor = '#F0FDFA';
-                  headerBandColor = '#CCFBF1';
-                  headerTextColor = '#0F766E';
-                  strokeColor = '#0D9488';
-                  textColor = '#0F172A';
+                  fillColor = '#FDF8F3';
+                  headerBandColor = '#F8EAE6';
+                  headerTextColor = '#A63A22';
+                  strokeColor = '#C84B31';
+                  textColor = '#1E1915';
                 } else if (isEmergency) {
                   fillColor = '#FEF2F2';
                   headerBandColor = '#FEE2E2';
@@ -1233,31 +1255,31 @@ export default function NavigationView({
                   strokeColor = '#B91C1C';
                   textColor = '#991B1B';
                 } else if (isLiftNode) {
-                  fillColor = '#F0F9FF';
-                  headerBandColor = '#E0F2FE';
-                  headerTextColor = '#0369A1';
-                  strokeColor = '#0284C7';
-                  textColor = '#0F172A';
+                  fillColor = '#FAF6F0';
+                  headerBandColor = '#F8EAE6';
+                  headerTextColor = '#C84B31';
+                  strokeColor = '#C84B31';
+                  textColor = '#1E1915';
                 } else if (isStairNode && routeQuery.avoidStairs) {
-                  fillColor = '#F8FAFC';
-                  headerBandColor = '#E2E8F0';
-                  headerTextColor = '#64748B';
-                  strokeColor = '#CBD5E1';
-                  textColor = '#64748B';
+                  fillColor = '#FAF6F0';
+                  headerBandColor = '#EAE0D5';
+                  headerTextColor = '#7D6E60';
+                  strokeColor = '#D6C7B2';
+                  textColor = '#7D6E60';
                 }
 
                 const badgeLabel = isStart
-                  ? '● YOU ARE HERE (START)'
+                  ? 'YOU ARE HERE (START)'
                   : isDest
-                  ? '★ DESTINATION ROOM'
+                  ? 'DESTINATION ROOM'
                   : isLiftNode
-                  ? '⇅ ACCESSIBLE LIFT'
+                  ? 'ACCESSIBLE LIFT'
                   : isStairNode
                   ? routeQuery.avoidStairs
-                    ? '✕ STAIRS (AVOIDED)'
-                    : '▤ STAIRCASE'
+                    ? 'STAIRS (AVOIDED)'
+                    : 'STAIRCASE'
                   : isEmergency
-                  ? '✚ 24×7 EMERGENCY'
+                  ? '24x7 EMERGENCY'
                   : `ROOM / ZONE · F${node.floor}`;
 
                 return (
@@ -1277,9 +1299,9 @@ export default function NavigationView({
                         height="80"
                         rx="16"
                         fill="none"
-                        stroke={isStart ? '#16A34A' : '#0284C7'}
+                        stroke={isStart ? '#16A34A' : '#E59838'}
                         strokeWidth="2.5"
-                        opacity="0.45"
+                        opacity="0.55"
                       />
                     )}
 
@@ -1298,7 +1320,7 @@ export default function NavigationView({
                       />
                     )}
 
-                    {/* Room Card Footprint */}
+                    {/* 3D Extruded Room Card Footprint */}
                     <rect
                       x="-70"
                       y="-32"
@@ -1308,6 +1330,7 @@ export default function NavigationView({
                       fill={fillColor}
                       stroke={strokeColor}
                       strokeWidth={isStart || isDest || isOnRoute ? '2.8' : '1.8'}
+                      filter="url(#room-3d-shadow)"
                     />
 
                     {/* Architectural Header Band */}
@@ -1345,7 +1368,7 @@ export default function NavigationView({
                     <text
                       textAnchor="middle"
                       y="22"
-                      fill={isStart || isDest ? '#E2E8F0' : '#475569'}
+                      fill={isStart || isDest ? '#EAE0D5' : '#5C5044'}
                       fontSize="9"
                       fontWeight="600"
                     >
@@ -1357,20 +1380,20 @@ export default function NavigationView({
 
               {/* Compass Rose & Scale Indicator in Bottom-Left Corner */}
               <g transform="translate(58, 394)">
-                <circle r="16" fill="#0F172A" stroke="#CBD5E1" strokeWidth="1.5" />
+                <circle r="16" fill="#1E1915" stroke="#D6C7B2" strokeWidth="1.5" />
                 <text
                   textAnchor="middle"
                   y="-3"
-                  fill="#5EEAD4"
-                  fontSize="9"
+                  fill="#F5A623"
+                  fontSize="9.5"
                   fontWeight="800"
                 >
-                  ▲ N
+                  N
                 </text>
                 <text
                   textAnchor="middle"
                   y="8"
-                  fill="#F8FAFC"
+                  fill="#FAF6F0"
                   fontSize="7.5"
                   fontWeight="700"
                 >
@@ -1582,7 +1605,7 @@ export default function NavigationView({
       {!loading && routeResult && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+            <div className="card-3d p-4 rounded-2xl bg-canvas border border-border-subtle">
               <div className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                 {t.navigate.distanceLabel}
               </div>
@@ -1591,7 +1614,7 @@ export default function NavigationView({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+            <div className="card-3d p-4 rounded-2xl bg-canvas border border-border-subtle">
               <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-ink-muted">
                 <Clock className="w-3.5 h-3.5 text-brand-teal" aria-hidden="true" />
                 <span>{t.navigate.walkTimeLabel}</span>
@@ -1602,7 +1625,7 @@ export default function NavigationView({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-canvas border border-border-subtle">
+            <div className="card-3d p-4 rounded-2xl bg-canvas border border-border-subtle">
               <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-ink-muted">
                 <Layers className="w-3.5 h-3.5 text-brand-primary" aria-hidden="true" />
                 <span>{t.navigate.floorsLabel}</span>
@@ -1622,7 +1645,7 @@ export default function NavigationView({
                     key={step.stepNumber}
                     data-testid={`route-step-item-${step.stepNumber}`}
                     onClick={() => handleStepSelect(idx, false)}
-                    className={`p-4 sm:p-5 rounded-2xl border transition-all flex items-start gap-3.5 cursor-pointer ${
+                    className={`card-3d p-4 sm:p-5 rounded-2xl border transition-all flex items-start gap-3.5 cursor-pointer ${
                       isActiveStep
                         ? 'bg-surface border-brand-teal ring-2 ring-brand-teal/20 shadow-sm'
                         : 'bg-canvas border-border-subtle hover:border-brand-teal/40'

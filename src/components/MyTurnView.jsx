@@ -338,7 +338,7 @@ export default function MyTurnView({
                   <span className="font-token font-extrabold">{entry.publicCode}</span>
                   <span
                     className={`truncate text-xs ${
-                      isCurrent ? 'text-teal-200' : 'text-ink-secondary'
+                      isCurrent ? 'text-[#F5A623]' : 'text-ink-secondary'
                     }`}
                   >
                     {getLocalizedDepartment(entry.ticket?.department || entry, lang, t).name ||
@@ -437,8 +437,8 @@ export default function MyTurnView({
 
           {/* Main Status Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl bg-hero-gradient text-white shadow-sm">
-              <div className="text-xs font-bold uppercase tracking-wider text-teal-200">
+            <div className="p-4 rounded-2xl mastercard-3d-hero text-white shadow-sm">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#F5A623]">
                 {t.slip.tokenLabel}
               </div>
               <div
