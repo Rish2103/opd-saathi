@@ -31,6 +31,7 @@ import MyTurnView from './components/MyTurnView.jsx';
 import NavigationView from './components/NavigationView.jsx';
 import StaffView from './components/StaffView.jsx';
 import VoiceListenButton from './components/VoiceListenButton.jsx';
+import PatientHelpChatbot from './components/PatientHelpChatbot.jsx';
 import {
   AboutPageView,
   ClinicalFooter,
@@ -2709,6 +2710,27 @@ export default function App({
         <ChevronUp className="h-4 w-4 text-brand-primary" aria-hidden="true" />
         <span>Top</span>
       </button>
+
+      {/* Floating Circular Patient Help Chatbot (Right-Middle of Screen) */}
+      <PatientHelpChatbot
+        lang={lang}
+        t={t}
+        activeSlip={activeSavedEntry?.ticket || trackedSlip}
+        savedSlips={savedSlips}
+        departments={departments}
+        boardItems={boardItems}
+        onNavigate={navigateToView}
+        onOpenDirections={({ fromNodeId, toNodeId, avoidStairs }) => {
+          setRouteQuery({
+            fromNodeId: fromNodeId || 'registration_desk',
+            toNodeId: toNodeId || 'room_204_med',
+            avoidStairs: Boolean(avoidStairs ?? true)
+          });
+          navigateToView('navigate');
+        }}
+        onOpenEmergency={openEmergencyModal}
+        onSelectSavedSlip={handleSelectSavedSlip}
+      />
 
       {/* Persistent Pre-Registration Native <dialog> Emergency Modal */}
       <EmergencyModal
