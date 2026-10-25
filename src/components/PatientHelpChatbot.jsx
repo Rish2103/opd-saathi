@@ -1124,15 +1124,15 @@ export default function PatientHelpChatbot({
       <button
         type="button"
         onClick={() => handleTriggerAction(actionType, destNodeId)}
-        className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.97] ${
+        className={`inline-flex items-center gap-1 sm:gap-2 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2.5 text-[11px] sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.97] ${
           actionType === 'emergency'
             ? 'bg-red-700 text-white hover:bg-red-800 shadow-sm'
             : isSecondary
-              ? 'bg-subtle text-brand-primary border-2 border-border-strong hover:bg-brand-tealSoft'
+              ? 'bg-subtle text-brand-primary border border-border-strong sm:border-2 hover:bg-brand-tealSoft'
               : 'bg-brand-teal text-white hover:bg-brand-tealHover shadow-sm'
         }`}
       >
-        <IconComp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
+        <IconComp className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
         <span>{label}</span>
       </button>
     );
@@ -1261,27 +1261,27 @@ export default function PatientHelpChatbot({
               </div>
             </header>
 
-            {/* 2. Responsive Body: Compact Top Strip on Mobile/Tablet (<lg) | 2-Column Split on Desktop (lg+) */}
+            {/* 2. Responsive Body: Ultra-Clean Mobile Chat Layout (<lg) | 2-Column Split on Desktop (lg+) */}
             <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 overflow-hidden">
-              {/* LEFT SIDEBAR ON DESKTOP / COMPACT COLLAPSIBLE STRIP ON MOBILE */}
-              <div className="shrink-0 lg:col-span-5 flex flex-col lg:min-h-0 bg-subtle border-b lg:border-b-0 lg:border-r border-border-default lg:overflow-y-auto overscroll-contain px-3 py-2.5 sm:p-5 space-y-2.5 lg:space-y-5">
-                {/* Mobile Compact Status & Topics Toggle Row (Visible only below lg) */}
+              {/* LEFT SIDEBAR ON DESKTOP / SINGLE-LINE STATUS BAR ON MOBILE */}
+              <div className="shrink-0 lg:col-span-5 flex flex-col lg:min-h-0 bg-subtle border-b lg:border-b-0 lg:border-r border-border-default lg:overflow-y-auto overscroll-contain px-3 py-2 sm:p-5 space-y-2 lg:space-y-5">
+                {/* Mobile 1-Line Compact Token Bar + Topics Drawer Toggle (Visible only below lg) */}
                 <div className="flex lg:hidden items-center justify-between gap-2">
                   {liveSlipInfo ? (
-                    <div className="flex items-center gap-2 min-w-0 flex-1 bg-surface border border-brand-primary/25 rounded-xl px-2.5 py-1.5 shadow-sm">
-                      <span className="font-mono text-sm font-black text-brand-primary shrink-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 bg-surface border border-brand-primary/20 rounded-xl px-2.5 py-1.5 shadow-sm">
+                      <span className="font-mono text-xs sm:text-sm font-black text-brand-primary shrink-0">
                         {liveSlipInfo.tokenCode}
                       </span>
                       <span className="text-[11px] font-bold text-ink-secondary truncate">
-                        {liveSlipInfo.deptName} • {liveSlipInfo.roomLabel}
+                        {liveSlipInfo.deptName} ({liveSlipInfo.roomLabel})
                       </span>
-                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-[11px] font-black shrink-0">
-                        ~{liveSlipInfo.estWaitMins}m
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-[10px] font-black shrink-0">
+                        ~{liveSlipInfo.estWaitMins}m ({liveSlipInfo.peopleAhead} ahead)
                       </span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-2 min-w-0 flex-1 bg-surface border border-border-strong rounded-xl px-2.5 py-1.5">
-                      <span className="text-xs font-extrabold text-brand-primary truncate">
+                      <span className="text-[11px] font-extrabold text-brand-primary truncate">
                         {copy.noActiveTokenTitle}
                       </span>
                       {onNavigate && (
@@ -1292,7 +1292,7 @@ export default function PatientHelpChatbot({
                             onNavigate('register');
                             setIsOpen(false);
                           }}
-                          className="inline-flex items-center gap-1 rounded-lg bg-brand-teal text-white px-2.5 py-1 text-[11px] font-extrabold shrink-0"
+                          className="inline-flex items-center gap-1 rounded-lg bg-brand-teal text-white px-2 py-0.5 text-[10px] font-extrabold shrink-0"
                         >
                           <span>{copy.actions.openRegister}</span>
                           <ArrowRight className="w-3 h-3" aria-hidden="true" />
@@ -1305,7 +1305,7 @@ export default function PatientHelpChatbot({
                     type="button"
                     onClick={() => setShowMobileTopics((prev) => !prev)}
                     aria-expanded={showMobileTopics}
-                    className="inline-flex items-center gap-1 rounded-xl bg-surface border-2 border-border-strong px-2.5 py-1.5 text-xs font-extrabold text-brand-primary shrink-0 shadow-sm active:scale-[0.98]"
+                    className="inline-flex items-center gap-1 rounded-xl bg-surface border border-border-strong px-2.5 py-1.5 text-[11px] font-extrabold text-brand-primary shrink-0 shadow-sm active:scale-[0.98]"
                   >
                     <span>{showMobileTopics ? copy.mobileTopicsHide : copy.mobileTopicsShow}</span>
                     {showMobileTopics ? (
@@ -1315,50 +1315,6 @@ export default function PatientHelpChatbot({
                     )}
                   </button>
                 </div>
-
-                {/* Horizontal Single-Row Quick Chips on Mobile when Drawer is Collapsed */}
-                {!showMobileTopics && (
-                  <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
-                    <button
-                      type="button"
-                      onClick={() => handleAskIntent('turn_time', copy.chips.turnTime)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-surface text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-extrabold whitespace-nowrap shrink-0 shadow-sm active:scale-[0.98]"
-                    >
-                      <Clock className="w-3.5 h-3.5 text-brand-teal shrink-0" aria-hidden="true" />
-                      <span>{copy.chips.turnTime}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAskIntent('my_room_route', copy.chips.myRoomRoute)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-surface text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-extrabold whitespace-nowrap shrink-0 shadow-sm active:scale-[0.98]"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-brand-teal shrink-0" aria-hidden="true" />
-                      <span>{copy.chips.myRoomRoute}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAskIntent('all_departments_wait', copy.chips.allDeptWait)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-surface text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-bold whitespace-nowrap shrink-0 active:scale-[0.98]"
-                    >
-                      <span>{copy.chips.allDeptWait}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAskIntent('how_to_register', copy.chips.howToRegister)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-surface text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-bold whitespace-nowrap shrink-0 active:scale-[0.98]"
-                    >
-                      <span>{copy.chips.howToRegister}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAskIntent('emergency_help', copy.chips.emergencyHelp)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-red-50 text-red-900 border border-red-300 px-2.5 py-1.5 text-xs font-extrabold whitespace-nowrap shrink-0 active:scale-[0.98]"
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5 text-red-700 shrink-0" aria-hidden="true" />
-                      <span>{copy.chips.emergencyHelp}</span>
-                    </button>
-                  </div>
-                )}
 
                 {/* Desktop Active Token Card (Always visible on lg+) */}
                 <div className="hidden lg:block">
@@ -1441,11 +1397,11 @@ export default function PatientHelpChatbot({
                   )}
                 </div>
 
-                {/* Common Questions Full List (Always visible on lg+, toggleable on mobile) */}
+                {/* Common Questions Full List (Always visible on lg+, toggleable dropdown on mobile) */}
                 <div
                   className={`${
                     showMobileTopics
-                      ? 'block max-h-[34dvh] overflow-y-auto pr-1'
+                      ? 'block max-h-[38dvh] overflow-y-auto pt-1 pr-1'
                       : 'hidden'
                   } lg:block lg:max-h-none space-y-2`}
                 >
@@ -1458,7 +1414,7 @@ export default function PatientHelpChatbot({
                       type="button"
                       onClick={() => handleAskIntent('turn_time', copy.chips.turnTime)}
                       data-testid="chatbot-chip-turn-time"
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border-2 border-border-strong px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.98] text-left shadow-sm"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border-2 border-border-strong px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.98] text-left shadow-sm"
                     >
                       <span className="inline-flex items-center gap-2">
                         <Clock className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
@@ -1471,7 +1427,7 @@ export default function PatientHelpChatbot({
                       type="button"
                       onClick={() => handleAskIntent('my_room_route', copy.chips.myRoomRoute)}
                       data-testid="chatbot-chip-room-route"
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border-2 border-border-strong px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.98] text-left shadow-sm"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border-2 border-border-strong px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.98] text-left shadow-sm"
                     >
                       <span className="inline-flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
@@ -1484,7 +1440,7 @@ export default function PatientHelpChatbot({
                       type="button"
                       onClick={() => handleAskIntent('all_departments_wait', copy.chips.allDeptWait)}
                       data-testid="chatbot-chip-all-wait"
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
                     >
                       <span>{copy.chips.allDeptWait}</span>
                       <ArrowRight className="w-4 h-4 text-ink-muted shrink-0" aria-hidden="true" />
@@ -1493,7 +1449,7 @@ export default function PatientHelpChatbot({
                     <button
                       type="button"
                       onClick={() => handleAskIntent('how_to_register', copy.chips.howToRegister)}
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
                     >
                       <span>{copy.chips.howToRegister}</span>
                       <ArrowRight className="w-4 h-4 text-ink-muted shrink-0" aria-hidden="true" />
@@ -1502,7 +1458,7 @@ export default function PatientHelpChatbot({
                     <button
                       type="button"
                       onClick={() => handleAskIntent('wheelchair_lift', copy.chips.stepFreeLift)}
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
                     >
                       <span className="inline-flex items-center gap-2">
                         <Accessibility className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
@@ -1514,7 +1470,7 @@ export default function PatientHelpChatbot({
                     <button
                       type="button"
                       onClick={() => handleAskIntent('lost_token', copy.chips.recoverToken)}
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-surface hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all duration-100 active:scale-[0.98] text-left"
                     >
                       <span>{copy.chips.recoverToken}</span>
                       <ArrowRight className="w-4 h-4 text-ink-muted shrink-0" aria-hidden="true" />
@@ -1523,7 +1479,7 @@ export default function PatientHelpChatbot({
                     <button
                       type="button"
                       onClick={() => handleAskIntent('emergency_help', copy.chips.emergencyHelp)}
-                      className="w-full inline-flex items-center justify-between gap-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-900 border-2 border-red-300 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.98] text-left"
+                      className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-900 border-2 border-red-300 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-extrabold transition-all duration-100 active:scale-[0.98] text-left"
                     >
                       <span className="inline-flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-red-700 shrink-0" aria-hidden="true" />
@@ -1537,13 +1493,13 @@ export default function PatientHelpChatbot({
 
               {/* RIGHT MAIN COLUMN (7 Columns on Desktop, Full Remaining Height on Mobile) */}
               <div className="flex-1 lg:col-span-7 flex flex-col min-h-0 bg-canvas overflow-hidden">
-                {/* Conversation Messages Scroll Container */}
-                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6 space-y-3.5 sm:space-y-5">
+                {/* Conversation Messages Scroll Container — Spacious & Uncluttered on Mobile */}
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6 space-y-3 sm:space-y-5">
                   {messages.map((msg) => {
                     if (msg.sender === 'user') {
                       return (
                         <div key={msg.id} className="flex justify-end">
-                          <div className="max-w-[88%] sm:max-w-[82%] rounded-2xl rounded-tr-sm bg-brand-primary text-white px-3.5 py-2.5 sm:px-5 sm:py-3 text-xs sm:text-base font-bold leading-relaxed shadow-sm break-words">
+                          <div className="max-w-[86%] sm:max-w-[82%] rounded-2xl rounded-tr-sm bg-brand-primary text-white px-3.5 py-2 sm:px-5 sm:py-3 text-xs sm:text-base font-bold leading-relaxed shadow-sm break-words">
                             {msg.text}
                           </div>
                         </div>
@@ -1552,37 +1508,37 @@ export default function PatientHelpChatbot({
 
                     return (
                       <div key={msg.id} className="flex justify-start">
-                        <div className="w-full rounded-2xl rounded-tl-sm bg-surface border-2 border-border-strong p-3.5 sm:p-5 shadow-card space-y-3 sm:space-y-4">
+                        <div className="w-full rounded-2xl rounded-tl-sm bg-surface border border-border-strong sm:border-2 p-3 sm:p-5 shadow-card space-y-2.5 sm:space-y-4">
                           <p
-                            className="text-sm sm:text-base md:text-lg font-semibold text-ink-primary break-words"
-                            style={{ lineHeight: 1.55 }}
+                            className="text-[13.5px] sm:text-base md:text-lg font-semibold text-ink-primary break-words"
+                            style={{ lineHeight: 1.5 }}
                           >
                             {msg.text}
                           </p>
 
                           {/* Quick Suggested Topic Pills when input was unrecognized or gibberish */}
                           {msg.showSuggestionPills && (
-                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                               <button
                                 type="button"
                                 onClick={() => handleAskIntent('turn_time', copy.chips.turnTime)}
-                                className="inline-flex items-center gap-1 rounded-lg bg-subtle hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-extrabold transition-colors"
+                                className="inline-flex items-center gap-1 rounded-lg bg-subtle hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] sm:text-xs font-extrabold transition-colors"
                               >
-                                <Clock className="w-3.5 h-3.5 text-brand-teal" aria-hidden="true" />
+                                <Clock className="w-3 h-3 text-brand-teal" aria-hidden="true" />
                                 <span>{copy.chips.turnTime}</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleAskIntent('my_room_route', copy.chips.myRoomRoute)}
-                                className="inline-flex items-center gap-1 rounded-lg bg-subtle hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-extrabold transition-colors"
+                                className="inline-flex items-center gap-1 rounded-lg bg-subtle hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] sm:text-xs font-extrabold transition-colors"
                               >
-                                <MapPin className="w-3.5 h-3.5 text-brand-teal" aria-hidden="true" />
+                                <MapPin className="w-3 h-3 text-brand-teal" aria-hidden="true" />
                                 <span>{copy.chips.myRoomRoute}</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleAskIntent('all_departments_wait', copy.chips.allDeptWait)}
-                                className="inline-flex items-center gap-1 rounded-lg bg-subtle hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-2.5 py-1.5 text-xs font-bold transition-colors"
+                                className="inline-flex items-center gap-1 rounded-lg bg-subtle hover:bg-brand-tealSoft text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] sm:text-xs font-bold transition-colors"
                               >
                                 <span>{copy.chips.allDeptWait}</span>
                               </button>
@@ -1590,15 +1546,15 @@ export default function PatientHelpChatbot({
                           )}
 
                           {/* Voice Readout + Quick Navigation Actions for every bot reply */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2.5 sm:pt-3.5 border-t border-border-subtle">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-3 pt-2 sm:pt-3.5 border-t border-border-subtle">
                             <VoiceListenButton
                               lang={lang}
                               text={msg.text}
                               testId={`chatbot-voice-${msg.id}`}
-                              className="px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm"
+                              className="px-2.5 py-1.5 sm:px-4 sm:py-2.5 text-[11px] sm:text-sm"
                             />
 
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               {renderActionButton(msg.actionType, msg.destNodeId, false)}
                               {msg.secondaryActionType &&
                                 renderActionButton(msg.secondaryActionType, msg.destNodeId, true)}
@@ -1611,10 +1567,54 @@ export default function PatientHelpChatbot({
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Pinned Bottom Question Input Bar (Compact on Mobile, Spacious on Desktop) */}
+                {/* Thumb-Friendly Horizontal Quick-Question Strip Right Above Input on Mobile (<lg) */}
+                {!showMobileTopics && (
+                  <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto px-2.5 py-2 bg-subtle/90 border-t border-border-subtle">
+                    <button
+                      type="button"
+                      onClick={() => handleAskIntent('turn_time', copy.chips.turnTime)}
+                      className="inline-flex items-center gap-1 rounded-full bg-surface text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] font-extrabold whitespace-nowrap shrink-0 shadow-sm active:scale-[0.97]"
+                    >
+                      <Clock className="w-3 h-3 text-brand-teal shrink-0" aria-hidden="true" />
+                      <span>{copy.chips.turnTime}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAskIntent('my_room_route', copy.chips.myRoomRoute)}
+                      className="inline-flex items-center gap-1 rounded-full bg-surface text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] font-extrabold whitespace-nowrap shrink-0 shadow-sm active:scale-[0.97]"
+                    >
+                      <MapPin className="w-3 h-3 text-brand-teal shrink-0" aria-hidden="true" />
+                      <span>{copy.chips.myRoomRoute}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAskIntent('all_departments_wait', copy.chips.allDeptWait)}
+                      className="inline-flex items-center gap-1 rounded-full bg-surface text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] font-bold whitespace-nowrap shrink-0 active:scale-[0.97]"
+                    >
+                      <span>{copy.chips.allDeptWait}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAskIntent('how_to_register', copy.chips.howToRegister)}
+                      className="inline-flex items-center gap-1 rounded-full bg-surface text-brand-primary border border-border-strong px-2.5 py-1 text-[11px] font-bold whitespace-nowrap shrink-0 active:scale-[0.97]"
+                    >
+                      <span>{copy.chips.howToRegister}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAskIntent('emergency_help', copy.chips.emergencyHelp)}
+                      className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-900 border border-red-300 px-2.5 py-1 text-[11px] font-extrabold whitespace-nowrap shrink-0 active:scale-[0.97]"
+                    >
+                      <AlertTriangle className="w-3 h-3 text-red-700 shrink-0" aria-hidden="true" />
+                      <span>{copy.chips.emergencyHelp}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Pinned Bottom Question Input Bar (Wide Input + Compact Send Button on Mobile) */}
                 <form
                   onSubmit={handleFormSubmit}
-                  className="shrink-0 bg-surface px-3 py-2.5 sm:px-6 sm:py-4 border-t-2 border-border-default flex items-center gap-2 sm:gap-3"
+                  className="shrink-0 bg-surface px-2.5 py-2 sm:px-6 sm:py-4 border-t-2 border-border-default flex items-center gap-2 sm:gap-3"
                 >
                   <input
                     type="text"
@@ -1623,14 +1623,14 @@ export default function PatientHelpChatbot({
                     placeholder={copy.inputPlaceholder}
                     aria-label={copy.inputPlaceholder}
                     data-testid="chatbot-input"
-                    className="flex-1 min-w-0 min-h-[44px] sm:min-h-[50px] rounded-xl border-2 border-border-strong bg-canvas px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base font-semibold text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand-teal"
+                    className="flex-1 min-w-0 min-h-[42px] sm:min-h-[50px] rounded-xl border-2 border-border-strong bg-canvas px-3 py-1.5 sm:px-4 sm:py-2.5 text-sm sm:text-base font-semibold text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-brand-teal"
                   />
                   <button
                     type="submit"
                     data-testid="chatbot-send-btn"
-                    className="inline-flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] sm:min-h-[50px] rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-base font-extrabold shrink-0 transition-all duration-100 active:scale-[0.97] shadow-sm"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[42px] sm:min-h-[50px] rounded-xl bg-brand-teal hover:bg-brand-tealHover text-white px-3.5 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-base font-extrabold shrink-0 transition-all duration-100 active:scale-[0.97] shadow-sm"
                   >
-                    <Send className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
                     <span>{copy.sendBtn}</span>
                   </button>
                 </form>
