@@ -677,16 +677,9 @@ export default function KioskModeView({
     }
   }
 
-  // Authorised Staff Exit Handler (Requires valid staff authentication)
+  // Authorised Staff Exit Handler (Always requires fresh Staff PIN entry to exit public kiosk mode)
   function handleRequestStaffExit() {
     recordUserActivity();
-    if (staffAuth?.authenticated) {
-      resetKioskSession({ showResetBanner: false });
-      if (typeof onExitKiosk === 'function') {
-        onExitKiosk();
-      }
-      return;
-    }
     setStaffPinInput('');
     setStaffPinError(null);
     setStaffExitModalOpen(true);
