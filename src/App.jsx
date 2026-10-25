@@ -1607,7 +1607,7 @@ export default function App({
                     setRegStep(1);
                     navigateToView('register');
                   }}
-                  className="touch-target h-full min-h-[54px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#FFFDF9] hover:bg-[#F2EAE0] border-2 border-[#E2D5C4] border-b-[4px] border-b-[#CBB9A3] text-brand-primary font-extrabold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
+                  className="touch-target h-full min-h-[54px] w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#FFFDF9] hover:bg-[#F2EAE0] border-2 border-[#E2D5C4] border-b-[4px] border-b-[#CBB9A3] text-[#1E1915] font-extrabold px-4 py-3 text-xs sm:text-sm xl:text-[14.5px] leading-snug text-center shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
                 >
                   <UserPlus className="w-5 h-5 shrink-0 text-[#C84B31]" aria-hidden="true" />
                   <span className="leading-snug">{t.home.ctaRegister}</span>
@@ -2043,7 +2043,7 @@ export default function App({
                       <span
                         className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[11px] sm:text-xs font-token font-extrabold inline-flex items-center justify-center shrink-0 ${
                           regStep === s.num
-                            ? 'bg-white text-brand-primary'
+                            ? 'bg-white text-[#1E1915]'
                             : regStep > s.num
                               ? 'bg-status-serving text-white'
                               : 'bg-surface text-ink-secondary border border-border-subtle'
@@ -2747,7 +2747,7 @@ export default function App({
         onClick={handleScrollToTop}
         data-testid="back-to-top-btn"
         aria-label="Scroll back to top"
-        className={`fixed bottom-5 right-5 z-30 inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3.5 py-2.5 text-xs font-bold text-text-primary shadow-card transition-all duration-150 hover:bg-subtle active:scale-[0.97] ${
+        className={`fixed bottom-5 right-5 z-30 inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-surface px-3.5 py-2.5 text-xs font-bold text-ink-primary shadow-card transition-all duration-150 hover:bg-subtle active:scale-[0.97] ${
           showBackToTop ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0'
         }`}
       >

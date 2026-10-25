@@ -16,6 +16,7 @@
   /* Mastercard-Inspired Warm Espresso, Terracotta-Copper & Burnished Amber Gold */
   --brand-primary: #1e1915;
   --brand-primary-hover: #332a23;
+  --brand-primary-text: #1e1915;
   --brand-navy: #1e1915;
   --brand-teal: #c84b31;
   --brand-teal-hover: #a83820;
@@ -46,12 +47,13 @@
   --bg-surface: #211b17;
   --bg-subtle: #2d251f;
   --border-subtle: #3d332b;
-  --border-strong: #57493e;
+  --border-strong: #5c4d42;
   --text-primary: #faf6f0;
-  --text-secondary: #d8cdc0;
-  --text-muted: #a39586;
-  --brand-primary: #2b231d;
-  --brand-primary-hover: #3d3229;
+  --text-secondary: #e2d7ca;
+  --text-muted: #b5a696;
+  --brand-primary: #443429;
+  --brand-primary-hover: #574335;
+  --brand-primary-text: #faf6f0;
   --brand-teal: #d95b40;
   --brand-teal-hover: #c84b31;
   --brand-teal-soft: #36211c;
@@ -62,47 +64,75 @@
   color: var(--text-primary);
 }
 
-[data-theme='dark'] .card-surface,
-[data-theme='dark'] .glass-card,
-[data-theme='dark'] .card-3d {
-  background-color: #211b17;
-  border-color: #4a3e35;
-  color: #faf6f0;
-}
-
 [data-theme='dark'] .apple-nav-bar,
 [data-theme='dark'] .glass-nav {
-  background: rgba(33, 27, 23, 0.92);
-  border-bottom-color: rgba(87, 73, 62, 0.65);
+  background: rgba(33, 27, 23, 0.94);
+  border-bottom-color: rgba(92, 77, 66, 0.75);
 }
 
-/* Override Tailwind utility classes so the entire app renders in Warm Cream / Espresso / Terracotta-Gold */
-html body .bg-canvas {
+/* Override Tailwind utility classes (including opacity variants) so both Light and Dark themes render consistently */
+html body .bg-canvas,
+html body .bg-canvas\/80,
+html body .bg-canvas\/90 {
   background-color: var(--bg-canvas) !important;
 }
 
-html body .bg-surface {
+html body .bg-surface,
+html body .bg-surface\/80,
+html body .bg-surface\/90,
+html body .bg-surface\/95 {
   background-color: var(--bg-surface) !important;
 }
 
-html body .bg-subtle {
+html body .bg-subtle,
+html body .bg-subtle\/60,
+html body .bg-subtle\/70,
+html body .bg-subtle\/80,
+html body .bg-subtle\/85,
+html body .bg-subtle\/90,
+html body .hover\:bg-subtle:hover {
   background-color: var(--bg-subtle) !important;
 }
 
-html body .bg-brand-primary {
+html body .bg-brand-primary,
+html body .bg-brand-primary\/90 {
   background-color: var(--brand-primary) !important;
+}
+
+html body .bg-brand-primary\/10 {
+  background-color: rgba(30, 25, 21, 0.08) !important;
+}
+
+html body .bg-brand-primary\/5 {
+  background-color: rgba(30, 25, 21, 0.05) !important;
+}
+
+html[data-theme='dark'] body .bg-brand-primary\/10 {
+  background-color: rgba(229, 152, 56, 0.16) !important;
+}
+
+html[data-theme='dark'] body .bg-brand-primary\/5 {
+  background-color: rgba(229, 152, 56, 0.1) !important;
 }
 
 html body .hover\:bg-brand-primaryHover:hover {
   background-color: var(--brand-primary-hover) !important;
 }
 
-html body .text-brand-primary {
-  color: var(--brand-primary) !important;
+html body .text-brand-primary,
+html body .hover\:text-brand-primary:hover {
+  color: var(--brand-primary-text) !important;
 }
 
-html body .border-brand-primary {
-  border-color: var(--brand-primary) !important;
+html body .border-brand-primary,
+html body .hover\:border-brand-primary:hover {
+  border-color: var(--brand-primary-text) !important;
+}
+
+html body .border-brand-primary\/20,
+html body .border-brand-primary\/25,
+html body .border-brand-primary\/30 {
+  border-color: var(--border-strong) !important;
 }
 
 html body .bg-brand-teal {
@@ -121,11 +151,16 @@ html body .border-brand-teal {
   border-color: var(--brand-teal) !important;
 }
 
-html body .bg-brand-tealSoft {
+html body .bg-brand-tealSoft,
+html body .bg-brand-tealSoft\/50,
+html body .bg-brand-tealSoft\/60,
+html body .bg-brand-tealSoft\/70,
+html body .bg-brand-tealSoft\/80 {
   background-color: var(--brand-teal-soft) !important;
 }
 
-html body .text-ink-primary {
+html body .text-ink-primary,
+html body .text-text-primary {
   color: var(--text-primary) !important;
 }
 
@@ -137,11 +172,16 @@ html body .text-ink-muted {
   color: var(--text-muted) !important;
 }
 
-html body .border-border-subtle {
+html body .border-border-subtle,
+html body .border-border-subtle\/70,
+html body .border-border-subtle\/80 {
   border-color: var(--border-subtle) !important;
 }
 
-html body .border-border-strong {
+html body .border-border-strong,
+html body .border-border-strong\/70,
+html body .border-border-strong\/80,
+html body .border-border-default {
   border-color: var(--border-strong) !important;
 }
 
@@ -162,6 +202,200 @@ html body .bg-blue-50 {
 
 html body .border-blue-200 {
   border-color: #e6b8ad !important;
+}
+
+/* Dark Mode comprehensive surface, status, button, and form contrast adjustments */
+html[data-theme='dark'] body .card-surface,
+html[data-theme='dark'] body .glass-card {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-primary) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 248, 235, 0.06) inset,
+    0 12px 28px -10px rgba(0, 0, 0, 0.55),
+    0 3px 0 0 #120e0b !important;
+}
+
+html[data-theme='dark'] body .card-3d {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-strong) !important;
+  border-bottom-color: #120e0b !important;
+  color: var(--text-primary) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 248, 235, 0.07) inset,
+    0 12px 24px -8px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-theme='dark'] body .card-3d:hover {
+  box-shadow:
+    0 1px 0 0 rgba(255, 248, 235, 0.12) inset,
+    0 18px 34px -10px rgba(0, 0, 0, 0.65) !important;
+}
+
+html[data-theme='dark'] body .btn-primary {
+  background-color: #443429 !important;
+  border-color: #785c47 !important;
+  border-bottom-color: #1a130f !important;
+  color: #faf6f0 !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 248, 235, 0.14) inset,
+    0 4px 10px -2px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-theme='dark'] body .btn-primary:hover:not(:disabled) {
+  background-color: #574335 !important;
+  border-color: #8f6e56 !important;
+}
+
+html[data-theme='dark'] body .btn-secondary {
+  background-color: #2d251f !important;
+  border-color: #6b584b !important;
+  border-bottom-color: #16120f !important;
+  color: #faf6f0 !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 248, 235, 0.08) inset,
+    0 3px 8px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+html[data-theme='dark'] body .btn-secondary:hover:not(:disabled) {
+  background-color: #3b3028 !important;
+  border-color: #8c7362 !important;
+}
+
+html[data-theme='dark'] body .btn-subtle {
+  background-color: #2d251f !important;
+  border-color: #6b584b !important;
+  border-bottom-color: #16120f !important;
+  color: #faf6f0 !important;
+}
+
+html[data-theme='dark'] body .btn-subtle:hover:not(:disabled) {
+  background-color: #3b3028 !important;
+}
+
+html[data-theme='dark'] body .btn-neutral {
+  background-color: #2d251f !important;
+  border-color: #6b584b !important;
+  color: #e2d7ca !important;
+}
+
+html[data-theme='dark'] body .btn-neutral:hover:not(:disabled) {
+  background-color: rgba(127, 29, 29, 0.45) !important;
+  border-color: #f87171 !important;
+  color: #fecaca !important;
+}
+
+html[data-theme='dark'] body .btn-danger {
+  background-color: rgba(127, 29, 29, 0.42) !important;
+  border-color: #f87171 !important;
+  border-bottom-color: #450a0a !important;
+  color: #fecaca !important;
+}
+
+html[data-theme='dark'] body .btn-danger:hover:not(:disabled) {
+  background-color: rgba(153, 27, 27, 0.58) !important;
+}
+
+/* High-contrast status text in Dark Mode */
+html[data-theme='dark'] body .text-status-serving {
+  color: #4ade80 !important;
+}
+
+html[data-theme='dark'] body .text-status-next {
+  color: #fbbf24 !important;
+}
+
+html[data-theme='dark'] body .text-status-emergency {
+  color: #f87171 !important;
+}
+
+/* Emerald / Green pastel surfaces in Dark Mode (e.g., Saved OPD Slips banner, Serving cards) */
+html[data-theme='dark'] body .bg-emerald-50,
+html[data-theme='dark'] body .bg-emerald-50\/90,
+html[data-theme='dark'] body .bg-green-50,
+html[data-theme='dark'] body .bg-emerald-100 {
+  background-color: rgba(20, 83, 45, 0.38) !important;
+}
+
+html[data-theme='dark'] body .border-status-serving\/30,
+html[data-theme='dark'] body .border-status-serving\/40,
+html[data-theme='dark'] body .border-status-serving\/50,
+html[data-theme='dark'] body .border-emerald-300 {
+  border-color: rgba(74, 222, 128, 0.45) !important;
+}
+
+html[data-theme='dark'] body .text-emerald-950,
+html[data-theme='dark'] body .text-emerald-900,
+html[data-theme='dark'] body .text-emerald-800 {
+  color: #a7f3d0 !important;
+}
+
+/* Amber pastel surfaces in Dark Mode (e.g., Pending slips, Next badges, Warning banners) */
+html[data-theme='dark'] body .bg-amber-50,
+html[data-theme='dark'] body .bg-amber-50\/70,
+html[data-theme='dark'] body .bg-amber-100 {
+  background-color: rgba(120, 53, 15, 0.42) !important;
+}
+
+html[data-theme='dark'] body .border-amber-200,
+html[data-theme='dark'] body .border-amber-300,
+html[data-theme='dark'] body .border-amber-300\/80,
+html[data-theme='dark'] body .border-amber-400,
+html[data-theme='dark'] body .border-status-next\/40 {
+  border-color: rgba(251, 191, 36, 0.45) !important;
+}
+
+html[data-theme='dark'] body .text-amber-950,
+html[data-theme='dark'] body .text-amber-900,
+html[data-theme='dark'] body .text-amber-800 {
+  color: #fde68a !important;
+}
+
+/* Red pastel surfaces in Dark Mode (e.g., Emergency banners, Urgent panels, Cancel states) */
+html[data-theme='dark'] body .bg-red-50,
+html[data-theme='dark'] body .bg-red-50\/90,
+html[data-theme='dark'] body .bg-red-50\/70,
+html[data-theme='dark'] body .bg-red-100 {
+  background-color: rgba(127, 29, 29, 0.4) !important;
+}
+
+html[data-theme='dark'] body .border-red-200,
+html[data-theme='dark'] body .border-red-300,
+html[data-theme='dark'] body .border-status-emergency\/30,
+html[data-theme='dark'] body .border-status-emergency\/35,
+html[data-theme='dark'] body .border-status-emergency\/40 {
+  border-color: rgba(248, 113, 113, 0.5) !important;
+}
+
+html[data-theme='dark'] body .text-red-950,
+html[data-theme='dark'] body .text-red-900,
+html[data-theme='dark'] body .text-red-800,
+html[data-theme='dark'] body .text-red-700 {
+  color: #fca5a5 !important;
+}
+
+/* Arbitrary light hex backgrounds inside SlipView / dialogs in Dark Mode */
+html[data-theme='dark'] body .bg-\[\#FAF6F0\],
+html[data-theme='dark'] body .bg-\[\#F2EAE0\] {
+  background-color: var(--bg-subtle) !important;
+}
+
+html[data-theme='dark'] body .bg-\[\#F8EAE6\] {
+  background-color: var(--brand-teal-soft) !important;
+}
+
+/* Form inputs, selects, and textareas in Dark Mode */
+html[data-theme='dark'] body input:not([type='checkbox']):not([type='radio']),
+html[data-theme='dark'] body select,
+html[data-theme='dark'] body textarea {
+  color-scheme: dark;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+html[data-theme='dark'] body input::placeholder,
+html[data-theme='dark'] body textarea::placeholder {
+  color: var(--text-muted);
 }
 
 /* Assisted / Large Text Mode increases root font scale (19px base = +18.75% across all rem text) and touch targets */

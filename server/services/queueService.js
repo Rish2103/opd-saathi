@@ -391,11 +391,11 @@ export function createQueueService(options = {}) {
              COALESCE(ds.delay_minutes, 0) AS delay_minutes,
              (
                SELECT COUNT(*)::int FROM tickets t
-               WHERE t.department_id = d.id AND t.status = 'WAITING'
+               WHERE t.department_id = d.id AND t.queue_date = $1 AND t.status = 'WAITING'
              ) AS waiting_count,
              (
                SELECT t.public_code FROM tickets t
-               WHERE t.department_id = d.id AND t.status IN ('CALLED', 'IN_CONSULTATION')
+               WHERE t.department_id = d.id AND t.queue_date = $1 AND t.status IN ('CALLED', 'IN_CONSULTATION')
                ORDER BY t.called_at DESC NULLS LAST, t.updated_at DESC
                LIMIT 1
              ) AS now_serving_code
@@ -403,7 +403,7 @@ export function createQueueService(options = {}) {
            LEFT JOIN doctor_status ds ON ds.department_id = d.id
            WHERE d.is_active = true
            ORDER BY d.floor_number ASC, d.slug ASC`,
-          []
+          [queueDate]
         );
         return { source: 'database', departments: res.rows };
       });
@@ -414,10 +414,7 @@ export function createQueueService(options = {}) {
       if (!dept.is_active) continue;
       const ds = localStore.doctorStatusByDeptId.get(dept.id);
       const deptTickets = Array.from(localStore.ticketsById.values()).filter(
-        (t) =>
-          t.department_id === dept.id &&
-          (t.queue_date === queueDate ||
-            ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status))
+        (t) => t.department_id === dept.id && t.queue_date === queueDate
       );
       const waitingCount = deptTickets.filter((t) => t.status === 'WAITING').length;
       const active = deptTickets.find(
@@ -957,8 +954,7 @@ export function createQueueService(options = {}) {
     const deptTickets = Array.from(localStore.ticketsById.values()).filter(
       (t) =>
         t.department_id === dept.id &&
-        (t.queue_date === ticket.queue_date ||
-          ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status))
+        t.queue_date === ticket.queue_date
     );
     const activeTicket =
       deptTickets.find(
@@ -968,9 +964,7 @@ export function createQueueService(options = {}) {
       (t) =>
         t.status === 'WAITING' &&
         t.id !== ticket.id &&
-        (t.queue_date < ticket.queue_date ||
-          (t.queue_date === ticket.queue_date &&
-            t.queue_sort_order < ticket.queue_sort_order))
+        t.queue_sort_order < ticket.queue_sort_order
     ).length;
 
     return formatOperationalSlip({
@@ -1136,15 +1130,14 @@ export function createQueueService(options = {}) {
         );
         const activeRes = await client.query(
           `SELECT * FROM tickets
-           WHERE department_id = $1 AND status IN ('CALLED', 'IN_CONSULTATION')
+           WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
            ORDER BY called_at DESC NULLS LAST, updated_at DESC
            LIMIT 1`,
-          [dept.id]
+          [dept.id, ticket.queue_date]
         );
         const aheadRes = await client.query(
           `SELECT COUNT(*)::int AS count FROM tickets
-           WHERE department_id = $1 AND status = 'WAITING' AND id <> $4
-             AND (queue_date < $2 OR (queue_date = $2 AND queue_sort_order < $3))`,
+           WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING' AND id <> $4 AND queue_sort_order < $3`,
           [dept.id, ticket.queue_date, ticket.queue_sort_order, ticket.id]
         );
 
@@ -1205,15 +1198,15 @@ export function createQueueService(options = {}) {
         );
         const activeRes = await client.query(
           `SELECT public_code, status FROM tickets
-           WHERE department_id = $1 AND status IN ('CALLED', 'IN_CONSULTATION')
+           WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
            ORDER BY called_at DESC NULLS LAST, updated_at DESC
            LIMIT 1`,
-          [dept.id]
+          [dept.id, queueDate]
         );
         const waitingRes = await client.query(
           `SELECT COUNT(*)::int AS count FROM tickets
-           WHERE department_id = $1 AND status = 'WAITING'`,
-          [dept.id]
+           WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING'`,
+          [dept.id, queueDate]
         );
 
         const ds = dsRes.rows[0] || { status: 'AVAILABLE', delay_minutes: 0 };
@@ -1261,10 +1254,7 @@ export function createQueueService(options = {}) {
       delay_minutes: 0
     };
     const deptTickets = Array.from(localStore.ticketsById.values()).filter(
-      (t) =>
-        t.department_id === dept.id &&
-        (t.queue_date === queueDate ||
-          ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status))
+      (t) => t.department_id === dept.id && t.queue_date === queueDate
     );
     const activeTicket =
       deptTickets.find(
@@ -1364,7 +1354,7 @@ export function createQueueService(options = {}) {
           }
         }
 
-        // Fetch all relevant tickets across active departments (today's history + any open tickets)
+        // Fetch all relevant tickets across active departments for today's hospital queue date
         const allDeptTicketsRes = await client.query(
           `SELECT t.id, t.public_code, t.department_id, t.queue_date, t.sequence_no, t.queue_sort_order,
                   t.status, t.visit_type, t.preferred_lang, t.avoid_stairs, t.cancel_reason,
@@ -1377,8 +1367,8 @@ export function createQueueService(options = {}) {
            JOIN departments d ON d.id = t.department_id
            LEFT JOIN patients p ON p.id = t.patient_id
            WHERE d.is_active = true
-             AND (t.queue_date = $1 OR t.status IN ('WAITING', 'CALLED', 'IN_CONSULTATION'))
-           ORDER BY t.queue_date ASC, t.queue_sort_order ASC, t.sequence_no ASC`,
+             AND t.queue_date = $1
+           ORDER BY t.queue_sort_order ASC, t.sequence_no ASC`,
           [queueDate]
         );
 
@@ -1461,10 +1451,7 @@ export function createQueueService(options = {}) {
       .filter((t) => {
         const d = localStore.departmentsById.get(t.department_id);
         if (!d || !d.is_active) return false;
-        return (
-          t.queue_date === queueDate ||
-          ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status)
-        );
+        return t.queue_date === queueDate;
       })
       .map((t) => {
         const d = localStore.departmentsById.get(t.department_id);
@@ -1489,14 +1476,10 @@ export function createQueueService(options = {}) {
           floor_number: d?.floor_number ?? null
         };
       })
-      .sort((a, b) => {
-        if (a.queue_date !== b.queue_date) {
-          return String(a.queue_date).localeCompare(String(b.queue_date));
-        }
-        return (
+      .sort(
+        (a, b) =>
           a.queue_sort_order - b.queue_sort_order || a.sequence_no - b.sequence_no
-        );
-      });
+      );
 
     const allPendingTickets = globalTickets.filter((t) =>
       ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status)
@@ -1573,9 +1556,9 @@ export function createQueueService(options = {}) {
 
         const activeCheck = await client.query(
           `SELECT public_code, status FROM tickets
-           WHERE department_id = $1 AND status IN ('CALLED', 'IN_CONSULTATION')
+           WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
            FOR UPDATE`,
-          [dept.id]
+          [dept.id, queueDate]
         );
         if (activeCheck.rows.length > 0) {
           const active = activeCheck.rows[0];
@@ -1588,11 +1571,11 @@ export function createQueueService(options = {}) {
 
         const nextWaitingRes = await client.query(
           `SELECT * FROM tickets
-           WHERE department_id = $1 AND status = 'WAITING'
-           ORDER BY queue_date ASC, queue_sort_order ASC, sequence_no ASC
+           WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING'
+           ORDER BY queue_sort_order ASC, sequence_no ASC
            LIMIT 1
            FOR UPDATE`,
-          [dept.id]
+          [dept.id, queueDate]
         );
         if (nextWaitingRes.rows.length === 0) {
           throw createDomainError(
@@ -1634,10 +1617,7 @@ export function createQueueService(options = {}) {
         `queue:${dept.id}:${queueDate}`,
         async () => {
           const deptTickets = Array.from(localStore.ticketsById.values()).filter(
-            (t) =>
-              t.department_id === dept.id &&
-              (t.queue_date === queueDate ||
-                ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status))
+            (t) => t.department_id === dept.id && t.queue_date === queueDate
           );
 
           const existingActive = deptTickets.find(
@@ -1653,15 +1633,11 @@ export function createQueueService(options = {}) {
 
           const waiting = deptTickets
             .filter((t) => t.status === 'WAITING')
-            .sort((a, b) => {
-              if (a.queue_date !== b.queue_date) {
-                return String(a.queue_date).localeCompare(String(b.queue_date));
-              }
-              return (
+            .sort(
+              (a, b) =>
                 a.queue_sort_order - b.queue_sort_order ||
                 a.sequence_no - b.sequence_no
-              );
-            });
+            );
 
           if (waiting.length === 0) {
             throw createDomainError(
@@ -2699,14 +2675,13 @@ export function createQueueService(options = {}) {
               );
               const activeRes = await client.query(
                 `SELECT * FROM tickets
-                 WHERE department_id = $1 AND status IN ('CALLED', 'IN_CONSULTATION')
+                 WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
                  LIMIT 1`,
-                [dept.id]
+                [dept.id, found.queue_date]
               );
               const aheadRes = await client.query(
                 `SELECT COUNT(*)::int AS count FROM tickets
-                 WHERE department_id = $1 AND status = 'WAITING' AND id <> $4
-                   AND (queue_date < $2 OR (queue_date = $2 AND queue_sort_order < $3))`,
+                 WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING' AND id <> $4 AND queue_sort_order < $3`,
                 [dept.id, found.queue_date, found.queue_sort_order, found.id]
               );
               syncedTickets.push(

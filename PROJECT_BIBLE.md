@@ -3,7 +3,7 @@
 **Project:** OPD Saathi (ओपीडी साथी) — Smart Queue Management & Accessible Navigation for Government Hospitals  
 **Event:** CachedInfo HackCache '26  
 **Original Baseline Reference:** [`OPD_Saathi_Technical_Plan.md`](file:///d:/HackCached/OPD_Saathi_Technical_Plan.md) (preserved unmodified)  
-**Last Updated:** 24 October 2026 (Phase 1.3 Patient Identity, Duplicate Prevention & Persistent Multi-Slip Management Complete)
+**Last Updated:** 25 October 2026 (Phase 2.2 Voice-Assisted Registration, Kiosk Mode, Staff Department/Pending-Slip Controls, IST Daily Queue Scoping & Dark Mode Complete)
 
 ---
 
@@ -104,4 +104,4 @@ Status Legend:
 | **Phase 1 Checkpoint E: End-to-End Verification & Teammate Handoff** | **P0** | `Locally Tested` | `npm run build` + `npm test` (`42/42` passing across 4 suites) + `docs/TEAM_HANDOFF.md` on branch `feature/phase-1-core-flow` |
 | **Phase 1.2: UI Stabilisation & Contrast Verification** | **P0** | `Locally Tested` | WCAG AA contrast fixes, hero/card surface adjustments, verified across desktop & mobile viewports |
 | **Phase 1.3: Patient Identity, Duplicate Prevention & Persistent Multi-Slip Management** | **P0** | `Locally Tested` | `002_patient_identity_and_duplicates.sql`, keyed HMAC `identity_fingerprint`, `409 DUPLICATE_ACTIVE_TICKET`, composite rate limiter, `opd_saved_slips_v1` multi-slip switcher (`51` passing tests) |
-| **Phase 2+: P1 Stretch (PWA Offline Cache, Tamil, SVG Map, Voice, Multi-Counter)** | **P1** | `Proposed` | Ready for parallel teammate branches (`feature/navigation-polish`, `feature/staff-dashboard-polish`, `feature/accessibility-i18n`) |
+| **Phase 2+: P1 Stretch (PWA Offline Cache, Tamil, SVG Map, Voice, Multi-Counter)** | **P1** | `Locally Tested` | Trilingual (`EN`/`HI`/`TA`), 3-Floor SVG Map, Voice-Assisted Registration, Kiosk Mode, Staff Dept/Pending Slips, IST Daily Queue Scoping & Warm Espresso Dark Mode (`78` passing tests) |

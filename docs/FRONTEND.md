@@ -15,6 +15,7 @@
    - `--status-next` (`#B45309`): Upcoming/Warning amber.
    - `--status-emergency` (`#B91C1C`): Restrained clinical emergency red (used exclusively for Emergency & Urgent Help).
    - `--focus-ring` (`#FFBF47`): NHS-inspired 3px high-visibility keyboard focus ring with dark outer shadow.
+   - **Warm Espresso Dark Mode (`[data-theme="dark"]`):** High-contrast dark palette (`--bg-canvas: #16120f`, `--bg-surface: #211b17`, `--bg-subtle: #2d251f`, `--text-primary: #faf6f0`, `--brand-primary-text: #faf6f0`) with full overrides for Tailwind opacity utilities (`bg-subtle/*`, `bg-surface/*`) and semantic status surfaces (`emerald`, `amber`, `red`).
 2. **Bilingual Typography (`English` + `हिन्दी`):**
    - Primary UI font: `'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif`.
    - Token / Room / Queue numbers: `'JetBrains Mono', monospace` with `tabular-nums`.
