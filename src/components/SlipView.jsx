@@ -31,12 +31,12 @@ function getSlipCategoryTag(status, t) {
   if (status === 'COMPLETED') {
     return {
       label: t.slip?.mySlipsCompletedTag || 'Completed',
-      className: 'bg-blue-100 text-brand-primary border-blue-300'
+      className: 'bg-[#F8EAE6] text-brand-primary border-[#E4BDB3]'
     };
   }
   return {
     label: t.slip?.mySlipsInactiveTag || 'Closed',
-    className: 'bg-slate-200 text-ink-secondary border-slate-300'
+    className: 'bg-[#F2EAE0] text-ink-secondary border-[#D6C7B2]'
   };
 }
 
@@ -123,9 +123,9 @@ export default function SlipView({
               <div
                 key={entry.ticketId || entry.publicCode}
                 data-testid={`saved-slip-item-${entry.publicCode}`}
-                className={`rounded-2xl p-4 border-2 transition-all flex flex-col justify-between gap-3 ${
+                className={`card-3d rounded-2xl p-4 border-2 transition-all flex flex-col justify-between gap-3 ${
                   isSelected
-                    ? 'border-brand-primary bg-blue-50/70 shadow-sm ring-2 ring-brand-primary/10'
+                    ? 'border-brand-primary bg-[#FAF6F0] shadow-sm ring-2 ring-brand-primary/10'
                     : 'border-border-subtle bg-subtle/70 hover:border-brand-primary/50'
                 }`}
               >
@@ -164,7 +164,7 @@ export default function SlipView({
                       className={`touch-target inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border-2 transition-colors ${
                         isSelected
                           ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
-                          : 'bg-surface text-brand-primary border-brand-primary hover:bg-blue-50'
+                          : 'bg-surface text-brand-primary border-brand-primary hover:bg-subtle'
                       }`}
                     >
                       <span className="truncate">
@@ -303,10 +303,10 @@ export default function SlipView({
         aria-label={t.slip.title}
         className="card-surface print-slip-card overflow-hidden border-2 border-brand-primary shadow-elevated"
       >
-        {/* Top Boarding-Pass Banner */}
-        <div className="print-slip-header bg-gradient-to-r from-[#07192f] via-[#0B2545] to-[#0f3d5e] text-white p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-teal-200 block mb-1">
+        {/* Top 3D Hospital Boarding-Pass Banner */}
+        <div className="print-slip-header mastercard-3d-hero text-white p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+          <div className="relative z-10">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-[#F5A623] block mb-1">
               {t.slip.tokenLabel}
             </span>
             <div
@@ -316,32 +316,32 @@ export default function SlipView({
               {slip.publicCode}
             </div>
             {(idempotentReplay || slip.idempotentReplay) && (
-              <span className="inline-flex items-center gap-1.5 mt-2 bg-teal-800/90 border border-teal-400/40 text-teal-100 text-xs font-semibold px-3 py-1 rounded-full">
+              <span className="inline-flex items-center gap-1.5 mt-2 bg-[#C84B31]/90 border border-[#F5A623]/40 text-white text-xs font-semibold px-3 py-1 rounded-full">
                 <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{t.slip.recoveredBadge}</span>
               </span>
             )}
           </div>
 
-          <div className="flex flex-col items-start md:items-end gap-2">
-            <span className="text-xs uppercase tracking-wider text-blue-200">
+          <div className="relative z-10 flex flex-col items-start md:items-end gap-2">
+            <span className="text-xs uppercase tracking-wider text-[#EAE0D5] font-bold">
               {t.slip.statusLabel}
             </span>
             <span
               data-testid="slip-status-badge"
               className={`px-4 py-1.5 rounded-full text-sm font-extrabold uppercase tracking-wide shadow-sm ${
                 slip.status === 'CALLED' || slip.status === 'IN_CONSULTATION'
-                  ? 'bg-emerald-500 text-white'
+                  ? 'bg-emerald-600 text-white'
                   : slip.status === 'WAITING'
-                    ? 'bg-amber-400 text-slate-950'
-                    : 'bg-slate-200 text-slate-900'
+                    ? 'bg-[#E59838] text-[#1E1915]'
+                    : 'bg-[#EAE0D5] text-[#1E1915]'
               }`}
             >
               {t.statuses?.[slip.status] || slip.status}
             </span>
             <span
               data-testid="slip-route-preference"
-              className="text-xs text-blue-200"
+              className="text-xs text-[#EAE0D5] font-medium"
             >
               {t.visitTypes[slip.visitType] || slip.visitType} ·{' '}
               {(slip.avoidStairs ?? true)
@@ -369,7 +369,7 @@ export default function SlipView({
             {patientSummary && (
               <div
                 data-testid="slip-patient-summary"
-                className="p-4 rounded-2xl bg-blue-50/70 border border-brand-primary/25 space-y-2"
+                className="p-4 rounded-2xl bg-[#FAF6F0] border border-[#D6C7B2] space-y-2"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-extrabold uppercase tracking-wider text-brand-primary flex items-center gap-1.5">
@@ -417,7 +417,7 @@ export default function SlipView({
                     <strong>UHID / Reg No:</strong> {patientSummary.registrationNumber}
                   </p>
                 )}
-                <p className="text-[11px] text-ink-secondary pt-1 border-t border-blue-200/70">
+                <p className="text-[11px] text-ink-secondary pt-1 border-t border-[#E2D5C4]">
                   {t.slip.privacyNote}
                 </p>
               </div>
@@ -425,7 +425,7 @@ export default function SlipView({
 
             {/* Queue Position & ETA Box */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div className="p-4 rounded-2xl bg-subtle border border-border-subtle">
+              <div className="card-3d p-4 rounded-2xl bg-subtle border border-border-subtle">
                 <span className="text-xs font-bold uppercase text-ink-secondary block">
                   {t.slip.peopleAhead}
                 </span>
@@ -437,7 +437,7 @@ export default function SlipView({
                 </span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-subtle border border-border-subtle">
+              <div className="card-3d p-4 rounded-2xl bg-subtle border border-border-subtle">
                 <span className="text-xs font-bold uppercase text-ink-secondary block">
                   {t.slip.nowServing}
                 </span>
@@ -446,7 +446,7 @@ export default function SlipView({
                 </span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-subtle border border-border-subtle">
+              <div className="card-3d p-4 rounded-2xl bg-subtle border border-border-subtle">
                 <span className="text-xs font-bold uppercase text-ink-secondary block">
                   {t.slip.estWaitLabel}
                 </span>
@@ -474,7 +474,7 @@ export default function SlipView({
 
             {/* Department & Destination Room */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl border border-border-subtle bg-white space-y-1">
+              <div className="card-3d p-4 rounded-2xl border border-border-subtle bg-surface space-y-1">
                 <div className="flex items-center gap-2 text-brand-teal font-bold text-xs uppercase tracking-wider">
                   <Stethoscope className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{t.slip.deptAndDoctor}</span>
@@ -483,7 +483,7 @@ export default function SlipView({
                 <p className="text-sm font-medium text-ink-secondary">{docName}</p>
               </div>
 
-              <div className="p-4 rounded-2xl border border-border-subtle bg-white space-y-1">
+              <div className="card-3d p-4 rounded-2xl border border-border-subtle bg-surface space-y-1">
                 <div className="flex items-center gap-2 text-brand-primary font-bold text-xs uppercase tracking-wider">
                   <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{t.slip.destinationRoom}</span>
@@ -531,9 +531,9 @@ export default function SlipView({
           </div>
 
           {/* Right Column: QR Code for Cross-Device Lookup */}
-          <div className="print-qr-box flex flex-col items-center justify-center p-5 rounded-2xl bg-subtle border border-border-subtle text-center space-y-3">
+          <div className="print-qr-box card-3d flex flex-col items-center justify-center p-5 rounded-2xl bg-subtle border border-border-subtle text-center space-y-3">
             <span className="text-sm font-bold text-ink-primary">{t.slip.qrTitle}</span>
-            <div className="bg-white p-4 rounded-2xl border border-border-strong shadow-sm">
+            <div className="bg-surface p-4 rounded-2xl border border-border-strong shadow-sm">
               <QRCodeSVG
                 value={qrValue}
                 size={164}

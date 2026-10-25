@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#F4F7FA" />
+  <rect x="36" y="36" width="1128" height="558" rx="24" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2" />
+  <rect x="36" y="36" width="1128" height="10" fill="#0B2545" />
+
+  <!-- Brand Mark -->
+  <rect x="96" y="96" width="76" height="76" rx="18" fill="#0B2545" />
+  <path
+    d="M130 112C130 110.343 131.343 109 133 109H135C136.657 109 138 110.343 138 112V122H148C149.657 122 151 123.343 151 125V127C151 128.657 149.657 130 148 130H138V140C138 141.657 136.657 143 135 143H133C131.343 143 130 141.657 130 140V130H120C118.343 130 117 128.657 117 127V125C117 123.343 118.343 122 120 122H130V112Z"
+    fill="#2DD4BF"
+  />
+  <path
+    d="M114 152C122 157.5 133 158.5 145 155C149.5 153.5 153 151.5 155.5 149"
+    stroke="#FFFFFF"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+
+  <text x="196" y="132" fill="#0B2545" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="38" font-weight="800">
+    OPD Saathi
+  </text>
+  <text x="196" y="162" fill="#475569" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="18" font-weight="600" letter-spacing="1.5">
+    PUBLIC HOSPITAL OUTPATIENT QUEUE &amp; INDOOR NAVIGATION
+  </text>
+
+  <!-- Headline -->
+  <text x="96" y="256" fill="#0F172A" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="48" font-weight="800">
+    Calm, Accessible Hospital Queue
+  </text>
+  <text x="96" y="314" fill="#0D6E6E" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="48" font-weight="800">
+    &amp; Step-Free Indoor Wayfinding
+  </text>
+  <text x="96" y="368" fill="#334155" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="22" font-weight="500">
+    Digital OPD tokens, real-time waiting room boards, 3-floor lift/ramp routing,
+  </text>
+  <text x="96" y="400" fill="#334155" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-size="22" font-weight="500">
+    and trilingual self-service patient kiosks (English · हिन्दी · தமிழ்).
+  </text>
+
+  <!-- Feature Pills -->
+  <rect x="96" y="456" width="280" height="72" rx="14" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5" />
+  <text x="120" y="486" fill="#475569" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">LIVE TOKEN TRACKING</text>
+  <text x="120" y="512" fill="#0B2545" font-family="JetBrains Mono, monospace" font-size="22" font-weight="800">OPD-GEN-001</text>
+
+  <rect x="396" y="456" width="310" height="72" rx="14" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5" />
+  <text x="420" y="486" fill="#475569" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">STEP-FREE NAVIGATION</text>
+  <text x="420" y="512" fill="#0D6E6E" font-family="Plus Jakarta Sans, sans-serif" font-size="20" font-weight="800">Lift &amp; Ramp Priority</text>
+
+  <rect x="726" y="456" width="350" height="72" rx="14" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5" />
+  <text x="750" y="486" fill="#475569" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">SELF-SERVICE KIOSK</text>
+  <text x="750" y="512" fill="#15803D" font-family="Plus Jakarta Sans, sans-serif" font-size="20" font-weight="800">English · हिन्दी · தமிழ்</text>
+</svg>

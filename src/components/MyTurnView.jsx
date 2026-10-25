@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { isWebAudioSupported, playPatientCalledChime } from '../utils/soundAlerts.js';
 import { getLocalizedDepartment } from '../i18n/translations.js';
+import VoiceListenButton from './VoiceListenButton.jsx';
 
 const SOUND_PREF_KEY = 'opd_patient_sound_enabled';
 
@@ -167,6 +168,17 @@ export default function MyTurnView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <VoiceListenButton
+            lang={lang}
+            size="sm"
+            testId="voice-listen-my-turn-header"
+            text={
+              trackedSlip
+                ? `${t.myTurn.title}. ${t.slip.tokenLabel}: ${trackedSlip.publicCode}. ${statusText}. ${t.home.nowServing}: ${queue.nowServingCode || t.home.noActiveToken}. ${t.slip.peopleAhead}: ${queue.peopleAheadWaiting ?? 0}. ${deptName}, ${doctorName}, ${dept.room_label}, ${floorLabel}.`
+                : `${t.myTurn.title}. ${t.myTurn.subtitle}. ${t.myTurn.emptyDesc}`
+            }
+          />
+
           <button
             type="button"
             data-testid="patient-sound-alert-toggle"
@@ -326,7 +338,7 @@ export default function MyTurnView({
                   <span className="font-token font-extrabold">{entry.publicCode}</span>
                   <span
                     className={`truncate text-xs ${
-                      isCurrent ? 'text-teal-200' : 'text-ink-secondary'
+                      isCurrent ? 'text-[#F5A623]' : 'text-ink-secondary'
                     }`}
                   >
                     {getLocalizedDepartment(entry.ticket?.department || entry, lang, t).name ||
@@ -425,8 +437,8 @@ export default function MyTurnView({
 
           {/* Main Status Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl bg-hero-gradient text-white shadow-sm">
-              <div className="text-xs font-bold uppercase tracking-wider text-teal-200">
+            <div className="p-4 rounded-2xl mastercard-3d-hero text-white shadow-sm">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#F5A623]">
                 {t.slip.tokenLabel}
               </div>
               <div

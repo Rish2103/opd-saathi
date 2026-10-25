@@ -1005,7 +1005,7 @@ export default function StaffView({
                     ) : (
                       <span
                         className={`text-[10px] font-semibold truncate ${
-                          isSelected ? 'text-teal-200' : 'text-ink-muted'
+                          isSelected ? 'text-[#F5A623]' : 'text-ink-muted'
                         }`}
                       >
                         {dept.room_label}
