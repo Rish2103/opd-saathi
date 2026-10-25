@@ -58,6 +58,7 @@ All transactional queue mutations acquire locks in this exact sequence:
 
 ## 3. Waiting Position & Deterministic ETA Formula
 
+- **Daily IST Queue Scoping (`resolveHospitalDateIST()`):** All public board counts (`getPublicBoard`), staff department queues (`getStaffQueueView`), staff cross-department pending slips (`getStaffAllPendingTickets`), and individual ticket position/ETA calculations (`buildTicketView`) strictly filter by today's IST hospital date (`queue_date = resolveHospitalDateIST()`), ensuring waiting counts on the board and `peopleAheadWaiting` on patient slips always match.
 - **People Ahead (`peopleAheadWaiting`):**
   - If `ticket.status === 'WAITING'`:
     ```sql

@@ -8,9 +8,16 @@ import {
   Search,
   Stethoscope,
   UserPlus,
+  Volume2,
+  VolumeX,
   Wifi,
   WifiOff
 } from 'lucide-react';
+import { isWebAudioSupported, playPatientCalledChime } from '../utils/soundAlerts.js';
+import { getLocalizedDepartment } from '../i18n/translations.js';
+import VoiceListenButton from './VoiceListenButton.jsx';
+
+const SOUND_PREF_KEY = 'opd_patient_sound_enabled';
 
 export default function MyTurnView({
   lang,
@@ -30,6 +37,14 @@ export default function MyTurnView({
   onOpenDirections
 }) {
   const [newlyCrossedAlert, setNewlyCrossedAlert] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem(SOUND_PREF_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [audioPlaybackNotice, setAudioPlaybackNotice] = useState('');
 
   const aheadCount = trackedSlip?.queue?.peopleAheadWaiting ?? 999;
   const thresholdAlertType = !trackedSlip
@@ -40,14 +55,38 @@ export default function MyTurnView({
         ? 'NEAR_TURN'
         : null;
 
-  // Deduplicated <= 3 people ahead & CALLED notification logic
+  function handleToggleSound() {
+    const nextValue = !soundEnabled;
+    setSoundEnabled(nextValue);
+    try {
+      window.localStorage.setItem(SOUND_PREF_KEY, String(nextValue));
+    } catch {
+      // ignore storage errors
+    }
+    if (nextValue) {
+      const ok = playPatientCalledChime();
+      if (!ok && !isWebAudioSupported()) {
+        setAudioPlaybackNotice(
+          t.myTurn?.soundFallbackNote ||
+            'Audio playback is unavailable in this browser. Visual alerts remain active.'
+        );
+      } else {
+        setAudioPlaybackNotice('');
+      }
+    }
+  }
+
+  // Deduplicated <= 3 people ahead & CALLED notification + sound chime logic
   useEffect(() => {
     if (!trackedSlip || !thresholdAlertType) {
       setNewlyCrossedAlert(false);
       return;
     }
 
-    const alertStorageKey = `opd_alerted_${trackedSlip.id}_${trackedSlip.requeuedCount ?? 0}`;
+    const stableTicketIdentity =
+      trackedSlip.id || trackedSlip.publicCode || 'unknown';
+    const alertStorageKey = `opd_alerted_${stableTicketIdentity}_${trackedSlip.requeuedCount ?? 0}`;
+    const soundStorageKey = `opd_sound_played_${stableTicketIdentity}_${trackedSlip.requeuedCount ?? 0}`;
 
     if (thresholdAlertType === 'CALLED') {
       try {
@@ -60,6 +99,18 @@ export default function MyTurnView({
         }
       } catch {
         setNewlyCrossedAlert(true);
+      }
+
+      if (soundEnabled && trackedSlip.status === 'CALLED') {
+        try {
+          const alreadyChimed = window.localStorage.getItem(soundStorageKey);
+          if (alreadyChimed !== 'CALLED') {
+            window.localStorage.setItem(soundStorageKey, 'CALLED');
+            playPatientCalledChime();
+          }
+        } catch {
+          playPatientCalledChime();
+        }
       }
       return;
     }
@@ -77,7 +128,7 @@ export default function MyTurnView({
         setNewlyCrossedAlert(true);
       }
     }
-  }, [trackedSlip, thresholdAlertType]);
+  }, [trackedSlip, thresholdAlertType, soundEnabled]);
 
   function handleFormSubmit(e) {
     e.preventDefault();
@@ -88,8 +139,9 @@ export default function MyTurnView({
 
   const dept = trackedSlip?.department || {};
   const queue = trackedSlip?.queue || {};
-  const deptName = lang === 'hi' ? dept.name_hi : dept.name_en;
-  const doctorName = lang === 'hi' ? dept.doctor_name_hi : dept.doctor_name_en;
+  const localizedDept = getLocalizedDepartment(dept, lang, t);
+  const deptName = localizedDept.name;
+  const doctorName = localizedDept.doctor;
   const floorLabel = t.floors[dept.floor_number] || `Floor ${dept.floor_number}`;
   const statusText = trackedSlip
     ? t.statuses[trackedSlip.status] || trackedSlip.status
@@ -103,16 +155,53 @@ export default function MyTurnView({
       aria-labelledby="my-turn-heading"
       className="bg-surface border border-border-subtle rounded-2xl p-4 sm:p-7 shadow-card space-y-6"
     >
-      {/* Header & Connection Status Badge */}
+      {/* Header, Sound Alert Toggle & Connection Status Badge */}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="space-y-1">
-          <h2 id="my-turn-heading" className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight">
+          <h2
+            id="my-turn-heading"
+            className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight"
+          >
             {t.myTurn.title}
           </h2>
           <p className="text-xs sm:text-sm text-ink-secondary">{t.myTurn.subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <VoiceListenButton
+            lang={lang}
+            size="sm"
+            testId="voice-listen-my-turn-header"
+            text={
+              trackedSlip
+                ? `${t.myTurn.title}. ${t.slip.tokenLabel}: ${trackedSlip.publicCode}. ${statusText}. ${t.home.nowServing}: ${queue.nowServingCode || t.home.noActiveToken}. ${t.slip.peopleAhead}: ${queue.peopleAheadWaiting ?? 0}. ${deptName}, ${doctorName}, ${dept.room_label}, ${floorLabel}.`
+                : `${t.myTurn.title}. ${t.myTurn.subtitle}. ${t.myTurn.emptyDesc}`
+            }
+          />
+
+          <button
+            type="button"
+            data-testid="patient-sound-alert-toggle"
+            aria-pressed={soundEnabled}
+            onClick={handleToggleSound}
+            className={`touch-target inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold border transition-all ${
+              soundEnabled
+                ? 'bg-brand-primary text-white border-brand-primary shadow-xs'
+                : 'bg-canvas text-ink-primary border-border-strong hover:bg-subtle'
+            }`}
+          >
+            {soundEnabled ? (
+              <Volume2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            )}
+            <span>
+              {soundEnabled
+                ? t.myTurn.soundEnabledBtn || 'Sound Alerts: ON'
+                : t.myTurn.soundMutedBtn || 'Sound Alerts: Muted'}
+            </span>
+          </button>
+
           <span
             data-testid="connection-status-badge"
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-xs ${
@@ -145,6 +234,28 @@ export default function MyTurnView({
             <span>{t.conn[connectionState] || t.conn.live}</span>
           </span>
         </div>
+      </div>
+
+      {/* Visible Sound Status Fallback Note */}
+      <div
+        data-testid="patient-sound-fallback-note"
+        className="text-xs font-semibold text-ink-secondary bg-subtle/70 border border-border-subtle rounded-xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2"
+      >
+        <span>
+          {audioPlaybackNotice ||
+            t.myTurn.soundFallbackNote ||
+            'Visual banner alerts stay active even when sound is muted or unavailable.'}
+        </span>
+        {soundEnabled && (
+          <button
+            type="button"
+            data-testid="patient-sound-test-btn"
+            onClick={() => playPatientCalledChime()}
+            className="text-xs font-extrabold text-brand-primary underline hover:text-brand-teal"
+          >
+            {t.myTurn.soundTestBtn || 'Test Chime'}
+          </button>
+        )}
       </div>
 
       {/* Public Token Code Lookup Form */}
@@ -225,10 +336,13 @@ export default function MyTurnView({
                   }`}
                 >
                   <span className="font-token font-extrabold">{entry.publicCode}</span>
-                  <span className={`truncate text-xs ${isCurrent ? 'text-teal-200' : 'text-ink-secondary'}`}>
-                    {lang === 'hi'
-                      ? entry.departmentName_hi || entry.departmentName_en
-                      : entry.departmentName_en}
+                  <span
+                    className={`truncate text-xs ${
+                      isCurrent ? 'text-[#F5A623]' : 'text-ink-secondary'
+                    }`}
+                  >
+                    {getLocalizedDepartment(entry.ticket?.department || entry, lang, t).name ||
+                      entry.departmentName_en}
                   </span>
                 </button>
               );
@@ -323,8 +437,8 @@ export default function MyTurnView({
 
           {/* Main Status Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl bg-hero-gradient text-white shadow-sm">
-              <div className="text-xs font-bold uppercase tracking-wider text-teal-200">
+            <div className="p-4 rounded-2xl mastercard-3d-hero text-white shadow-sm">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#F5A623]">
                 {t.slip.tokenLabel}
               </div>
               <div

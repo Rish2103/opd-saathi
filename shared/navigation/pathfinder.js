@@ -29,7 +29,8 @@ function buildAdjacencyMap(avoidStairs = true) {
         mode: edge.mode,
         accessible: edge.accessible,
         instruction_en: edge.direction_en,
-        instruction_hi: edge.direction_hi
+        instruction_hi: edge.direction_hi,
+        instruction_ta: edge.direction_ta || edge.direction_en
       });
     }
 
@@ -42,7 +43,12 @@ function buildAdjacencyMap(avoidStairs = true) {
         mode: edge.mode,
         accessible: edge.accessible,
         instruction_en: edge.reverse_direction_en || edge.direction_en,
-        instruction_hi: edge.reverse_direction_hi || edge.direction_hi
+        instruction_hi: edge.reverse_direction_hi || edge.direction_hi,
+        instruction_ta:
+          edge.reverse_direction_ta ||
+          edge.direction_ta ||
+          edge.reverse_direction_en ||
+          edge.direction_en
       });
     }
   }
@@ -55,6 +61,27 @@ function buildAdjacencyMap(avoidStairs = true) {
  */
 export function getAllHospitalNodes() {
   return hospitalGraph.nodes;
+}
+
+/**
+ * Returns all canonical hospital edges for schematic map rendering.
+ */
+export function getAllHospitalEdges() {
+  return hospitalGraph.edges;
+}
+
+/**
+ * Returns all canonical hospital floors metadata.
+ */
+export function getHospitalFloors() {
+  return hospitalGraph.floors;
+}
+
+/**
+ * Looks up a hospital node by ID.
+ */
+export function getHospitalNodeById(nodeId) {
+  return NODE_MAP.get(nodeId) || null;
 }
 
 /**
@@ -89,7 +116,9 @@ export function findAccessibleRoute({
       fallbackMessage_en:
         'Destination room could not be found on the map. Please ask Counter 1–3 (Ground Floor Registration & Help Desk).',
       fallbackMessage_hi:
-        'मानचित्र पर यह कक्ष नहीं मिला। कृपया भूतल पर काउंटर 1–3 (पंजीकरण और सहायता केंद्र) से संपर्क करें।'
+        'मानचित्र पर यह कक्ष नहीं मिला। कृपया भूतल पर काउंटर 1–3 (पंजीकरण और सहायता केंद्र) से संपर्क करें।',
+      fallbackMessage_ta:
+        'வரைபடத்தில் இந்த அறையைக் கண்டறிய முடியவில்லை. தரை தளத்தில் உள்ள கவுண்டர் 1–3 (பதிவு மற்றும் உதவி மையம்) அணுகவும்.'
     };
   }
 
@@ -108,14 +137,19 @@ export function findAccessibleRoute({
           stepNumber: 1,
           fromNodeId: originNode.id,
           toNodeId: destinationNode.id,
+          fromFloor: originNode.floor,
+          toFloor: originNode.floor,
           floor: originNode.floor,
           mode: 'corridor',
+          accessible: true,
           distanceMeters: 0,
           durationSeconds: 0,
           instruction_en: `You are already at ${originNode.name_en} (${originNode.landmark_en}).`,
           instruction_hi: `आप पहले से ही ${originNode.name_hi} (${originNode.landmark_hi}) पर हैं।`,
+          instruction_ta: `நீங்கள் ஏற்கனவே ${originNode.name_ta || originNode.name_en} (${originNode.landmark_ta || originNode.landmark_en}) இடத்தில் உள்ளீர்கள்.`,
           landmark_en: originNode.landmark_en,
-          landmark_hi: originNode.landmark_hi
+          landmark_hi: originNode.landmark_hi,
+          landmark_ta: originNode.landmark_ta || originNode.landmark_en
         }
       ]
     };
@@ -175,7 +209,9 @@ export function findAccessibleRoute({
       fallbackMessage_en:
         'No direct barrier-free route is currently available. Please ask Counter 1–3 (Registration & Help Desk) for personal assistance.',
       fallbackMessage_hi:
-        'इस समय कोई सीधा सुगम मार्ग उपलब्ध नहीं है। कृपया सहायता के लिए काउंटर 1–3 (पंजीकरण और सहायता केंद्र) से संपर्क करें।'
+        'इस समय कोई सीधा सुगम मार्ग उपलब्ध नहीं है। कृपया सहायता के लिए काउंटर 1–3 (पंजीकरण और सहायता केंद्र) से संपर्क करें।',
+      fallbackMessage_ta:
+        'தற்போது நேரடி தடையற்ற பாதை இல்லை. தனிப்பட்ட உதவிக்கு கவுண்டர் 1–3 (பதிவு மற்றும் உதவி மையம்) அணுகவும்.'
     };
   }
 
@@ -210,8 +246,10 @@ export function findAccessibleRoute({
       durationSeconds: edge.durationSeconds,
       instruction_en: edge.instruction_en,
       instruction_hi: edge.instruction_hi,
+      instruction_ta: edge.instruction_ta || edge.instruction_en,
       landmark_en: targetNode.landmark_en,
-      landmark_hi: targetNode.landmark_hi
+      landmark_hi: targetNode.landmark_hi,
+      landmark_ta: targetNode.landmark_ta || targetNode.landmark_en
     };
   });
 

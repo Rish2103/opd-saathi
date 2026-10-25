@@ -13,7 +13,10 @@ import {
   normalizePatientPhone,
   verifyTicketAccessToken
 } from './ticketTokenService.js';
-import { findAccessibleRoute } from '../../shared/navigation/pathfinder.js';
+import {
+  findAccessibleRoute,
+  getHospitalNodeById
+} from '../../shared/navigation/pathfinder.js';
 
 /**
  * Computes the current hospital queue date ('YYYY-MM-DD') in Asia/Kolkata (IST).
@@ -329,6 +332,7 @@ export function createLocalMemoryStore() {
 export function createQueueService(options = {}) {
   const tokenSecret = options.tokenSecret ?? env.ticketTokenSecret;
   const localStore = options.localStore ?? createLocalMemoryStore();
+  const resolveHospitalDateIST = options.getHospitalDateIST ?? getHospitalDateIST;
   let ioEmitter = options.ioEmitter ?? null;
 
   function setIoEmitter(emitter) {
@@ -347,6 +351,7 @@ export function createQueueService(options = {}) {
   }
 
   function usePostgres() {
+    if (options.forceInMemory === true) return false;
     if (options.runWithTransaction) {
       return true;
     }
@@ -372,7 +377,7 @@ export function createQueueService(options = {}) {
    * Lists all active departments joined with doctor_status and live waiting count.
    */
   async function listDepartments() {
-    const queueDate = getHospitalDateIST();
+    const queueDate = resolveHospitalDateIST();
 
     if (usePostgres()) {
       return runTx(async (client) => {
@@ -391,6 +396,7 @@ export function createQueueService(options = {}) {
              (
                SELECT t.public_code FROM tickets t
                WHERE t.department_id = d.id AND t.queue_date = $1 AND t.status IN ('CALLED', 'IN_CONSULTATION')
+               ORDER BY t.called_at DESC NULLS LAST, t.updated_at DESC
                LIMIT 1
              ) AS now_serving_code
            FROM departments d
@@ -484,7 +490,7 @@ export function createQueueService(options = {}) {
       ageYears
     });
 
-    const queueDate = getHospitalDateIST(new Date(nowMs));
+    const queueDate = resolveHospitalDateIST(new Date(nowMs));
 
     let committedResult = null;
 
@@ -946,14 +952,19 @@ export function createQueueService(options = {}) {
   function buildLocalSlipSnapshot(ticket, dept) {
     const ds = localStore.doctorStatusByDeptId.get(dept.id);
     const deptTickets = Array.from(localStore.ticketsById.values()).filter(
-      (t) => t.department_id === dept.id && t.queue_date === ticket.queue_date
+      (t) =>
+        t.department_id === dept.id &&
+        t.queue_date === ticket.queue_date
     );
     const activeTicket =
       deptTickets.find(
         (t) => t.status === 'CALLED' || t.status === 'IN_CONSULTATION'
       ) || null;
     const peopleAheadWaiting = deptTickets.filter(
-      (t) => t.status === 'WAITING' && t.queue_sort_order < ticket.queue_sort_order
+      (t) =>
+        t.status === 'WAITING' &&
+        t.id !== ticket.id &&
+        t.queue_sort_order < ticket.queue_sort_order
     ).length;
 
     return formatOperationalSlip({
@@ -1088,12 +1099,16 @@ export function createQueueService(options = {}) {
     const normalizedCode = String(rawPublicCode || '')
       .trim()
       .toUpperCase();
-    const queueDate = getHospitalDateIST();
+    const queueDate = resolveHospitalDateIST();
 
     if (usePostgres()) {
       return runTx(async (client) => {
         const res = await client.query(
-          'SELECT * FROM tickets WHERE UPPER(public_code) = $1 AND queue_date = $2 LIMIT 1',
+          `SELECT * FROM tickets
+           WHERE UPPER(public_code) = $1
+             AND (queue_date = $2 OR status IN ('WAITING', 'CALLED', 'IN_CONSULTATION'))
+           ORDER BY (queue_date = $2) DESC, created_at DESC
+           LIMIT 1`,
           [normalizedCode, queueDate]
         );
         if (res.rows.length === 0) {
@@ -1116,13 +1131,14 @@ export function createQueueService(options = {}) {
         const activeRes = await client.query(
           `SELECT * FROM tickets
            WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
+           ORDER BY called_at DESC NULLS LAST, updated_at DESC
            LIMIT 1`,
           [dept.id, ticket.queue_date]
         );
         const aheadRes = await client.query(
           `SELECT COUNT(*)::int AS count FROM tickets
-           WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING' AND queue_sort_order < $3`,
-          [dept.id, ticket.queue_date, ticket.queue_sort_order]
+           WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING' AND id <> $4 AND queue_sort_order < $3`,
+          [dept.id, ticket.queue_date, ticket.queue_sort_order, ticket.id]
         );
 
         return formatOperationalSlip({
@@ -1135,9 +1151,19 @@ export function createQueueService(options = {}) {
       });
     }
 
-    const matchingTicket = Array.from(localStore.ticketsById.values()).find(
-      (t) => t.public_code.toUpperCase() === normalizedCode && t.queue_date === queueDate
+    const candidates = Array.from(localStore.ticketsById.values()).filter(
+      (t) =>
+        t.public_code.toUpperCase() === normalizedCode &&
+        (t.queue_date === queueDate ||
+          ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status))
     );
+    candidates.sort((a, b) => {
+      const aToday = a.queue_date === queueDate ? 1 : 0;
+      const bToday = b.queue_date === queueDate ? 1 : 0;
+      if (aToday !== bToday) return bToday - aToday;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    const matchingTicket = candidates[0] || null;
     if (!matchingTicket) {
       throw createDomainError(
         404,
@@ -1154,7 +1180,7 @@ export function createQueueService(options = {}) {
    * Public department queue summary (`GET /api/queues/:departmentId/public`).
    */
   async function getPublicDepartmentQueue(departmentIdOrSlug) {
-    const queueDate = getHospitalDateIST();
+    const queueDate = resolveHospitalDateIST();
 
     if (usePostgres()) {
       return runTx(async (client) => {
@@ -1173,6 +1199,7 @@ export function createQueueService(options = {}) {
         const activeRes = await client.query(
           `SELECT public_code, status FROM tickets
            WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
+           ORDER BY called_at DESC NULLS LAST, updated_at DESC
            LIMIT 1`,
           [dept.id, queueDate]
         );
@@ -1276,7 +1303,7 @@ export function createQueueService(options = {}) {
       queues.push(await getPublicDepartmentQueue(dept.id));
     }
     return {
-      queueDate: getHospitalDateIST(),
+      queueDate: resolveHospitalDateIST(),
       updatedAt: new Date().toISOString(),
       queues
     };
@@ -1284,45 +1311,97 @@ export function createQueueService(options = {}) {
 
   /**
    * Staff view of a department's queue (`GET /api/staff/queues/:departmentId`).
+   * Supports `departmentIdOrSlug === 'ALL'` for a cross-department view, and always
+   * returns `allPendingTickets` and `departmentCounts` across all active departments.
    */
   async function getStaffDepartmentQueue(departmentIdOrSlug) {
-    const queueDate = getHospitalDateIST();
+    const queueDate = resolveHospitalDateIST();
+    const isAllDepts = String(departmentIdOrSlug || '').trim().toUpperCase() === 'ALL';
 
     if (usePostgres()) {
       return runTx(async (client) => {
-        const deptRes = await client.query(
-          'SELECT * FROM departments WHERE (id::text = $1 OR slug = $1) AND is_active = true LIMIT 1',
-          [String(departmentIdOrSlug)]
-        );
-        if (deptRes.rows.length === 0) {
-          throw createDomainError(404, 'DEPARTMENT_NOT_FOUND', 'Department not found.');
+        let dept = null;
+        let dsRow = { status: 'AVAILABLE', delay_minutes: 0 };
+
+        if (isAllDepts) {
+          dept = {
+            id: 'ALL',
+            slug: 'ALL',
+            token_prefix: 'ALL',
+            name_en: 'All OPD Departments',
+            name_hi: 'सभी ओपीडी विभाग',
+            doctor_name_en: 'All On-Duty Doctors',
+            doctor_name_hi: 'सभी ड्यूटी डॉक्टर',
+            room_label: 'All Rooms',
+            floor_number: 1,
+            is_active: true
+          };
+        } else {
+          const deptRes = await client.query(
+            'SELECT * FROM departments WHERE (id::text = $1 OR slug = $1) AND is_active = true LIMIT 1',
+            [String(departmentIdOrSlug)]
+          );
+          if (deptRes.rows.length === 0) {
+            throw createDomainError(404, 'DEPARTMENT_NOT_FOUND', 'Department not found.');
+          }
+          dept = deptRes.rows[0];
+          const dsRes = await client.query(
+            'SELECT * FROM doctor_status WHERE department_id = $1',
+            [dept.id]
+          );
+          if (dsRes.rows[0]) {
+            dsRow = dsRes.rows[0];
+          }
         }
-        const dept = deptRes.rows[0];
-        const dsRes = await client.query(
-          'SELECT * FROM doctor_status WHERE department_id = $1',
-          [dept.id]
-        );
-        const ticketsRes = await client.query(
-          `SELECT id, public_code, department_id, queue_date, sequence_no, queue_sort_order,
-                  status, visit_type, preferred_lang, avoid_stairs, cancel_reason,
-                  requeued_count, last_requeued_at, created_at, updated_at,
-                  called_at, consultation_started_at, completed_at
-           FROM tickets
-           WHERE department_id = $1 AND queue_date = $2
-           ORDER BY queue_sort_order ASC, sequence_no ASC`,
-          [dept.id, queueDate]
+
+        // Fetch all relevant tickets across active departments for today's hospital queue date
+        const allDeptTicketsRes = await client.query(
+          `SELECT t.id, t.public_code, t.department_id, t.queue_date, t.sequence_no, t.queue_sort_order,
+                  t.status, t.visit_type, t.preferred_lang, t.avoid_stairs, t.cancel_reason,
+                  t.requeued_count, t.last_requeued_at, t.created_at, t.updated_at,
+                  t.called_at, t.consultation_started_at, t.completed_at,
+                  p.full_name AS patient_name, p.age_years AS patient_age, p.gender AS patient_gender,
+                  d.slug AS department_slug, d.name_en AS department_name_en, d.name_hi AS department_name_hi,
+                  d.token_prefix, d.room_label, d.floor_number
+           FROM tickets t
+           JOIN departments d ON d.id = t.department_id
+           LEFT JOIN patients p ON p.id = t.patient_id
+           WHERE d.is_active = true
+             AND t.queue_date = $1
+           ORDER BY t.queue_sort_order ASC, t.sequence_no ASC`,
+          [queueDate]
         );
 
-        const allTickets = ticketsRes.rows;
-        const activeTicket =
-          allTickets.find(
-            (t) => t.status === 'CALLED' || t.status === 'IN_CONSULTATION'
-          ) || null;
-        const waitingTickets = allTickets.filter((t) => t.status === 'WAITING');
-        const historyTickets = allTickets
-          .filter((t) =>
-            ['COMPLETED', 'NO_SHOW', 'CANCELLED'].includes(t.status)
-          )
+        const globalRows = allDeptTicketsRes.rows;
+        const allPendingTickets = globalRows.filter((t) =>
+          ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status)
+        );
+
+        const departmentCounts = {};
+        for (const row of allPendingTickets) {
+          const slugKey = row.department_slug;
+          if (!departmentCounts[slugKey]) {
+            departmentCounts[slugKey] = { waitingCount: 0, activeCount: 0, totalPending: 0 };
+          }
+          if (row.status === 'WAITING') {
+            departmentCounts[slugKey].waitingCount += 1;
+          } else {
+            departmentCounts[slugKey].activeCount += 1;
+          }
+          departmentCounts[slugKey].totalPending += 1;
+        }
+
+        const scopedTickets = isAllDepts
+          ? globalRows
+          : globalRows.filter((t) => t.department_id === dept.id);
+
+        const activeTickets = scopedTickets.filter(
+          (t) => t.status === 'CALLED' || t.status === 'IN_CONSULTATION'
+        );
+        const activeTicket = activeTickets[0] || null;
+        const waitingTickets = scopedTickets.filter((t) => t.status === 'WAITING');
+        const historyTickets = scopedTickets
+          .filter((t) => ['COMPLETED', 'NO_SHOW', 'CANCELLED'].includes(t.status))
           .sort(
             (a, b) =>
               new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
@@ -1330,45 +1409,107 @@ export function createQueueService(options = {}) {
 
         return {
           department: dept,
-          doctorStatus: dsRes.rows[0] || { status: 'AVAILABLE', delay_minutes: 0 },
+          doctorStatus: dsRow,
           queueDate,
           activeTicket,
+          activeTickets,
           waitingTickets,
-          historyTickets
+          historyTickets,
+          allPendingTickets,
+          departmentCounts
         };
       });
     }
 
-    const dept = resolveLocalDepartment(departmentIdOrSlug);
-    if (!dept) {
-      throw createDomainError(404, 'DEPARTMENT_NOT_FOUND', 'Department not found.');
+    let dept = null;
+    let ds = { status: 'AVAILABLE', delay_minutes: 0 };
+    if (isAllDepts) {
+      dept = {
+        id: 'ALL',
+        slug: 'ALL',
+        token_prefix: 'ALL',
+        name_en: 'All OPD Departments',
+        name_hi: 'सभी ओपीडी विभाग',
+        doctor_name_en: 'All On-Duty Doctors',
+        doctor_name_hi: 'सभी ड्यूटी डॉक्टर',
+        room_label: 'All Rooms',
+        floor_number: 1,
+        is_active: true
+      };
+    } else {
+      dept = resolveLocalDepartment(departmentIdOrSlug);
+      if (!dept) {
+        throw createDomainError(404, 'DEPARTMENT_NOT_FOUND', 'Department not found.');
+      }
+      ds = localStore.doctorStatusByDeptId.get(dept.id) || {
+        status: 'AVAILABLE',
+        delay_minutes: 0
+      };
     }
-    const ds = localStore.doctorStatusByDeptId.get(dept.id) || {
-      status: 'AVAILABLE',
-      delay_minutes: 0
-    };
-    const allTickets = Array.from(localStore.ticketsById.values())
-      .filter((t) => t.department_id === dept.id && t.queue_date === queueDate)
-      .map(
-        ({
+
+    const globalTickets = Array.from(localStore.ticketsById.values())
+      .filter((t) => {
+        const d = localStore.departmentsById.get(t.department_id);
+        if (!d || !d.is_active) return false;
+        return t.queue_date === queueDate;
+      })
+      .map((t) => {
+        const d = localStore.departmentsById.get(t.department_id);
+        const p = t.patient_id ? localStore.patientsById.get(t.patient_id) : null;
+        const {
           access_token_hash,
           request_id,
           patient_id,
           identity_fingerprint,
           ...safeTicket
-        }) => safeTicket
-      )
+        } = t;
+        return {
+          ...safeTicket,
+          patient_name: p?.full_name || safeTicket.patient_name || null,
+          patient_age: p?.age_years ?? safeTicket.patient_age ?? null,
+          patient_gender: p?.gender || safeTicket.patient_gender || null,
+          department_slug: d?.slug || null,
+          department_name_en: d?.name_en || null,
+          department_name_hi: d?.name_hi || null,
+          token_prefix: d?.token_prefix || null,
+          room_label: d?.room_label || null,
+          floor_number: d?.floor_number ?? null
+        };
+      })
       .sort(
         (a, b) =>
           a.queue_sort_order - b.queue_sort_order || a.sequence_no - b.sequence_no
       );
 
-    const activeTicket =
-      allTickets.find(
-        (t) => t.status === 'CALLED' || t.status === 'IN_CONSULTATION'
-      ) || null;
-    const waitingTickets = allTickets.filter((t) => t.status === 'WAITING');
-    const historyTickets = allTickets
+    const allPendingTickets = globalTickets.filter((t) =>
+      ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status)
+    );
+
+    const departmentCounts = {};
+    for (const row of allPendingTickets) {
+      const slugKey = row.department_slug;
+      if (!slugKey) continue;
+      if (!departmentCounts[slugKey]) {
+        departmentCounts[slugKey] = { waitingCount: 0, activeCount: 0, totalPending: 0 };
+      }
+      if (row.status === 'WAITING') {
+        departmentCounts[slugKey].waitingCount += 1;
+      } else {
+        departmentCounts[slugKey].activeCount += 1;
+      }
+      departmentCounts[slugKey].totalPending += 1;
+    }
+
+    const scopedTickets = isAllDepts
+      ? globalTickets
+      : globalTickets.filter((t) => t.department_id === dept.id);
+
+    const activeTickets = scopedTickets.filter(
+      (t) => t.status === 'CALLED' || t.status === 'IN_CONSULTATION'
+    );
+    const activeTicket = activeTickets[0] || null;
+    const waitingTickets = scopedTickets.filter((t) => t.status === 'WAITING');
+    const historyTickets = scopedTickets
       .filter((t) => ['COMPLETED', 'NO_SHOW', 'CANCELLED'].includes(t.status))
       .sort(
         (a, b) =>
@@ -1380,8 +1521,11 @@ export function createQueueService(options = {}) {
       doctorStatus: ds,
       queueDate,
       activeTicket,
+      activeTickets,
       waitingTickets,
-      historyTickets
+      historyTickets,
+      allPendingTickets,
+      departmentCounts
     };
   }
 
@@ -1390,7 +1534,7 @@ export function createQueueService(options = {}) {
    * Serialised under the department-and-date advisory lock.
    */
   async function callNextTicket(departmentIdOrSlug) {
-    const queueDate = getHospitalDateIST();
+    const queueDate = resolveHospitalDateIST();
     let updatedSlip = null;
 
     if (usePostgres()) {
@@ -1546,7 +1690,7 @@ export function createQueueService(options = {}) {
   }
 
   /**
-   * Executes a canonical ticket state transition (`start`, `complete`, `no-show`, `cancel`, `requeue`).
+   * Executes a canonical ticket state transition (`call`, `start`, `complete`, `resolve`, `no-show`, `cancel`, `requeue`).
    * Serialised under the department-and-date advisory lock.
    */
   async function transitionTicketStatus(ticketId, action, options = {}) {
@@ -1562,7 +1706,11 @@ export function createQueueService(options = {}) {
         if (lookupRes.rows.length === 0) {
           throw createDomainError(404, 'TICKET_NOT_FOUND', 'Ticket not found.');
         }
-        const { department_id: deptId, queue_date: queueDate } = lookupRes.rows[0];
+        const { department_id: deptId, queue_date: rawQueueDate } = lookupRes.rows[0];
+        const queueDate =
+          rawQueueDate instanceof Date
+            ? rawQueueDate.toISOString().slice(0, 10)
+            : String(rawQueueDate);
 
         // Step 2: Acquire department-and-date advisory lock
         await client.query(
@@ -1586,7 +1734,31 @@ export function createQueueService(options = {}) {
         let updateSql = '';
         let updateParams = [];
 
-        if (action === 'start') {
+        if (action === 'call') {
+          if (ticket.status !== 'WAITING') {
+            throw createDomainError(
+              409,
+              'INVALID_STATE_TRANSITION',
+              `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be called (must be WAITING).`
+            );
+          }
+          const activeCheck = await client.query(
+            `SELECT public_code, status FROM tickets
+             WHERE department_id = $1 AND status IN ('CALLED', 'IN_CONSULTATION') AND id <> $2
+             FOR UPDATE`,
+            [deptId, ticket.id]
+          );
+          if (activeCheck.rows.length > 0) {
+            const active = activeCheck.rows[0];
+            throw createDomainError(
+              409,
+              'ACTIVE_TICKET_EXISTS',
+              `Ticket ${active.public_code} is already ${active.status} in ${dept.name_en}. Complete, mark No-Show, or cancel it before calling another patient.`
+            );
+          }
+          updateSql = `UPDATE tickets SET status = 'CALLED', called_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`;
+          updateParams = [ticket.id];
+        } else if (action === 'start') {
           if (ticket.status !== 'CALLED') {
             throw createDomainError(
               409,
@@ -1606,12 +1778,22 @@ export function createQueueService(options = {}) {
           }
           updateSql = `UPDATE tickets SET status = 'COMPLETED', completed_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`;
           updateParams = [ticket.id];
-        } else if (action === 'no-show') {
-          if (ticket.status !== 'CALLED') {
+        } else if (action === 'resolve') {
+          if (!['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(ticket.status)) {
             throw createDomainError(
               409,
               'INVALID_STATE_TRANSITION',
-              `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be marked NO_SHOW (must be CALLED).`
+              `Ticket ${ticket.public_code} is already ${ticket.status} and cannot be resolved.`
+            );
+          }
+          updateSql = `UPDATE tickets SET status = 'COMPLETED', completed_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`;
+          updateParams = [ticket.id];
+        } else if (action === 'no-show') {
+          if (!['WAITING', 'CALLED'].includes(ticket.status)) {
+            throw createDomainError(
+              409,
+              'INVALID_STATE_TRANSITION',
+              `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be marked NO_SHOW.`
             );
           }
           updateSql = `UPDATE tickets SET status = 'NO_SHOW', updated_at = NOW() WHERE id = $1 RETURNING *`;
@@ -1683,14 +1865,16 @@ export function createQueueService(options = {}) {
         );
         const activeRes = await client.query(
           `SELECT * FROM tickets
-           WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
+           WHERE department_id = $1 AND status IN ('CALLED', 'IN_CONSULTATION')
+           ORDER BY called_at DESC NULLS LAST, updated_at DESC
            LIMIT 1`,
-          [deptId, queueDate]
+          [deptId]
         );
         const aheadRes = await client.query(
           `SELECT COUNT(*)::int AS count FROM tickets
-           WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING' AND queue_sort_order < $3`,
-          [deptId, queueDate, updatedTicket.queue_sort_order]
+           WHERE department_id = $1 AND status = 'WAITING' AND id <> $4
+             AND (queue_date < $2 OR (queue_date = $2 AND queue_sort_order < $3))`,
+          [deptId, updatedTicket.queue_date, updatedTicket.queue_sort_order, updatedTicket.id]
         );
 
         return formatOperationalSlip({
@@ -1715,7 +1899,31 @@ export function createQueueService(options = {}) {
           const ticket = localStore.ticketsById.get(ticketId);
           const nowIso = new Date().toISOString();
 
-          if (action === 'start') {
+          if (action === 'call') {
+            if (ticket.status !== 'WAITING') {
+              throw createDomainError(
+                409,
+                'INVALID_STATE_TRANSITION',
+                `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be called (must be WAITING).`
+              );
+            }
+            const existingActive = Array.from(localStore.ticketsById.values()).find(
+              (t) =>
+                t.department_id === dept.id &&
+                t.id !== ticket.id &&
+                (t.status === 'CALLED' || t.status === 'IN_CONSULTATION')
+            );
+            if (existingActive) {
+              throw createDomainError(
+                409,
+                'ACTIVE_TICKET_EXISTS',
+                `Ticket ${existingActive.public_code} is already ${existingActive.status} in ${dept.name_en}. Complete, mark No-Show, or cancel it before calling another patient.`
+              );
+            }
+            ticket.status = 'CALLED';
+            ticket.called_at = nowIso;
+            ticket.updated_at = nowIso;
+          } else if (action === 'start') {
             if (ticket.status !== 'CALLED') {
               throw createDomainError(
                 409,
@@ -1737,12 +1945,23 @@ export function createQueueService(options = {}) {
             ticket.status = 'COMPLETED';
             ticket.completed_at = nowIso;
             ticket.updated_at = nowIso;
-          } else if (action === 'no-show') {
-            if (ticket.status !== 'CALLED') {
+          } else if (action === 'resolve') {
+            if (!['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(ticket.status)) {
               throw createDomainError(
                 409,
                 'INVALID_STATE_TRANSITION',
-                `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be marked NO_SHOW (must be CALLED).`
+                `Ticket ${ticket.public_code} is already ${ticket.status} and cannot be resolved.`
+              );
+            }
+            ticket.status = 'COMPLETED';
+            ticket.completed_at = nowIso;
+            ticket.updated_at = nowIso;
+          } else if (action === 'no-show') {
+            if (!['WAITING', 'CALLED'].includes(ticket.status)) {
+              throw createDomainError(
+                409,
+                'INVALID_STATE_TRANSITION',
+                `Ticket ${ticket.public_code} is currently ${ticket.status} and cannot be marked NO_SHOW.`
               );
             }
             ticket.status = 'NO_SHOW';
@@ -1903,6 +2122,372 @@ export function createQueueService(options = {}) {
   }
 
   /**
+   * Creates a new OPD department (`POST /api/staff/departments`).
+   */
+  async function createDepartment(input = {}) {
+    const nameEn = String(input.name_en || '').trim();
+    const nameHi = String(input.name_hi || nameEn).trim();
+    const rawSlug = String(input.slug || nameEn)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48);
+    const tokenPrefix = String(input.token_prefix || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z]/g, '');
+    const doctorNameEn = String(input.doctor_name_en || '').trim();
+    const doctorNameHi = String(input.doctor_name_hi || doctorNameEn).trim();
+    const roomLabel = String(input.room_label || '').trim();
+    const floorNumber = Number(input.floor_number ?? 2);
+    const destinationNodeId = String(input.destination_node_id || 'room_204_med').trim();
+    const landmarkEn = String(input.landmark_en || roomLabel).trim();
+    const landmarkHi = String(input.landmark_hi || landmarkEn).trim();
+    const avgConsultMinutes = Math.max(
+      1,
+      Math.min(120, Number.parseInt(String(input.average_consult_minutes ?? 10), 10) || 10)
+    );
+
+    if (!nameEn || !rawSlug) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        'Department name (English) and a valid slug are required.'
+      );
+    }
+    if (!/^[A-Z]{2,5}$/.test(tokenPrefix)) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        'Token prefix must be 2 to 5 uppercase letters (e.g., CRD, DER, ENT).'
+      );
+    }
+    if (!doctorNameEn || !roomLabel) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        'Doctor name and room label are required.'
+      );
+    }
+    if (![1, 2, 3].includes(floorNumber)) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        'Floor number must be 1, 2, or 3.'
+      );
+    }
+    if (!getHospitalNodeById(destinationNodeId)) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        `Invalid destination map node '${destinationNodeId}'.`
+      );
+    }
+
+    let createdDept = null;
+
+    if (usePostgres()) {
+      createdDept = await runTx(async (client) => {
+        const dupCheck = await client.query(
+          'SELECT id, slug, token_prefix FROM departments WHERE slug = $1 OR token_prefix = $2 LIMIT 1',
+          [rawSlug, tokenPrefix]
+        );
+        if (dupCheck.rows.length > 0) {
+          throw createDomainError(
+            409,
+            'DEPARTMENT_ALREADY_EXISTS',
+            `A department with slug '${rawSlug}' or token prefix '${tokenPrefix}' already exists.`
+          );
+        }
+
+        const insRes = await client.query(
+          `INSERT INTO departments (
+             slug, token_prefix, name_en, name_hi,
+             doctor_name_en, doctor_name_hi, room_label, floor_number,
+             destination_node_id, landmark_en, landmark_hi,
+             average_consult_minutes, is_active
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+           RETURNING *`,
+          [
+            rawSlug,
+            tokenPrefix,
+            nameEn,
+            nameHi,
+            doctorNameEn,
+            doctorNameHi,
+            roomLabel,
+            floorNumber,
+            destinationNodeId,
+            landmarkEn,
+            landmarkHi,
+            avgConsultMinutes
+          ]
+        );
+        const deptRow = insRes.rows[0];
+
+        await client.query(
+          `INSERT INTO doctor_status (department_id, status, delay_minutes)
+           VALUES ($1, 'AVAILABLE', 0)
+           ON CONFLICT (department_id) DO NOTHING`,
+          [deptRow.id]
+        );
+
+        return {
+          ...deptRow,
+          floor_number: Number(deptRow.floor_number),
+          average_consult_minutes: Number(deptRow.average_consult_minutes),
+          doctor_status: 'AVAILABLE',
+          delay_minutes: 0,
+          waiting_count: 0,
+          now_serving_code: null
+        };
+      });
+    } else {
+      for (const existing of localStore.departmentsById.values()) {
+        if (existing.slug === rawSlug || existing.token_prefix === tokenPrefix) {
+          throw createDomainError(
+            409,
+            'DEPARTMENT_ALREADY_EXISTS',
+            `A department with slug '${rawSlug}' or token prefix '${tokenPrefix}' already exists.`
+          );
+        }
+      }
+
+      const id = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      const deptRow = {
+        id,
+        slug: rawSlug,
+        token_prefix: tokenPrefix,
+        name_en: nameEn,
+        name_hi: nameHi,
+        doctor_name_en: doctorNameEn,
+        doctor_name_hi: doctorNameHi,
+        room_label: roomLabel,
+        floor_number: floorNumber,
+        destination_node_id: destinationNodeId,
+        landmark_en: landmarkEn,
+        landmark_hi: landmarkHi,
+        average_consult_minutes: avgConsultMinutes,
+        is_active: true,
+        created_at: nowIso
+      };
+      localStore.departmentsById.set(id, deptRow);
+      localStore.departmentsBySlug.set(rawSlug, deptRow);
+      localStore.doctorStatusByDeptId.set(id, {
+        department_id: id,
+        status: 'AVAILABLE',
+        delay_minutes: 0,
+        updated_at: nowIso,
+        updated_by_session_id: null
+      });
+
+      createdDept = {
+        ...deptRow,
+        doctor_status: 'AVAILABLE',
+        delay_minutes: 0,
+        waiting_count: 0,
+        now_serving_code: null
+      };
+    }
+
+    emitPostCommit((io) => {
+      const payload = {
+        departmentId: createdDept.id,
+        eventType: 'DEPARTMENT_CREATED',
+        updatedAt: new Date().toISOString()
+      };
+      io.to('queue:all').emit('queue.updated', payload);
+      io.to('staff:all').emit('queue.updated', payload);
+    });
+
+    return createdDept;
+  }
+
+  /**
+   * Updates an existing OPD department's configuration (`PATCH /api/staff/departments/:id`).
+   */
+  async function updateDepartment(departmentIdOrSlug, input = {}) {
+    if (
+      input.destination_node_id !== undefined &&
+      !getHospitalNodeById(String(input.destination_node_id).trim())
+    ) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        `Invalid destination map node '${input.destination_node_id}'.`
+      );
+    }
+
+    if (
+      input.floor_number !== undefined &&
+      ![1, 2, 3].includes(Number(input.floor_number))
+    ) {
+      throw createDomainError(
+        400,
+        'VALIDATION_ERROR',
+        'Floor number must be 1, 2, or 3.'
+      );
+    }
+
+    let updatedDept = null;
+
+    if (usePostgres()) {
+      updatedDept = await runTx(async (client) => {
+        const deptRes = await client.query(
+          'SELECT * FROM departments WHERE id::text = $1 OR slug = $1 LIMIT 1',
+          [String(departmentIdOrSlug)]
+        );
+        if (deptRes.rows.length === 0) {
+          throw createDomainError(404, 'DEPARTMENT_NOT_FOUND', 'Department not found.');
+        }
+        const existing = deptRes.rows[0];
+
+        const nextNameEn =
+          input.name_en !== undefined ? String(input.name_en).trim() : existing.name_en;
+        const nextNameHi =
+          input.name_hi !== undefined ? String(input.name_hi).trim() : existing.name_hi;
+        const nextDoctorEn =
+          input.doctor_name_en !== undefined
+            ? String(input.doctor_name_en).trim()
+            : existing.doctor_name_en;
+        const nextDoctorHi =
+          input.doctor_name_hi !== undefined
+            ? String(input.doctor_name_hi).trim()
+            : existing.doctor_name_hi;
+        const nextRoomLabel =
+          input.room_label !== undefined
+            ? String(input.room_label).trim()
+            : existing.room_label;
+        const nextFloorNumber =
+          input.floor_number !== undefined
+            ? Number(input.floor_number)
+            : Number(existing.floor_number);
+        const nextDestNodeId =
+          input.destination_node_id !== undefined
+            ? String(input.destination_node_id).trim()
+            : existing.destination_node_id;
+        const nextLandmarkEn =
+          input.landmark_en !== undefined
+            ? String(input.landmark_en).trim()
+            : existing.landmark_en;
+        const nextLandmarkHi =
+          input.landmark_hi !== undefined
+            ? String(input.landmark_hi).trim()
+            : existing.landmark_hi;
+        const nextAvgConsult =
+          input.average_consult_minutes !== undefined
+            ? Math.max(1, Math.min(120, Number(input.average_consult_minutes) || 10))
+            : Number(existing.average_consult_minutes);
+        const nextIsActive =
+          input.is_active !== undefined ? Boolean(input.is_active) : Boolean(existing.is_active);
+
+        const upRes = await client.query(
+          `UPDATE departments
+           SET name_en = $2,
+               name_hi = $3,
+               doctor_name_en = $4,
+               doctor_name_hi = $5,
+               room_label = $6,
+               floor_number = $7,
+               destination_node_id = $8,
+               landmark_en = $9,
+               landmark_hi = $10,
+               average_consult_minutes = $11,
+               is_active = $12
+           WHERE id = $1
+           RETURNING *`,
+          [
+            existing.id,
+            nextNameEn,
+            nextNameHi,
+            nextDoctorEn,
+            nextDoctorHi,
+            nextRoomLabel,
+            nextFloorNumber,
+            nextDestNodeId,
+            nextLandmarkEn,
+            nextLandmarkHi,
+            nextAvgConsult,
+            nextIsActive
+          ]
+        );
+        const row = upRes.rows[0];
+        const dsRes = await client.query(
+          'SELECT status, delay_minutes FROM doctor_status WHERE department_id = $1 LIMIT 1',
+          [row.id]
+        );
+        return {
+          ...row,
+          floor_number: Number(row.floor_number),
+          average_consult_minutes: Number(row.average_consult_minutes),
+          doctor_status: dsRes.rows[0]?.status ?? 'AVAILABLE',
+          delay_minutes: Number(dsRes.rows[0]?.delay_minutes ?? 0)
+        };
+      });
+    } else {
+      const existing = resolveLocalDepartment(departmentIdOrSlug);
+      if (!existing) {
+        throw createDomainError(404, 'DEPARTMENT_NOT_FOUND', 'Department not found.');
+      }
+
+      if (input.name_en !== undefined) existing.name_en = String(input.name_en).trim();
+      if (input.name_hi !== undefined) existing.name_hi = String(input.name_hi).trim();
+      if (input.doctor_name_en !== undefined) {
+        existing.doctor_name_en = String(input.doctor_name_en).trim();
+      }
+      if (input.doctor_name_hi !== undefined) {
+        existing.doctor_name_hi = String(input.doctor_name_hi).trim();
+      }
+      if (input.room_label !== undefined) {
+        existing.room_label = String(input.room_label).trim();
+      }
+      if (input.floor_number !== undefined) {
+        existing.floor_number = Number(input.floor_number);
+      }
+      if (input.destination_node_id !== undefined) {
+        existing.destination_node_id = String(input.destination_node_id).trim();
+      }
+      if (input.landmark_en !== undefined) {
+        existing.landmark_en = String(input.landmark_en).trim();
+      }
+      if (input.landmark_hi !== undefined) {
+        existing.landmark_hi = String(input.landmark_hi).trim();
+      }
+      if (input.average_consult_minutes !== undefined) {
+        existing.average_consult_minutes = Math.max(
+          1,
+          Math.min(120, Number(input.average_consult_minutes) || 10)
+        );
+      }
+      if (input.is_active !== undefined) {
+        existing.is_active = Boolean(input.is_active);
+      }
+
+      const ds = localStore.doctorStatusByDeptId.get(existing.id);
+      updatedDept = {
+        ...existing,
+        doctor_status: ds?.status ?? 'AVAILABLE',
+        delay_minutes: ds?.delay_minutes ?? 0
+      };
+    }
+
+    emitPostCommit((io) => {
+      const payload = {
+        departmentId: updatedDept.id,
+        eventType: 'DEPARTMENT_UPDATED',
+        updatedAt: new Date().toISOString()
+      };
+      io.to(`queue:${updatedDept.id}`).emit('queue.updated', payload);
+      io.to('queue:all').emit('queue.updated', payload);
+      io.to('staff:all').emit('queue.updated', payload);
+    });
+
+    return updatedDept;
+  }
+
+  /**
    * Creates a human-assessed urgent/staff help request (`POST /api/help-requests`).
    * Works before registration (without a ticket) and never auto-jumps the queue.
    */
@@ -2040,7 +2625,437 @@ export function createQueueService(options = {}) {
     return updatedFlag;
   }
 
+  /**
+   * Synchronizes browser-saved OPD slips (`savedSlips` from localStorage) with the backend store.
+   * - If a saved slip already exists in the backend, returns its latest operational status.
+   * - If a saved slip is still active (`WAITING`, `CALLED`, `IN_CONSULTATION`) in the browser
+   *   but missing from the backend (e.g., after an in-memory server restart), restores the
+   *   department (if custom), patient summary, and ticket so staff can view and resolve it.
+   */
+  async function syncSavedSlips(savedSlips = []) {
+    if (!Array.isArray(savedSlips) || savedSlips.length === 0) {
+      return { syncedTickets: [], restoredCount: 0 };
+    }
+
+    const queueDate = resolveHospitalDateIST();
+    const syncedTickets = [];
+    let restoredCount = 0;
+
+    if (usePostgres()) {
+      await runTx(async (client) => {
+        for (const rawEntry of savedSlips) {
+          if (!rawEntry || typeof rawEntry !== 'object') continue;
+          const ticketObj = rawEntry.ticket || rawEntry;
+          const ticketId = String(rawEntry.ticketId || ticketObj.id || '').trim();
+          const publicCode = String(rawEntry.publicCode || ticketObj.publicCode || '')
+            .trim()
+            .toUpperCase();
+          if (!publicCode) continue;
+
+          const existingRes = await client.query(
+            `SELECT * FROM tickets
+             WHERE ($1 <> '' AND id::text = $1)
+                OR (UPPER(public_code) = $2 AND status IN ('WAITING', 'CALLED', 'IN_CONSULTATION'))
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [ticketId, publicCode]
+          );
+
+          if (existingRes.rows.length > 0) {
+            const found = existingRes.rows[0];
+            const deptRes = await client.query(
+              'SELECT * FROM departments WHERE id = $1 LIMIT 1',
+              [found.department_id]
+            );
+            const dept = deptRes.rows[0];
+            if (dept) {
+              const dsRes = await client.query(
+                'SELECT * FROM doctor_status WHERE department_id = $1',
+                [dept.id]
+              );
+              const activeRes = await client.query(
+                `SELECT * FROM tickets
+                 WHERE department_id = $1 AND queue_date = $2 AND status IN ('CALLED', 'IN_CONSULTATION')
+                 LIMIT 1`,
+                [dept.id, found.queue_date]
+              );
+              const aheadRes = await client.query(
+                `SELECT COUNT(*)::int AS count FROM tickets
+                 WHERE department_id = $1 AND queue_date = $2 AND status = 'WAITING' AND id <> $4 AND queue_sort_order < $3`,
+                [dept.id, found.queue_date, found.queue_sort_order, found.id]
+              );
+              syncedTickets.push(
+                formatOperationalSlip({
+                  ticket: found,
+                  department: dept,
+                  doctorStatusRow: dsRes.rows[0],
+                  activeTicket: activeRes.rows[0] || null,
+                  peopleAheadWaiting: aheadRes.rows[0]?.count ?? 0
+                })
+              );
+            }
+            continue;
+          }
+
+          const status = String(rawEntry.status || ticketObj.status || 'WAITING').toUpperCase();
+          if (!['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(status)) {
+            continue;
+          }
+
+          const deptSlug = String(
+            rawEntry.departmentSlug || ticketObj.department?.slug || 'general-medicine'
+          )
+            .trim()
+            .toLowerCase();
+          const codeParts = publicCode.split('-');
+          const prefixFromCode =
+            codeParts.length >= 3 ? codeParts[1].toUpperCase() : 'GEN';
+          const tokenPrefix = String(
+            rawEntry.departmentCode || ticketObj.department?.token_prefix || prefixFromCode
+          )
+            .trim()
+            .toUpperCase()
+            .slice(0, 5);
+
+          let deptRes = await client.query(
+            'SELECT * FROM departments WHERE slug = $1 OR token_prefix = $2 LIMIT 1',
+            [deptSlug, tokenPrefix]
+          );
+          let dept = deptRes.rows[0];
+          if (!dept) {
+            const deptNameEn =
+              rawEntry.departmentName_en ||
+              ticketObj.department?.name_en ||
+              deptSlug;
+            const deptNameHi =
+              rawEntry.departmentName_hi ||
+              ticketObj.department?.name_hi ||
+              deptNameEn;
+            const roomLabel =
+              rawEntry.roomLabel || ticketObj.department?.room_label || 'Room 101';
+            const floorNumber = Number(
+              rawEntry.floorNumber ?? ticketObj.department?.floor_number ?? 1
+            );
+            const destNodeId =
+              rawEntry.destinationNodeId ||
+              ticketObj.department?.destination_node_id ||
+              'room_204_med';
+            const insDept = await client.query(
+              `INSERT INTO departments (
+                 slug, token_prefix, name_en, name_hi,
+                 doctor_name_en, doctor_name_hi, room_label, floor_number,
+                 destination_node_id, landmark_en, landmark_hi,
+                 average_consult_minutes, is_active
+               )
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 10, true)
+               RETURNING *`,
+              [
+                deptSlug,
+                tokenPrefix,
+                deptNameEn,
+                deptNameHi,
+                ticketObj.department?.doctor_name_en || 'On-Duty Doctor',
+                ticketObj.department?.doctor_name_hi || 'ड्यूटी डॉक्टर',
+                roomLabel,
+                [1, 2, 3].includes(floorNumber) ? floorNumber : 1,
+                getHospitalNodeById(destNodeId) ? destNodeId : 'room_204_med',
+                roomLabel,
+                roomLabel
+              ]
+            );
+            dept = insDept.rows[0];
+            await client.query(
+              `INSERT INTO doctor_status (department_id, status, delay_minutes)
+               VALUES ($1, 'AVAILABLE', 0)
+               ON CONFLICT (department_id) DO NOTHING`,
+              [dept.id]
+            );
+          }
+
+          const pSummary = rawEntry.patientSummary || ticketObj.patientSummary || {};
+          const pName = normalizePatientName(
+            pSummary.fullName || pSummary.name || 'Patient'
+          );
+          const rawAge = Number(pSummary.ageYears ?? pSummary.age);
+          const pAge = Number.isInteger(rawAge) && rawAge >= 0 ? rawAge : 30;
+          const pGender = ['FEMALE', 'MALE', 'OTHER', 'PREFER_NOT_TO_SAY'].includes(
+            pSummary.gender
+          )
+            ? pSummary.gender
+            : 'PREFER_NOT_TO_SAY';
+          const syntheticPhone = '9000000000';
+          const fp = crypto
+            .createHash('sha256')
+            .update(`sync-fp:${publicCode}:${pName}:${pAge}`, 'utf8')
+            .digest('hex');
+
+          const patientRes = await client.query(
+            `INSERT INTO patients (
+               identity_fingerprint, full_name, phone_normalized, phone_verified,
+               age_years, gender, updated_at
+             )
+             VALUES ($1, $2, $3, false, $4, $5, NOW())
+             ON CONFLICT (identity_fingerprint)
+             DO UPDATE SET full_name = EXCLUDED.full_name, updated_at = NOW()
+             RETURNING *`,
+            [fp, pName, syntheticPhone, pAge, pGender]
+          );
+          const patientRow = patientRes.rows[0];
+
+          const seqFromCode = Number.parseInt(codeParts[2] || '1', 10) || 1;
+          const seqNo = Number(ticketObj.sequenceNo || seqFromCode);
+          const entryDate = String(
+            rawEntry.queueDate || ticketObj.queueDate || queueDate
+          ).slice(0, 10);
+          const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            ticketId
+          )
+            ? ticketId
+            : crypto.randomUUID();
+          const tokenHash = hashAccessToken(
+            rawEntry.accessToken || crypto.randomUUID()
+          );
+
+          const insTicket = await client.query(
+            `INSERT INTO tickets (
+               id, public_code, department_id, patient_id, queue_date, sequence_no, queue_sort_order,
+               status, visit_type, preferred_lang, avoid_stairs, access_token_hash, request_id
+             )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             ON CONFLICT (department_id, queue_date, sequence_no) DO UPDATE
+               SET status = tickets.status
+             RETURNING *`,
+            [
+              validUuid,
+              publicCode,
+              dept.id,
+              patientRow.id,
+              entryDate,
+              seqNo,
+              seqNo,
+              status,
+              ticketObj.visitType || 'FIRST_VISIT',
+              ticketObj.preferredLang || 'en',
+              Boolean(rawEntry.avoidStairs ?? ticketObj.avoidStairs ?? true),
+              tokenHash,
+              `sync:${validUuid}`
+            ]
+          );
+          const restored = insTicket.rows[0];
+          restoredCount += 1;
+          syncedTickets.push(
+            formatOperationalSlip({
+              ticket: restored,
+              department: dept,
+              doctorStatusRow: { status: 'AVAILABLE', delay_minutes: 0 },
+              activeTicket: null,
+              peopleAheadWaiting: 0
+            })
+          );
+        }
+      });
+    } else {
+      for (const rawEntry of savedSlips) {
+        if (!rawEntry || typeof rawEntry !== 'object') continue;
+        const ticketObj = rawEntry.ticket || rawEntry;
+        const ticketId = String(rawEntry.ticketId || ticketObj.id || '').trim();
+        const publicCode = String(rawEntry.publicCode || ticketObj.publicCode || '')
+          .trim()
+          .toUpperCase();
+        if (!publicCode) continue;
+
+        const existing =
+          (ticketId && localStore.ticketsById.get(ticketId)) ||
+          Array.from(localStore.ticketsById.values()).find(
+            (t) =>
+              t.public_code.toUpperCase() === publicCode &&
+              ['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(t.status)
+          );
+
+        if (existing) {
+          const dept = localStore.departmentsById.get(existing.department_id);
+          if (dept) {
+            syncedTickets.push(buildLocalSlipSnapshot(existing, dept));
+          }
+          continue;
+        }
+
+        const status = String(rawEntry.status || ticketObj.status || 'WAITING').toUpperCase();
+        if (!['WAITING', 'CALLED', 'IN_CONSULTATION'].includes(status)) {
+          continue;
+        }
+
+        const deptSlug = String(
+          rawEntry.departmentSlug || ticketObj.department?.slug || 'general-medicine'
+        )
+          .trim()
+          .toLowerCase();
+        const codeParts = publicCode.split('-');
+        const prefixFromCode =
+          codeParts.length >= 3 ? codeParts[1].toUpperCase() : 'GEN';
+        const tokenPrefix = String(
+          rawEntry.departmentCode || ticketObj.department?.token_prefix || prefixFromCode
+        )
+          .trim()
+          .toUpperCase()
+          .slice(0, 5);
+
+        let dept =
+          resolveLocalDepartment(deptSlug) ||
+          Array.from(localStore.departmentsById.values()).find(
+            (d) => d.token_prefix === tokenPrefix
+          );
+
+        if (!dept) {
+          const newDeptId = ticketObj.department?.id || crypto.randomUUID();
+          const nowIso = new Date().toISOString();
+          const deptNameEn =
+            rawEntry.departmentName_en ||
+            ticketObj.department?.name_en ||
+            deptSlug;
+          const deptNameHi =
+            rawEntry.departmentName_hi ||
+            ticketObj.department?.name_hi ||
+            deptNameEn;
+          const roomLabel =
+            rawEntry.roomLabel || ticketObj.department?.room_label || 'Room 101';
+          const floorNumber = Number(
+            rawEntry.floorNumber ?? ticketObj.department?.floor_number ?? 1
+          );
+          const destNodeId =
+            rawEntry.destinationNodeId ||
+            ticketObj.department?.destination_node_id ||
+            'room_204_med';
+
+          dept = {
+            id: newDeptId,
+            slug: deptSlug,
+            token_prefix: tokenPrefix,
+            name_en: deptNameEn,
+            name_hi: deptNameHi,
+            doctor_name_en: ticketObj.department?.doctor_name_en || 'On-Duty Doctor',
+            doctor_name_hi: ticketObj.department?.doctor_name_hi || 'ड्यूटी डॉक्टर',
+            room_label: roomLabel,
+            floor_number: [1, 2, 3].includes(floorNumber) ? floorNumber : 1,
+            destination_node_id: getHospitalNodeById(destNodeId)
+              ? destNodeId
+              : 'room_204_med',
+            landmark_en: roomLabel,
+            landmark_hi: roomLabel,
+            average_consult_minutes: 10,
+            is_active: true,
+            created_at: nowIso
+          };
+          localStore.departmentsById.set(dept.id, dept);
+          localStore.departmentsBySlug.set(dept.slug, dept);
+          localStore.doctorStatusByDeptId.set(dept.id, {
+            department_id: dept.id,
+            status: 'AVAILABLE',
+            delay_minutes: 0,
+            updated_at: nowIso,
+            updated_by_session_id: null
+          });
+        }
+
+        const pSummary = rawEntry.patientSummary || ticketObj.patientSummary || {};
+        const pName = normalizePatientName(
+          pSummary.fullName || pSummary.name || 'Patient'
+        );
+        const rawAge = Number(pSummary.ageYears ?? pSummary.age);
+        const pAge = Number.isInteger(rawAge) && rawAge >= 0 ? rawAge : 30;
+        const pGender = ['FEMALE', 'MALE', 'OTHER', 'PREFER_NOT_TO_SAY'].includes(
+          pSummary.gender
+        )
+          ? pSummary.gender
+          : 'PREFER_NOT_TO_SAY';
+        const nowIso = new Date().toISOString();
+        const fp = crypto
+          .createHash('sha256')
+          .update(`sync-fp:${publicCode}:${pName}:${pAge}`, 'utf8')
+          .digest('hex');
+
+        let patientRow = localStore.patientsByFingerprint.get(fp);
+        if (!patientRow) {
+          patientRow = {
+            id: crypto.randomUUID(),
+            identity_fingerprint: fp,
+            full_name: pName,
+            phone_normalized: '9000000000',
+            phone_verified: false,
+            age_years: pAge,
+            gender: pGender,
+            hospital_reg_no: pSummary.registrationNumber || null,
+            created_at: nowIso,
+            updated_at: nowIso
+          };
+          localStore.patientsById.set(patientRow.id, patientRow);
+          localStore.patientsByFingerprint.set(fp, patientRow);
+        }
+
+        const seqFromCode = Number.parseInt(codeParts[2] || '1', 10) || 1;
+        const seqNo = Number(ticketObj.sequenceNo || seqFromCode);
+        const entryDate = String(
+          rawEntry.queueDate || ticketObj.queueDate || queueDate
+        ).slice(0, 10);
+        const restoredId = ticketId || crypto.randomUUID();
+        const tokenHash = hashAccessToken(
+          rawEntry.accessToken || crypto.randomUUID()
+        );
+
+        const counterKey = `${dept.id}:${entryDate}`;
+        const prevSeq = localStore.countersByDeptDate.get(counterKey) || 0;
+        if (seqNo > prevSeq) {
+          localStore.countersByDeptDate.set(counterKey, seqNo);
+        }
+
+        const restoredTicket = {
+          id: restoredId,
+          public_code: publicCode,
+          department_id: dept.id,
+          patient_id: patientRow.id,
+          identity_fingerprint: fp,
+          queue_date: entryDate,
+          sequence_no: seqNo,
+          queue_sort_order: seqNo,
+          status,
+          visit_type: ticketObj.visitType || 'FIRST_VISIT',
+          preferred_lang: ticketObj.preferredLang || 'en',
+          avoid_stairs: Boolean(rawEntry.avoidStairs ?? ticketObj.avoidStairs ?? true),
+          access_token_hash: tokenHash,
+          request_id: `sync:${restoredId}`,
+          cancel_reason: null,
+          requeued_count: Number(ticketObj.requeuedCount || 0),
+          last_requeued_at: null,
+          created_at: rawEntry.createdAt || ticketObj.createdAt || nowIso,
+          updated_at: nowIso,
+          called_at: status === 'CALLED' ? nowIso : null,
+          consultation_started_at: status === 'IN_CONSULTATION' ? nowIso : null,
+          completed_at: null
+        };
+
+        localStore.ticketsById.set(restoredId, restoredTicket);
+        restoredCount += 1;
+        syncedTickets.push(buildLocalSlipSnapshot(restoredTicket, dept));
+      }
+    }
+
+    if (restoredCount > 0) {
+      emitPostCommit((io) => {
+        const payload = {
+          eventType: 'TICKETS_SYNCED',
+          updatedAt: new Date().toISOString()
+        };
+        io.to('queue:all').emit('queue.updated', payload);
+        io.to('staff:all').emit('queue.updated', payload);
+      });
+    }
+
+    return { syncedTickets, restoredCount };
+  }
+
   return {
+    isInMemory: () => !usePostgres(),
+    getStorageBackend: () => (usePostgres() ? 'postgres' : 'memory'),
     setIoEmitter,
     listDepartments,
     createTicket,
@@ -2053,9 +3068,12 @@ export function createQueueService(options = {}) {
     callNextTicket,
     transitionTicketStatus,
     updateDoctorStatus,
+    createDepartment,
+    updateDepartment,
     createHelpRequest,
     listUrgentFlags,
-    updateUrgentFlagStatus
+    updateUrgentFlagStatus,
+    syncSavedSlips
   };
 }
 

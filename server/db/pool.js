@@ -213,3 +213,84 @@ export async function closePool() {
     activePoolStatus = null;
   }
 }
+
+/**
+ * Validates that an explicit, isolated TEST_DATABASE_URL is configured before running
+ * database-mutating integration tests. Never implicitly reuses DATABASE_URL.
+ */
+export function evaluateTestDatabaseConfig(envObj = process.env) {
+  const rawTestUrl = (envObj.TEST_DATABASE_URL || '').trim();
+  const rawAppUrl = (envObj.DATABASE_URL || '').trim();
+
+  if (!rawTestUrl) {
+    return {
+      ok: false,
+      reason: 'test_db_unconfigured',
+      message:
+        'Missing TEST_DATABASE_URL. Database-mutating integration tests require an explicitly configured isolated test database in TEST_DATABASE_URL and will never implicitly reuse DATABASE_URL.',
+      poolConfig: null,
+    };
+  }
+
+  const sanitizedTestUrl = sanitizeDatabaseUrl(rawTestUrl);
+  const sanitizedAppUrl = sanitizeDatabaseUrl(rawAppUrl);
+
+  if (sanitizedAppUrl && sanitizedTestUrl === sanitizedAppUrl) {
+    return {
+      ok: false,
+      reason: 'test_db_matches_app_db',
+      message:
+        'Unsafe TEST_DATABASE_URL: TEST_DATABASE_URL points to the same database as DATABASE_URL. Configure a separate isolated test database or branch for database integration tests.',
+      poolConfig: null,
+    };
+  }
+
+  return buildDatabasePoolConfig({
+    ...envObj,
+    DATABASE_URL: rawTestUrl,
+    DATABASE_SSL_MODE:
+      envObj.TEST_DATABASE_SSL_MODE || envObj.DATABASE_SSL_MODE || 'verify-full',
+    DATABASE_CA_CERT: envObj.TEST_DATABASE_CA_CERT || envObj.DATABASE_CA_CERT || '',
+    DATABASE_CA_CERT_PATH:
+      envObj.TEST_DATABASE_CA_CERT_PATH || envObj.DATABASE_CA_CERT_PATH || '',
+  });
+}
+
+/**
+ * Creates a dedicated Pool and transaction helper for TEST_DATABASE_URL.
+ */
+export function createTestDatabasePool(envObj = process.env) {
+  const evaluation = evaluateTestDatabaseConfig(envObj);
+  if (!evaluation.ok || !evaluation.poolConfig) {
+    const err = new Error(evaluation.message);
+    err.code = evaluation.reason.toUpperCase();
+    throw err;
+  }
+
+  const testPool = new Pool(evaluation.poolConfig);
+  testPool.on('error', (err) => {
+    console.error('[Test DB Pool Error]:', err.message);
+  });
+
+  async function runTestTransaction(callback) {
+    const client = await testPool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  return {
+    testPool,
+    evaluation,
+    runTestTransaction,
+    closeTestPool: () => testPool.end(),
+  };
+}

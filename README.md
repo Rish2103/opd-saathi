@@ -7,21 +7,25 @@
 
 ---
 
-## 1. Current Implementation Status (Phase 1.1 Release Readiness)
+## 1. Current Implementation Status (Phase 2.1 Hackathon Release)
 
 - **`main` (`4646bfb`):** Stable Phase 0 baseline (documentation suite, PostgreSQL schema/seed scripts, Express/Vite single-origin skeleton, strict TLS health check).
-- **`feature/phase-1-core-flow`:** Complete Phase 1 working core application + Phase 1.1 security hardening and teammate handoff:
-  - **Patient Registration & Digital OPD Slip:** Bilingual (`EN`/`HI`) + Assisted Mode (`Large Text`), 3-step registration with `sessionStorage` idempotent retry recovery (`10`-minute window), QR code (`/my-turn?code=OPD-GEN-001`), SpeechSynthesis Read Aloud, and Print layout.
-  - **Live Queue Board & `My Turn` Tracker:** Public lookup (`GET /api/slips/:publicCode`) with rate limiting, Socket.IO room invalidations (`queue:<deptId>`, `ticket:<id>`), and $\le 3$ ahead / `CALLED` alerts.
-  - **3-Floor Accessible Hospital Navigation:** Shared 19-node graph (`shared/navigation/hospitalGraph.json`), bidirectional Dijkstra pathfinding, and `Avoid Stairs` lift/ramp filter.
+- **`feature/phase-1-core-flow` (`df11056`):** Complete Phase 1 working core application + Phase 1.1 security hardening and teammate handoff.
+- **`feature/phase-2-signature-experience`:** Complete Phase 2.1 signature experience, interactive wayfinding, trilingual accessibility, and test-isolation safeguards:
+  - **Trilingual Accessibility (`EN` / `HI` / `TA`) & Assisted Mode:** Seamless language switching across English, Hindi (`हिंदी`), and Tamil (`தமிழ்`) with `Noto Sans Devanagari` and `Noto Sans Tamil` web fonts, plus one-tap `Large Text` high-contrast assisted mode.
+  - **Interactive 3-Floor SVG Hospital Map & Voice Wayfinding:** Schematic 3-floor SVG floorplan (`Floor 1`, `Floor 2`, `Floor 3`) driven by the shared 19-node hospital graph (`shared/navigation/hospitalGraph.json`) and bidirectional Dijkstra pathfinder. Supports clickable rooms, `Start Here` / `Go Here` selection, active route highlighting, `Avoid Stairs` lift/ramp filtering, and step-by-step `SpeechSynthesis` voice directions (`en-IN`, `hi-IN`, `ta-IN`).
+  - **Patient Registration & Print-Ready Digital OPD Slip:** 3-step registration with `sessionStorage` idempotent retry recovery (`10`-minute window), multi-slip persistence, QR code (`/my-turn?code=OPD-GEN-001`), SpeechSynthesis Read Aloud, and print-ready layout containing the token, destination landmark, and step-by-step route instructions.
+  - **Live Queue Board, `My Turn` Tracker & Audio Chimes:** Public lookup (`GET /api/slips/:publicCode`) with rate limiting, Socket.IO room invalidations (`queue:<deptId>`, `ticket:<id>`), and Web Audio API synthesized chimes (`Sound Alerts On/Off`, `Test Alert`) when $\le 3$ patients remain ahead or when `CALLED`.
   - **Pre-Registration Emergency & Triage Help:** Persistent Emergency bar (`108` / `112`), Room 101 Ground Floor Casualty routing, and `POST /api/help-requests` alerting staff (`staff:all`) for human assessment.
-  - **Staff PIN Desk & Queue Controls:** Environment-controlled PIN authentication (`STAFF_DEMO_PIN_HASH`), `httpOnly` sessions, CSRF `Origin` checks, `Call Next`, `Start`, `Complete`, `No-Show`, `Cancel`, `Requeue to Tail` (`TAIL_REQUEUE`), and Doctor Status/Delay broadcast.
-  - **Verification:** `42/42` automated tests passing (`npm test` + `npm run test:db`) and zero Vite production build errors (`npm run build`).
+  - **Staff PIN Desk, Department Management, All-Pending Slips & Urgent Audio Alerts:** Environment-controlled PIN authentication (`STAFF_DEMO_PIN_HASH`), `httpOnly` sessions, CSRF `Origin` checks, `Call Next`, `Start`, `Complete`, `No-Show`, `Cancel` (with inline reason selector), `Requeue to Tail` (`TAIL_REQUEUE`), cross-department **All Pending Slips** resolution panel (`GET /api/staff/pending-tickets`), dynamic **Add / Edit Department** management (`POST /api/staff/departments`, `PATCH /api/staff/departments/:id`), Doctor Status/Delay broadcast, urgent help-request audio chimes, and a live recent queue-activity history log.
+  - **Voice-Assisted Registration, Kiosk Mode & Warm Espresso Dark Mode:** Privacy-safe multilingual (`EN` / `HI` / `TA`) voice-guided registration (`RegistrationVoiceGuide`), dedicated hospital waiting-area Kiosk Mode (`?kiosk=1`), strict IST hospital-date (`Asia/Kolkata`) queue scoping so public board waiting counts and individual slip `peopleAheadWaiting` always match, and full WCAG-compliant Warm Cream Light / Warm Espresso Dark Mode (`[data-theme="dark"]`).
+  - **Verification:** `78 passed | 1 skipped` (`79 total`) automated tests in `npm test` using isolated in-memory stores (`forceInMemory: true` so default tests never mutate `DATABASE_URL`). Live PostgreSQL concurrency tests (`npm run test:db`) are guarded and intentionally skip unless a dedicated `TEST_DATABASE_URL` is configured. Zero Vite production build errors (`npm run build`).
 
 ---
 
-## 2. Documentation & Source of Truth
+## 2. Documentation, Pitch Deck & Source of Truth
 
+- **[`docs/PITCH_AND_DEMO.md`](./docs/PITCH_AND_DEMO.md):** **Hackathon Pitch Deck (6-slide outline) & 5-Minute Live Demo Script** — problem framing, signature features, architecture, and transparent disclosure of simulated vs. production scope.
 - **[`PROJECT_BIBLE.md`](./PROJECT_BIBLE.md):** Canonical index of approved decisions, shared enums, database invariants, and milestone status.
 - **[`docs/TEAM_HANDOFF.md`](./docs/TEAM_HANDOFF.md):** **Start here for teammates** — component ownership, frozen contracts, parallel branches, and PR checklist.
 - **[`OPD_Saathi_Technical_Plan.md`](./OPD_Saathi_Technical_Plan.md):** Original baseline technical plan (preserved unmodified).
@@ -88,6 +92,9 @@ npm run dev
 - **Backend API & Health:** `http://localhost:3000/api/health`
 
 ### 5. Build, Test & Database Concurrency Verification
+- **`npm test`** — Runs deterministic unit and application integration tests using isolated in-memory stores (`forceInMemory: true`). It never connects to or mutates your configured `DATABASE_URL`.
+- **`npm run test:db`** — Runs PostgreSQL concurrency and transaction tests. Live database mutation requires an explicitly configured, isolated `TEST_DATABASE_URL` (separate from `DATABASE_URL`) so production/demo data is never touched.
+- **`npm run build`** — Builds the production client bundle (`dist/`).
 ```powershell
 npm test
 npm run test:db

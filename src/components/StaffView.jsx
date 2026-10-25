@@ -1,19 +1,44 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  Building2,
   CheckCircle2,
   Clock,
   Lock,
   LogOut,
+  Pencil,
   Play,
+  Plus,
   RefreshCw,
   RotateCcw,
+  Search,
   ShieldAlert,
   UserCheck,
   UserMinus,
   Users,
+  Volume2,
+  VolumeX,
   XCircle
 } from 'lucide-react';
+import { playStaffUrgentChime } from '../utils/soundAlerts.js';
+import { getLocalizedDepartment } from '../i18n/translations.js';
+import hospitalGraph from '../../shared/navigation/hospitalGraph.json';
+
+const STAFF_SOUND_KEY = 'opd_staff_urgent_sound_enabled';
+const MAP_ROOM_NODES = (hospitalGraph?.nodes || []).filter((n) =>
+  ['opd_room', 'facility', 'waiting', 'desk'].includes(n.type)
+);
+
+function formatShortTimestamp(isoString) {
+  if (!isoString) return null;
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return null;
+  }
+}
 
 export default function StaffView({
   lang,
@@ -21,7 +46,11 @@ export default function StaffView({
   departments = [],
   staffAuth,
   setStaffAuth,
-  socketRef
+  socketRef,
+  onDepartmentsUpdated,
+  savedSlips = [],
+  onTicketMutated,
+  onSyncSavedSlips
 }) {
   const [pin, setPin] = useState('');
   const [authError, setAuthError] = useState(null);
@@ -34,11 +63,95 @@ export default function StaffView({
   const [urgentFlags, setUrgentFlags] = useState([]);
   const [loadingQueue, setLoadingQueue] = useState(false);
   const [actionBanner, setActionBanner] = useState(null);
+  const hasSyncedSavedSlipsRef = useRef(false);
+  const savedSlipsRef = useRef(savedSlips);
+  const onSyncSavedSlipsRef = useRef(onSyncSavedSlips);
+  const onDepartmentsUpdatedRef = useRef(onDepartmentsUpdated);
+
+  useEffect(() => {
+    savedSlipsRef.current = savedSlips;
+  }, [savedSlips]);
+
+  useEffect(() => {
+    onSyncSavedSlipsRef.current = onSyncSavedSlips;
+  }, [onSyncSavedSlips]);
+
+  useEffect(() => {
+    onDepartmentsUpdatedRef.current = onDepartmentsUpdated;
+  }, [onDepartmentsUpdated]);
+
+  // Staff Department Management State (Add / Edit OPD Department)
+  const [deptManagerMode, setDeptManagerMode] = useState(null); // null | 'add' | 'edit'
+  const [deptSaving, setDeptSaving] = useState(false);
+  const [deptForm, setDeptForm] = useState({
+    name_en: '',
+    name_hi: '',
+    token_prefix: '',
+    doctor_name_en: '',
+    doctor_name_hi: '',
+    room_label: '',
+    floor_number: 2,
+    destination_node_id: 'room_204_med',
+    landmark_en: '',
+    landmark_hi: '',
+    average_consult_minutes: 10
+  });
+
+  // Checkpoint 3: Staff Urgent Audio Chime Mute/Unmute
+  const [urgentSoundEnabled, setUrgentSoundEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem(STAFF_SOUND_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Checkpoint 4: Command Centre Search, Filter Tabs & Destructive Action Confirmation
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [pendingDestructiveAction, setPendingDestructiveAction] = useState(null);
 
   const [docStatusForm, setDocStatusForm] = useState({
     status: 'AVAILABLE',
     delayMinutes: 0
   });
+
+  function handleToggleUrgentSound() {
+    const nextValue = !urgentSoundEnabled;
+    setUrgentSoundEnabled(nextValue);
+    try {
+      window.localStorage.setItem(STAFF_SOUND_KEY, String(nextValue));
+    } catch {
+      // ignore storage errors
+    }
+    if (nextValue) {
+      playStaffUrgentChime();
+    }
+  }
+
+  // Deduplicated chime when genuinely new urgent help requests arrive
+  useEffect(() => {
+    if (!urgentFlags.length) return;
+    const newFlags = urgentFlags.filter((f) => f.status === 'NEW');
+    if (!newFlags.length) return;
+
+    let hasGenuinelyNewFlag = false;
+    for (const flag of newFlags) {
+      const storageKey = `opd_staff_alerted_flag_${flag.id}`;
+      try {
+        if (!window.localStorage.getItem(storageKey)) {
+          window.localStorage.setItem(storageKey, 'NEW');
+          hasGenuinelyNewFlag = true;
+        }
+      } catch {
+        hasGenuinelyNewFlag = true;
+      }
+    }
+
+    if (hasGenuinelyNewFlag && urgentSoundEnabled) {
+      playStaffUrgentChime();
+    }
+  }, [urgentFlags, urgentSoundEnabled]);
 
   const fetchStaffDashboard = useCallback(
     async (deptSlug = selectedDeptSlug) => {
@@ -98,6 +211,59 @@ export default function StaffView({
       }
     }
   }, [staffAuth.authenticated, selectedDeptSlug, fetchStaffDashboard, socketRef]);
+
+  // Automatically sync browser-saved pending slips with the backend queue once per staff login session
+  useEffect(() => {
+    if (!staffAuth.authenticated) {
+      hasSyncedSavedSlipsRef.current = false;
+      return undefined;
+    }
+    if (hasSyncedSavedSlipsRef.current) {
+      return undefined;
+    }
+
+    const slipsToSync = savedSlipsRef.current;
+    hasSyncedSavedSlipsRef.current = true;
+
+    if (!Array.isArray(slipsToSync) || slipsToSync.length === 0) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/staff/tickets/sync-saved', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ savedSlips: slipsToSync })
+        });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (Array.isArray(data.syncedTickets) && data.syncedTickets.length > 0) {
+            if (typeof onSyncSavedSlipsRef.current === 'function') {
+              onSyncSavedSlipsRef.current(data.syncedTickets);
+            }
+          }
+          if (data.restoredCount > 0) {
+            if (typeof onDepartmentsUpdatedRef.current === 'function') {
+              await onDepartmentsUpdatedRef.current();
+            }
+            await fetchStaffDashboard(selectedDeptSlug);
+          }
+        }
+      } catch {
+        // Ignore network errors during background sync
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [staffAuth.authenticated, fetchStaffDashboard, selectedDeptSlug]);
 
   // Listen for realtime staff & urgent flag events
   useEffect(() => {
@@ -173,6 +339,7 @@ export default function StaffView({
 
   async function executeStaffMutation(url, method = 'POST', body = {}) {
     setActionBanner(null);
+    setPendingDestructiveAction(null);
     try {
       const res = await fetch(url, {
         method,
@@ -200,6 +367,9 @@ export default function StaffView({
               ? `Updated ${data.ticket.publicCode} → ${data.ticket.status}`
               : 'Staff update applied.'
         });
+        if (data?.ticket && typeof onTicketMutated === 'function') {
+          onTicketMutated(data.ticket);
+        }
       }
       await fetchStaffDashboard(selectedDeptSlug);
     } catch (err) {
@@ -207,6 +377,126 @@ export default function StaffView({
         type: 'error',
         message: err.message || 'Network error while executing staff action.'
       });
+    }
+  }
+
+  function openAddDepartmentForm() {
+    setDeptForm({
+      name_en: '',
+      name_hi: '',
+      token_prefix: '',
+      doctor_name_en: '',
+      doctor_name_hi: '',
+      room_label: '',
+      floor_number: 2,
+      destination_node_id: 'room_204_med',
+      landmark_en: '',
+      landmark_hi: '',
+      average_consult_minutes: 10
+    });
+    setDeptManagerMode('add');
+  }
+
+  function openEditDepartmentForm() {
+    const currentDept =
+      departments.find((d) => d.slug === selectedDeptSlug) ||
+      queueData?.department ||
+      departments[0];
+    if (!currentDept) return;
+    setDeptForm({
+      name_en: currentDept.name_en || '',
+      name_hi: currentDept.name_hi || '',
+      token_prefix: currentDept.token_prefix || '',
+      doctor_name_en: currentDept.doctor_name_en || '',
+      doctor_name_hi: currentDept.doctor_name_hi || '',
+      room_label: currentDept.room_label || '',
+      floor_number: Number(currentDept.floor_number || 2),
+      destination_node_id: currentDept.destination_node_id || 'room_204_med',
+      landmark_en: currentDept.landmark_en || '',
+      landmark_hi: currentDept.landmark_hi || '',
+      average_consult_minutes: Number(currentDept.average_consult_minutes || 10)
+    });
+    setDeptManagerMode('edit');
+  }
+
+  async function handleSaveDepartment(e) {
+    e.preventDefault();
+    setDeptSaving(true);
+    setActionBanner(null);
+
+    try {
+      const isAdd = deptManagerMode === 'add';
+      const targetId = queueData?.department?.id || selectedDeptSlug;
+      const url = isAdd
+        ? '/api/staff/departments'
+        : `/api/staff/departments/${encodeURIComponent(targetId)}`;
+      const method = isAdd ? 'POST' : 'PATCH';
+
+      const payload = {
+        name_en: deptForm.name_en.trim(),
+        name_hi: (deptForm.name_hi || deptForm.name_en).trim(),
+        doctor_name_en: deptForm.doctor_name_en.trim(),
+        doctor_name_hi: (deptForm.doctor_name_hi || deptForm.doctor_name_en).trim(),
+        room_label: deptForm.room_label.trim(),
+        floor_number: Number(deptForm.floor_number || 2),
+        destination_node_id: deptForm.destination_node_id,
+        landmark_en: (deptForm.landmark_en || deptForm.room_label).trim(),
+        landmark_hi: (
+          deptForm.landmark_hi ||
+          deptForm.landmark_en ||
+          deptForm.room_label
+        ).trim(),
+        average_consult_minutes: Number(deptForm.average_consult_minutes || 10)
+      };
+
+      if (isAdd) {
+        payload.token_prefix = deptForm.token_prefix.trim().toUpperCase();
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setActionBanner({
+          type: 'error',
+          code: data?.error?.code || `HTTP_${res.status}`,
+          message:
+            data?.error?.message ||
+            'Could not save department settings. Please check the form fields.'
+        });
+        return;
+      }
+
+      const savedDept = data.department;
+      setDeptManagerMode(null);
+      setActionBanner({
+        type: 'success',
+        message: isAdd
+          ? `Added new OPD department: ${savedDept.name_en} (${savedDept.token_prefix})`
+          : `Updated department: ${savedDept.name_en} (${savedDept.room_label})`
+      });
+
+      if (typeof onDepartmentsUpdated === 'function') {
+        await onDepartmentsUpdated();
+      }
+      const nextSlug = savedDept?.slug || selectedDeptSlug;
+      setSelectedDeptSlug(nextSlug);
+      await fetchStaffDashboard(nextSlug);
+    } catch (err) {
+      setActionBanner({
+        type: 'error',
+        message: err.message || 'Network error while saving department.'
+      });
+    } finally {
+      setDeptSaving(false);
     }
   }
 
@@ -221,7 +511,10 @@ export default function StaffView({
             <Lock className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="staff-login-heading" className="text-xl font-extrabold text-ink-primary tracking-tight">
+            <h2
+              id="staff-login-heading"
+              className="text-xl font-extrabold text-ink-primary tracking-tight"
+            >
               {t.staff.loginTitle}
             </h2>
             <p className="text-xs sm:text-sm text-ink-secondary">{t.staff.loginDesc}</p>
@@ -277,7 +570,89 @@ export default function StaffView({
   const activeTicket = queueData?.activeTicket || null;
   const waitingTickets = queueData?.waitingTickets || [];
   const historyTickets = queueData?.historyTickets || [];
+  const allPendingTickets = queueData?.allPendingTickets || [];
+  const departmentCounts = queueData?.departmentCounts || {};
   const deptInfo = queueData?.department || {};
+
+  // Department Summary Counters
+  const completedCount = historyTickets.filter((x) => x.status === 'COMPLETED').length;
+  const noShowCount = historyTickets.filter((x) => x.status === 'NO_SHOW').length;
+  const cancelledCount = historyTickets.filter((x) => x.status === 'CANCELLED').length;
+
+  const normalizedQuery = searchQuery.trim().toUpperCase();
+
+  const matchesSearchQuery = (ticket) => {
+    if (!normalizedQuery) return true;
+    const codeMatch = String(ticket.public_code || '')
+      .toUpperCase()
+      .includes(normalizedQuery);
+    const nameMatch = String(ticket.patient_name || '')
+      .toUpperCase()
+      .includes(normalizedQuery);
+    const deptMatch = String(ticket.department_name_en || ticket.token_prefix || '')
+      .toUpperCase()
+      .includes(normalizedQuery);
+    return codeMatch || nameMatch || deptMatch;
+  };
+
+  const filteredWaitingTickets = waitingTickets.filter((ticket) => {
+    if (statusFilter !== 'ALL' && statusFilter !== 'WAITING') {
+      return false;
+    }
+    return matchesSearchQuery(ticket);
+  });
+
+  const filteredHistoryTickets = historyTickets.filter((ticket) => {
+    if (
+      statusFilter !== 'ALL' &&
+      statusFilter !== 'COMPLETED' &&
+      statusFilter !== 'NO_SHOW' &&
+      statusFilter !== 'CANCELLED'
+    ) {
+      return false;
+    }
+    if (
+      statusFilter === 'COMPLETED' ||
+      statusFilter === 'NO_SHOW' ||
+      statusFilter === 'CANCELLED'
+    ) {
+      if (ticket.status !== statusFilter) return false;
+    }
+    return matchesSearchQuery(ticket);
+  });
+
+  const filterTabs = [
+    {
+      id: 'ALL',
+      label: t.staff.filterAll || 'All Tickets',
+      count: waitingTickets.length + (activeTicket ? 1 : 0) + historyTickets.length
+    },
+    {
+      id: 'WAITING',
+      label: t.staff.filterWaiting || 'Waiting',
+      count: waitingTickets.length
+    },
+    {
+      id: 'ACTIVE',
+      label: t.staff.filterActive || 'Called / Active',
+      count: activeTicket ? 1 : 0
+    },
+    {
+      id: 'COMPLETED',
+      label: t.staff.filterCompleted || 'Completed',
+      count: completedCount
+    },
+    {
+      id: 'NO_SHOW',
+      label: t.staff.filterNoShow || 'No-Show',
+      count: noShowCount
+    },
+    {
+      id: 'CANCELLED',
+      label: t.staff.filterCancelled || 'Cancelled',
+      count: cancelledCount
+    }
+  ];
 
   return (
     <section
@@ -287,13 +662,39 @@ export default function StaffView({
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div>
-          <h2 id="staff-desk-heading" className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight">
+          <h2
+            id="staff-desk-heading"
+            className="text-xl sm:text-2xl font-extrabold text-ink-primary tracking-tight"
+          >
             {t.staff.title}
           </h2>
           <p className="text-xs sm:text-sm text-ink-secondary">{t.staff.subtitle}</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            data-testid="staff-sound-toggle-btn"
+            aria-pressed={urgentSoundEnabled}
+            onClick={handleToggleUrgentSound}
+            className={`touch-target inline-flex items-center justify-center gap-1.5 rounded-xl border font-bold px-3.5 py-2 text-xs sm:text-sm transition-colors ${
+              urgentSoundEnabled
+                ? 'bg-brand-primary text-white border-brand-primary'
+                : 'bg-canvas text-ink-primary border-border-strong hover:bg-subtle'
+            }`}
+          >
+            {urgentSoundEnabled ? (
+              <Volume2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <VolumeX className="w-4 h-4 shrink-0" aria-hidden="true" />
+            )}
+            <span>
+              {urgentSoundEnabled
+                ? t.staff.soundOnBtn || 'Urgent Chime: ON'
+                : t.staff.soundMutedBtn || 'Urgent Chime: Muted'}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => fetchStaffDashboard(selectedDeptSlug)}
@@ -310,7 +711,7 @@ export default function StaffView({
           <button
             type="button"
             onClick={handleLogout}
-            className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-red-50 text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm hover:bg-red-100 transition-colors"
+            className="touch-target col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-status-emergency bg-red-50 text-status-emergency font-bold px-3.5 py-2 text-xs sm:text-sm hover:bg-red-100 transition-colors"
           >
             <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{t.staff.logoutBtn}</span>
@@ -350,8 +751,62 @@ export default function StaffView({
         </div>
       )}
 
+      {/* Destructive Action Confirmation Modal/Bar (Checkpoint 4) */}
+      {pendingDestructiveAction && (
+        <div
+          role="alertdialog"
+          aria-labelledby="staff-confirm-heading"
+          data-testid="staff-destructive-confirm-bar"
+          className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-status-next flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
+        >
+          <div className="space-y-1">
+            <h3
+              id="staff-confirm-heading"
+              className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2"
+            >
+              <AlertTriangle className="w-5 h-5 text-status-next shrink-0" aria-hidden="true" />
+              <span>
+                {t.staff.confirmActionTitle || 'Confirm Status Change'}:{' '}
+                <span className="font-token">{pendingDestructiveAction.publicCode}</span>
+              </span>
+            </h3>
+            <p className="text-xs sm:text-sm text-ink-secondary">
+              {pendingDestructiveAction.description}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              data-testid="staff-confirm-destructive-btn"
+              onClick={() =>
+                executeStaffMutation(
+                  pendingDestructiveAction.url,
+                  pendingDestructiveAction.method,
+                  pendingDestructiveAction.body
+                )
+              }
+              className="touch-target px-4 py-2 rounded-xl bg-status-emergency text-white font-bold text-xs sm:text-sm shadow-xs"
+            >
+              {t.staff.confirmYesBtn || 'Confirm Action'}
+            </button>
+            <button
+              type="button"
+              data-testid="staff-cancel-destructive-btn"
+              onClick={() => setPendingDestructiveAction(null)}
+              className="btn-secondary px-3.5 py-2 text-xs sm:text-sm"
+            >
+              {t.staff.confirmCancelBtn || 'Keep Current Status'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Urgent Help & Triage Requests Panel */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-red-50/70 border border-red-200 space-y-3">
+      <div
+        data-testid="staff-urgent-panel"
+        className="p-4 sm:p-5 rounded-2xl bg-red-50/70 border border-red-200 space-y-3"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-extrabold text-sm sm:text-base text-status-emergency flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 shrink-0" aria-hidden="true" />
@@ -369,17 +824,33 @@ export default function StaffView({
             {urgentFlags.slice(0, 5).map((flag) => (
               <div
                 key={flag.id}
-                className="p-3.5 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs"
+                data-testid={`urgent-flag-card-${flag.id}`}
+                className={`p-3.5 rounded-xl bg-surface border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs ${
+                  flag.status === 'NEW'
+                    ? 'border-status-emergency ring-2 ring-status-emergency/20'
+                    : 'border-border-subtle'
+                }`}
               >
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-token font-extrabold px-2 py-0.5 rounded-md bg-subtle border border-border-strong text-xs">
+                    <span
+                      className={`font-token font-extrabold px-2 py-0.5 rounded-md text-xs ${
+                        flag.status === 'NEW'
+                          ? 'bg-status-emergency text-white'
+                          : 'bg-subtle border border-border-strong text-ink-primary'
+                      }`}
+                    >
                       {flag.status}
                     </span>
                     <strong className="text-ink-primary">{flag.location_label}</strong>
                     {flag.public_code && (
                       <span className="font-token font-extrabold text-brand-primary">
                         ({flag.public_code})
+                      </span>
+                    )}
+                    {flag.created_at && (
+                      <span className="text-[11px] font-mono text-ink-muted">
+                        {formatShortTimestamp(flag.created_at)}
                       </span>
                     )}
                   </div>
@@ -425,21 +896,84 @@ export default function StaffView({
       {/* Department Selector (2-Column Mobile Grid + Accessible Select) & Doctor Status Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-4 sm:p-5 rounded-2xl bg-subtle/80 border border-border-subtle space-y-3">
-          <label
-            htmlFor="staff-dept-select"
-            className="block text-xs sm:text-sm font-extrabold text-ink-primary"
-          >
-            {t.staff.selectDept}
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label
+              htmlFor="staff-dept-select"
+              className="block text-xs sm:text-sm font-extrabold text-ink-primary"
+            >
+              {t.staff.selectDept}
+            </label>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="staff-edit-dept-btn"
+                onClick={openEditDepartmentForm}
+                className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface border border-border-strong text-ink-primary text-xs font-bold hover:bg-canvas transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5 text-brand-teal shrink-0" aria-hidden="true" />
+                <span>{t.staff.editDeptBtn || 'Edit Dept'}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="staff-add-dept-btn"
+                onClick={openAddDepartmentForm}
+                className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-brand-primary text-white border border-brand-primary text-xs font-bold hover:opacity-95 transition-opacity"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{t.staff.addDeptBtn || 'Add Department'}</span>
+              </button>
+            </div>
+          </div>
 
           {/* 2-Column Mobile Quick Department Selector Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              type="button"
+              data-testid="staff-dept-btn-ALL"
+              aria-pressed={selectedDeptSlug === 'ALL'}
+              onClick={() => setSelectedDeptSlug('ALL')}
+              className={`touch-target p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                selectedDeptSlug === 'ALL'
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                  : 'bg-surface text-ink-primary border-border-subtle hover:border-brand-teal/50'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1 w-full">
+                <span
+                  className={`font-token text-[11px] font-extrabold px-1.5 py-0.5 rounded ${
+                    selectedDeptSlug === 'ALL'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-subtle text-brand-primary'
+                  }`}
+                >
+                  ALL
+                </span>
+                <span
+                  className={`font-token text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                    selectedDeptSlug === 'ALL'
+                      ? 'bg-white/20 text-white'
+                      : allPendingTickets.length > 0
+                      ? 'bg-amber-100 text-amber-900'
+                      : 'bg-subtle text-ink-muted'
+                  }`}
+                >
+                  {allPendingTickets.length} Pending
+                </span>
+              </div>
+              <span className="text-xs font-bold leading-snug line-clamp-1">
+                All Departments
+              </span>
+            </button>
+
             {departments.map((dept) => {
               const isSelected = selectedDeptSlug === dept.slug;
+              const deptPending = departmentCounts[dept.slug]?.totalPending || 0;
               return (
                 <button
                   key={dept.slug}
                   type="button"
+                  data-testid={`staff-dept-btn-${dept.slug}`}
                   aria-pressed={isSelected}
                   onClick={() => setSelectedDeptSlug(dept.slug)}
                   className={`touch-target p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
@@ -458,16 +992,28 @@ export default function StaffView({
                     >
                       {dept.token_prefix}
                     </span>
-                    <span
-                      className={`text-[10px] font-semibold truncate ${
-                        isSelected ? 'text-teal-200' : 'text-ink-muted'
-                      }`}
-                    >
-                      {dept.room_label}
-                    </span>
+                    {deptPending > 0 ? (
+                      <span
+                        className={`font-token text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                          isSelected
+                            ? 'bg-white/20 text-white'
+                            : 'bg-amber-100 text-amber-900'
+                        }`}
+                      >
+                        {deptPending} Pending
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-semibold truncate ${
+                          isSelected ? 'text-[#F5A623]' : 'text-ink-muted'
+                        }`}
+                      >
+                        {dept.room_label}
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs font-bold leading-snug line-clamp-1">
-                    {lang === 'hi' ? dept.name_hi : dept.name_en}
+                    {getLocalizedDepartment(dept, lang, t).name}
                   </span>
                 </button>
               );
@@ -480,12 +1026,19 @@ export default function StaffView({
             onChange={(e) => setSelectedDeptSlug(e.target.value)}
             className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2.5 text-xs sm:text-sm font-bold shadow-xs"
           >
-            {departments.map((dept) => (
-              <option key={dept.slug} value={dept.slug}>
-                [{dept.token_prefix}] {lang === 'hi' ? dept.name_hi : dept.name_en} (
-                {dept.room_label})
-              </option>
-            ))}
+            <option value="ALL">
+              [ALL] All Departments ({allPendingTickets.length} Pending)
+            </option>
+            {departments.map((dept) => {
+              const deptPending = departmentCounts[dept.slug]?.totalPending || 0;
+              return (
+                <option key={dept.slug} value={dept.slug}>
+                  [{dept.token_prefix}] {getLocalizedDepartment(dept, lang, t).name} (
+                  {dept.room_label})
+                  {deptPending > 0 ? ` — ${deptPending} Pending` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -527,6 +1080,7 @@ export default function StaffView({
 
               <button
                 type="button"
+                disabled={selectedDeptSlug === 'ALL'}
                 onClick={() =>
                   executeStaffMutation(
                     `/api/staff/departments/${encodeURIComponent(
@@ -545,6 +1099,564 @@ export default function StaffView({
         </div>
       </div>
 
+      {/* Staff Department Management Drawer / Panel (Add or Modify OPD Department) */}
+      {deptManagerMode && (
+        <form
+          onSubmit={handleSaveDepartment}
+          data-testid="staff-dept-manager-form"
+          className="p-4 sm:p-6 rounded-2xl bg-canvas border-2 border-brand-teal/60 shadow-sm space-y-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-brand-teal/15 text-brand-teal flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-ink-primary">
+                  {deptManagerMode === 'add'
+                    ? 'Add New OPD Department'
+                    : `Modify Department (${deptForm.token_prefix || selectedDeptSlug})`}
+                </h3>
+                <p className="text-xs text-ink-secondary">
+                  {deptManagerMode === 'add'
+                    ? 'Create a new OPD clinic with live token queue, doctor details, and indoor map routing.'
+                    : 'Update department name, assigned doctor, room number, floor, or consultation duration.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              data-testid="staff-dept-cancel-btn"
+              onClick={() => setDeptManagerMode(null)}
+              className="btn-secondary px-3 py-1.5 text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div>
+              <label
+                htmlFor="dept-name-en"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Department Name (English) *
+              </label>
+              <input
+                id="dept-name-en"
+                data-testid="dept-name-en-input"
+                type="text"
+                required
+                value={deptForm.name_en}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({ ...prev, name_en: e.target.value }))
+                }
+                placeholder="e.g. Cardiology"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-name-hi"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Department Name (Hindi / Optional)
+              </label>
+              <input
+                id="dept-name-hi"
+                data-testid="dept-name-hi-input"
+                type="text"
+                value={deptForm.name_hi}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({ ...prev, name_hi: e.target.value }))
+                }
+                placeholder="e.g. हृदय रोग विभाग"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-token-prefix"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Token Prefix (2–5 Letters) *
+              </label>
+              <input
+                id="dept-token-prefix"
+                data-testid="dept-prefix-input"
+                type="text"
+                required
+                maxLength={5}
+                disabled={deptManagerMode === 'edit'}
+                value={deptForm.token_prefix}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({
+                    ...prev,
+                    token_prefix: e.target.value.toUpperCase().replace(/[^A-Z]/g, '')
+                  }))
+                }
+                placeholder="e.g. CRD"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 font-token text-xs sm:text-sm font-extrabold uppercase disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-doctor-en"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Doctor Name (English) *
+              </label>
+              <input
+                id="dept-doctor-en"
+                data-testid="dept-doctor-en-input"
+                type="text"
+                required
+                value={deptForm.doctor_name_en}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({ ...prev, doctor_name_en: e.target.value }))
+                }
+                placeholder="e.g. Dr. Meera Nair"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-doctor-hi"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Doctor Name (Hindi / Optional)
+              </label>
+              <input
+                id="dept-doctor-hi"
+                data-testid="dept-doctor-hi-input"
+                type="text"
+                value={deptForm.doctor_name_hi}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({ ...prev, doctor_name_hi: e.target.value }))
+                }
+                placeholder="e.g. डॉ. मीरा नायर"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-room-label"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Room Label *
+              </label>
+              <input
+                id="dept-room-label"
+                data-testid="dept-room-input"
+                type="text"
+                required
+                value={deptForm.room_label}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({ ...prev, room_label: e.target.value }))
+                }
+                placeholder="e.g. Room 210"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-floor-select"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Floor Number *
+              </label>
+              <select
+                id="dept-floor-select"
+                data-testid="dept-floor-select"
+                value={deptForm.floor_number}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({
+                    ...prev,
+                    floor_number: Number(e.target.value)
+                  }))
+                }
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-bold"
+              >
+                <option value={1}>Floor 1 (Ground Floor)</option>
+                <option value={2}>Floor 2 (First Floor)</option>
+                <option value={3}>Floor 3 (Second Floor)</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-node-select"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Indoor Map Destination Node *
+              </label>
+              <select
+                id="dept-node-select"
+                data-testid="dept-node-select"
+                value={deptForm.destination_node_id}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({
+                    ...prev,
+                    destination_node_id: e.target.value
+                  }))
+                }
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-bold"
+              >
+                {MAP_ROOM_NODES.map((node) => (
+                  <option key={node.id} value={node.id}>
+                    [F{node.floor}] {node.name_en} ({node.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="dept-avg-consult"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Avg Consultation Time (mins) *
+              </label>
+              <input
+                id="dept-avg-consult"
+                data-testid="dept-avg-consult-input"
+                type="number"
+                min={1}
+                max={120}
+                required
+                value={deptForm.average_consult_minutes}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({
+                    ...prev,
+                    average_consult_minutes: Number(e.target.value || 10)
+                  }))
+                }
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 font-token text-xs sm:text-sm font-extrabold"
+              />
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label
+                htmlFor="dept-landmark-en"
+                className="block text-xs font-bold text-ink-primary mb-1"
+              >
+                Landmark / Corridor Directions (Optional)
+              </label>
+              <input
+                id="dept-landmark-en"
+                data-testid="dept-landmark-en-input"
+                type="text"
+                value={deptForm.landmark_en}
+                onChange={(e) =>
+                  setDeptForm((prev) => ({ ...prev, landmark_en: e.target.value }))
+                }
+                placeholder="e.g. Opposite Floor 2 Main Lift Lobby"
+                className="touch-target w-full rounded-xl border border-border-strong bg-surface px-3.5 py-2 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => setDeptManagerMode(null)}
+              className="btn-secondary px-4 py-2 text-xs sm:text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              data-testid="staff-dept-save-btn"
+              disabled={deptSaving}
+              className="btn-teal px-5 py-2.5 text-xs sm:text-sm"
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>
+                {deptSaving
+                  ? 'Saving…'
+                  : deptManagerMode === 'add'
+                  ? 'Create OPD Department'
+                  : 'Save Department Changes'}
+              </span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* All Pending OPD Slips Across Hospital Panel */}
+      {allPendingTickets.length > 0 && (
+        <div
+          data-testid="staff-all-pending-panel"
+          className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
+                <Users className="w-5 h-5 text-brand-primary shrink-0" aria-hidden="true" />
+                <span>
+                  All Pending OPD Slips Across Hospital ({allPendingTickets.length})
+                </span>
+              </h3>
+              <p className="text-xs text-ink-secondary mt-0.5">
+                View and resolve or manage all waiting, called, and active patient slips across every department.
+              </p>
+            </div>
+            <span className="font-token text-xs font-extrabold px-2.5 py-1 rounded-full bg-brand-primary text-white">
+              {allPendingTickets.length} Pending
+            </span>
+          </div>
+
+          <ul className="space-y-2.5">
+            {allPendingTickets.filter(matchesSearchQuery).map((ticket) => (
+              <li
+                key={`all-pending-${ticket.id}`}
+                data-testid={`all-pending-card-${ticket.public_code}`}
+                className="p-3.5 sm:p-4 rounded-xl bg-surface border border-border-subtle flex flex-col lg:flex-row lg:items-center justify-between gap-3 shadow-xs"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-token font-extrabold text-base text-ink-primary">
+                      {ticket.public_code}
+                    </span>
+                    <span
+                      className={`font-token text-xs font-extrabold px-2 py-0.5 rounded-md ${
+                        ticket.status === 'WAITING'
+                          ? 'bg-brand-primary text-white'
+                          : 'bg-status-serving text-white'
+                      }`}
+                    >
+                      {ticket.status}
+                    </span>
+                    {ticket.patient_name && (
+                      <span className="text-xs sm:text-sm font-extrabold text-ink-primary">
+                        · {ticket.patient_name}
+                        {ticket.patient_age ? ` (${ticket.patient_age}y)` : ''}
+                      </span>
+                    )}
+                    {ticket.department_name_en && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          ticket.department_slug &&
+                          setSelectedDeptSlug(ticket.department_slug)
+                        }
+                        className="font-token text-[11px] font-bold px-2 py-0.5 rounded-md bg-subtle border border-border-strong text-brand-primary hover:bg-canvas transition-colors"
+                      >
+                        [{ticket.token_prefix || 'OPD'}] {ticket.department_name_en}
+                        {ticket.room_label ? ` · ${ticket.room_label}` : ''}
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-xs font-medium text-ink-secondary">
+                    {ticket.visit_type || 'NEW'} · Sort #{ticket.queue_sort_order}
+                    {ticket.created_at && (
+                      <span className="ml-2 font-mono text-[11px] text-ink-muted">
+                        · Issued {formatShortTimestamp(ticket.created_at)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:flex flex-wrap items-center gap-2 shrink-0">
+                  {ticket.status === 'WAITING' && (
+                    <button
+                      type="button"
+                      data-testid={`all-pending-call-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(`/api/staff/tickets/${ticket.id}/call`)
+                      }
+                      className="btn-primary px-3 py-2 text-xs"
+                    >
+                      <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Call Patient</span>
+                    </button>
+                  )}
+
+                  {ticket.status === 'CALLED' && (
+                    <button
+                      type="button"
+                      data-testid={`all-pending-start-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(`/api/staff/tickets/${ticket.id}/start`)
+                      }
+                      className="btn-teal px-3 py-2 text-xs"
+                    >
+                      <UserCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Start Consult</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    data-testid={`all-pending-resolve-btn-${ticket.public_code}`}
+                    onClick={() =>
+                      executeStaffMutation(`/api/staff/tickets/${ticket.id}/resolve`)
+                    }
+                    className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-serving text-white font-bold px-3 py-2 text-xs shadow-xs"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Resolve / Complete</span>
+                  </button>
+
+                  {['WAITING', 'CALLED'].includes(ticket.status) && (
+                    <button
+                      type="button"
+                      data-testid={`all-pending-noshow-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(`/api/staff/tickets/${ticket.id}/no-show`)
+                      }
+                      className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-next text-white font-bold px-3 py-2 text-xs shadow-xs"
+                    >
+                      <UserMinus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>No-Show</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    data-testid={`all-pending-cancel-btn-${ticket.public_code}`}
+                    onClick={() =>
+                      executeStaffMutation(
+                        `/api/staff/tickets/${ticket.id}/cancel`,
+                        'POST',
+                        { cancelReason: 'PATIENT_LEFT' }
+                      )
+                    }
+                    className="touch-target inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold text-xs hover:bg-red-50 transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{t.staff.cancelBtn}</span>
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* CHECKPOINT 4: Department Summary Counters, Search by Token Code & Filter Tabs */}
+      <div
+        data-testid="staff-summary-counters"
+        className="grid grid-cols-2 sm:grid-cols-5 gap-2.5"
+      >
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterWaiting || 'Waiting'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-brand-primary mt-0.5">
+            {waitingTickets.length}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterActive || 'Called / Active'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-status-serving mt-0.5">
+            {activeTicket ? 1 : 0}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterCompleted || 'Completed'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-brand-teal mt-0.5">
+            {completedCount}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterNoShow || 'No-Show'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-status-next mt-0.5">
+            {noShowCount}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-canvas border border-border-subtle col-span-2 sm:col-span-1">
+          <div className="text-[11px] font-bold uppercase text-ink-muted">
+            {t.staff.filterCancelled || 'Cancelled'}
+          </div>
+          <div className="font-token text-xl font-extrabold text-status-emergency mt-0.5">
+            {cancelledCount}
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Status Filter Bar */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-subtle/70 border border-border-subtle space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="relative flex-1">
+            <Search
+              className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              data-testid="staff-token-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={
+                t.staff.searchPlaceholder || 'Search by token code (e.g. OPD-GEN-001)…'
+              }
+              aria-label={
+                t.staff.searchPlaceholder || 'Search by token code (e.g. OPD-GEN-001)…'
+              }
+              className="touch-target w-full rounded-xl border border-border-strong bg-surface pl-10 pr-4 py-2 text-xs sm:text-sm font-token font-bold uppercase"
+            />
+          </div>
+          {searchQuery && (
+            <button
+              type="button"
+              data-testid="staff-token-search-clear"
+              onClick={() => setSearchQuery('')}
+              className="btn-secondary px-3 py-2 text-xs"
+            >
+              {t.staff.clearSearchBtn || 'Clear Search'}
+            </button>
+          )}
+        </div>
+
+        <div
+          role="tablist"
+          aria-label="Queue Status Filter"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {filterTabs.map((tab) => {
+            const active = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-testid={`staff-filter-tab-${tab.id}`}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`touch-target px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all inline-flex items-center gap-1.5 ${
+                  active
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-xs'
+                    : 'bg-surface text-ink-primary border-border-subtle hover:bg-canvas'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={`font-token px-1.5 py-0.5 rounded text-[11px] ${
+                    active ? 'bg-white/20 text-white' : 'bg-subtle text-ink-secondary'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Active Patient Card & Full-Width Mobile Call Next Button */}
       <div className="p-4 sm:p-5 rounded-2xl bg-canvas border border-border-subtle space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -556,11 +1668,15 @@ export default function StaffView({
             type="button"
             data-testid="staff-call-next-btn"
             disabled={Boolean(activeTicket) || waitingTickets.length === 0}
-            onClick={() =>
+            onClick={() => {
+              const targetDept =
+                selectedDeptSlug === 'ALL'
+                  ? waitingTickets[0]?.department_slug || departments[0]?.slug
+                  : selectedDeptSlug;
               executeStaffMutation(
-                `/api/staff/queues/${encodeURIComponent(selectedDeptSlug)}/call-next`
-              )
-            }
+                `/api/staff/queues/${encodeURIComponent(targetDept)}/call-next`
+              );
+            }}
             className="btn-primary w-full sm:w-auto px-5 py-3 text-sm sm:text-base"
           >
             <Play className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -577,24 +1693,41 @@ export default function StaffView({
           >
             {/* Row 1: Token Identity & Status Metadata */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="font-token text-2xl sm:text-3xl font-extrabold text-ink-primary">
                   {activeTicket.public_code}
                 </div>
                 <span className="font-token text-xs font-extrabold px-2.5 py-1 rounded-full bg-status-serving text-white">
                   {activeTicket.status}
                 </span>
+                {activeTicket.patient_name && (
+                  <span className="text-sm sm:text-base font-extrabold text-ink-primary">
+                    · {activeTicket.patient_name}
+                    {activeTicket.patient_age ? ` (${activeTicket.patient_age}y)` : ''}
+                  </span>
+                )}
+                {activeTicket.department_name_en && (
+                  <span className="font-token text-xs font-bold px-2 py-0.5 rounded-md bg-surface border border-border-strong text-brand-primary">
+                    [{activeTicket.token_prefix || 'OPD'}] {activeTicket.department_name_en}
+                    {activeTicket.room_label ? ` · ${activeTicket.room_label}` : ''}
+                  </span>
+                )}
               </div>
               <div className="text-xs sm:text-sm font-bold text-ink-secondary">
                 Status: {activeTicket.status} · {activeTicket.visit_type}
+                {activeTicket.called_at && (
+                  <span className="ml-2 font-mono text-xs">
+                    · Called {formatShortTimestamp(activeTicket.called_at)}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Row 2: Full-Width Multi-Column Action Footer (Never Clips at 360px) */}
+            {/* Row 2: Full-Width Multi-Column Action Footer */}
             <div
               className={`grid gap-2.5 ${
                 activeTicket.status === 'CALLED'
-                  ? 'grid-cols-1 sm:grid-cols-3'
+                  ? 'grid-cols-1 sm:grid-cols-4'
                   : 'grid-cols-1 sm:grid-cols-2'
               }`}
             >
@@ -612,6 +1745,20 @@ export default function StaffView({
                   >
                     <UserCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{t.staff.startConsultBtn}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="staff-resolve-active-btn"
+                    onClick={() =>
+                      executeStaffMutation(
+                        `/api/staff/tickets/${activeTicket.id}/resolve`
+                      )
+                    }
+                    className="touch-target w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-serving text-white font-bold px-4 py-2.5 text-xs sm:text-sm shadow-xs"
+                  >
+                    <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>Resolve / Complete</span>
                   </button>
 
                   <button
@@ -676,29 +1823,46 @@ export default function StaffView({
           <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
             <Users className="w-4 h-4 text-brand-primary shrink-0" aria-hidden="true" />
             <span>
-              {t.staff.waitingHeading} ({waitingTickets.length})
+              {t.staff.waitingHeading} ({filteredWaitingTickets.length})
             </span>
           </h3>
 
-          {waitingTickets.length === 0 ? (
+          {filteredWaitingTickets.length === 0 ? (
             <div className="p-4 rounded-2xl bg-subtle border border-border-subtle text-xs font-medium text-ink-secondary">
-              No waiting patients in this department.
+              No waiting patients match the current filter.
             </div>
           ) : (
             <ul className="space-y-2.5">
-              {waitingTickets.map((ticket, index) => (
+              {filteredWaitingTickets.map((ticket, index) => (
                 <li
                   key={ticket.id}
-                  className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-token text-xs font-extrabold px-2 py-0.5 rounded-md bg-brand-primary text-white">
                         #{index + 1}
                       </span>
                       <span className="font-token font-extrabold text-base text-ink-primary">
                         {ticket.public_code}
                       </span>
+                      {ticket.patient_name && (
+                        <span className="text-xs sm:text-sm font-extrabold text-ink-primary">
+                          · {ticket.patient_name}
+                          {ticket.patient_age ? ` (${ticket.patient_age}y)` : ''}
+                        </span>
+                      )}
+                      {ticket.department_name_en && (
+                        <span className="font-token text-[11px] font-bold px-2 py-0.5 rounded-md bg-subtle border border-border-strong text-brand-primary">
+                          [{ticket.token_prefix || 'OPD'}] {ticket.department_name_en}
+                          {ticket.room_label ? ` (${ticket.room_label})` : ''}
+                        </span>
+                      )}
+                      {ticket.created_at && (
+                        <span className="text-[11px] font-mono text-ink-muted">
+                          {formatShortTimestamp(ticket.created_at)}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs font-medium text-ink-secondary mt-1">
                       {ticket.visit_type} · Sort #{ticket.queue_sort_order}
@@ -708,19 +1872,59 @@ export default function StaffView({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      executeStaffMutation(
-                        `/api/staff/tickets/${ticket.id}/cancel`,
-                        'POST',
-                        { cancelReason: 'PATIENT_LEFT' }
-                      )
-                    }
-                    className="touch-target w-full sm:w-auto px-3.5 py-2 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold text-xs hover:bg-red-50 transition-colors"
-                  >
-                    {t.staff.cancelBtn}
-                  </button>
+                  <div className="grid grid-cols-2 sm:flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      data-testid={`waiting-call-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(`/api/staff/tickets/${ticket.id}/call`)
+                      }
+                      className="btn-primary px-3 py-2 text-xs"
+                    >
+                      <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Call Patient</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-testid={`waiting-resolve-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(`/api/staff/tickets/${ticket.id}/resolve`)
+                      }
+                      className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-serving text-white font-bold px-3 py-2 text-xs shadow-xs"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Resolve / Complete</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-testid={`waiting-noshow-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(`/api/staff/tickets/${ticket.id}/no-show`)
+                      }
+                      className="touch-target inline-flex items-center justify-center gap-1.5 rounded-xl bg-status-next text-white font-bold px-3 py-2 text-xs shadow-xs"
+                    >
+                      <UserMinus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>No-Show</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-testid={`waiting-cancel-btn-${ticket.public_code}`}
+                      onClick={() =>
+                        executeStaffMutation(
+                          `/api/staff/tickets/${ticket.id}/cancel`,
+                          'POST',
+                          { cancelReason: 'PATIENT_LEFT' }
+                        )
+                      }
+                      className="touch-target inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-status-emergency bg-surface text-status-emergency font-bold text-xs hover:bg-red-50 transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{t.staff.cancelBtn}</span>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -731,29 +1935,54 @@ export default function StaffView({
           <h3 className="font-extrabold text-sm sm:text-base text-ink-primary flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-brand-teal shrink-0" aria-hidden="true" />
             <span>
-              {t.staff.historyHeading} ({historyTickets.length})
+              {t.staff.historyHeading} ({filteredHistoryTickets.length})
             </span>
           </h3>
 
-          {historyTickets.length === 0 ? (
+          {filteredHistoryTickets.length === 0 ? (
             <div className="p-4 rounded-2xl bg-subtle border border-border-subtle text-xs font-medium text-ink-secondary">
-              No completed, no-show, or cancelled tickets yet today.
+              No completed, no-show, or cancelled tickets match the current filter.
             </div>
           ) : (
             <ul className="space-y-2.5">
-              {historyTickets.slice(0, 10).map((ticket) => (
+              {filteredHistoryTickets.slice(0, 15).map((ticket) => (
                 <li
                   key={ticket.id}
                   className="p-3.5 sm:p-4 rounded-2xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-token font-extrabold text-base text-ink-primary">
                         {ticket.public_code}
                       </span>
-                      <span className="font-token text-xs font-bold px-2 py-0.5 rounded-md bg-surface border border-border-strong">
+                      <span
+                        className={`font-token text-xs font-bold px-2 py-0.5 rounded-md border ${
+                          ticket.status === 'COMPLETED'
+                            ? 'bg-emerald-50 text-status-serving border-emerald-200'
+                            : ticket.status === 'NO_SHOW'
+                            ? 'bg-amber-50 text-status-next border-amber-200'
+                            : 'bg-red-50 text-status-emergency border-red-200'
+                        }`}
+                      >
                         {ticket.status}
                       </span>
+                      {ticket.patient_name && (
+                        <span className="text-xs sm:text-sm font-extrabold text-ink-primary">
+                          · {ticket.patient_name}
+                        </span>
+                      )}
+                      {ticket.token_prefix && (
+                        <span className="font-token text-[11px] font-bold px-1.5 py-0.5 rounded bg-subtle text-brand-primary">
+                          [{ticket.token_prefix}]
+                        </span>
+                      )}
+                      {(ticket.completed_at || ticket.cancelled_at || ticket.no_show_at) && (
+                        <span className="text-[11px] font-mono text-ink-muted">
+                          {formatShortTimestamp(
+                            ticket.completed_at || ticket.cancelled_at || ticket.no_show_at
+                          )}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs font-medium text-ink-secondary mt-1">
                       Sort #{ticket.queue_sort_order} · Requeued: {ticket.requeued_count}

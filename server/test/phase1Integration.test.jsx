@@ -602,6 +602,186 @@ describe('Phase 1 — Frontend UI Components & Bilingual Rendering', () => {
     expect(normalizeClientPhone('09876543210')).toBe('9876543210');
     expect(normalizeClientPhone('12345')).toBeNull();
   });
+
+  it('supports Tamil (ta) language selector and renders Tamil labels across all 4 OPD departments, slips, My Turn, 3-floor navigation, staff desk, and emergency help', () => {
+    const fourDepartments = [
+      {
+        id: '11111111-1111-4111-8111-111111111101',
+        slug: 'general-medicine',
+        token_prefix: 'GEN',
+        name_en: 'General Medicine',
+        name_hi: 'सामान्य चिकित्सा (General Medicine)',
+        doctor_name: 'Dr. A. K. Verma',
+        doctor_name_hi: 'डॉ. ए. के. वर्मा',
+        room_label: 'Room 204',
+        floor_number: 2,
+        destination_node_id: 'room_204_med',
+        landmark_en: 'Near Floor 2 Waiting Area, Left Wing',
+        landmark_hi: 'द्वितीय तल प्रतीक्षालय के पास, बायाँ विंग'
+      },
+      {
+        id: '11111111-1111-4111-8111-111111111102',
+        slug: 'paediatrics',
+        token_prefix: 'PED',
+        name_en: 'Paediatrics (Child Care)',
+        name_hi: 'बाल रोग विभाग (Paediatrics)',
+        doctor_name: 'Dr. R. Sharma',
+        doctor_name_hi: 'डॉ. आर. शर्मा',
+        room_label: 'Room 208',
+        floor_number: 2,
+        destination_node_id: 'room_208_ped',
+        landmark_en: 'Opposite Mother & Child Care Corner, Floor 2 Right Wing',
+        landmark_hi: 'मातृ एवं शिशु देखभाल कॉर्नर के सामने, तल 2 दायाँ विंग'
+      },
+      {
+        id: '11111111-1111-4111-8111-111111111103',
+        slug: 'orthopaedics',
+        token_prefix: 'ORT',
+        name_en: 'Orthopaedics (Bone & Joint)',
+        name_hi: 'हड्डी एवं जोड़ रोग (Orthopaedics)',
+        doctor_name: 'Dr. S. Nair',
+        doctor_name_hi: 'डॉ. एस. नायर',
+        room_label: 'Room 302',
+        floor_number: 3,
+        destination_node_id: 'room_302_ort',
+        landmark_en: 'Near Physiotherapy Wing, Floor 3 Left Corridor',
+        landmark_hi: 'फिजियोथेरेपी विंग के पास, तल 3 बायाँ गलियारा'
+      },
+      {
+        id: '11111111-1111-4111-8111-111111111104',
+        slug: 'ophthalmology',
+        token_prefix: 'EYE',
+        name_en: 'Ophthalmology (Eye OPD)',
+        name_hi: 'नेत्र रोग विभाग (आँखों का ओपीडी)',
+        doctor_name: 'Dr. P. Kulkarni',
+        doctor_name_hi: 'डॉ. पी. कुलकर्णी',
+        room_label: 'Room 305',
+        floor_number: 3,
+        destination_node_id: 'room_305_eye',
+        landmark_en: 'Opposite Eye Chart Display, Floor 3 Right Wing',
+        landmark_hi: 'आई चार्ट बोर्ड के सामने, तल 3 दायाँ विंग'
+      }
+    ];
+
+    // 1. App shell & Registration Step 1 in Tamil with all 4 departments
+    const appTaRegHtml = renderToStaticMarkup(
+      <App
+        disableSockets={true}
+        initialLang="ta"
+        initialView="register"
+        initialRegStep={1}
+        initialDepartments={fourDepartments}
+      />
+    );
+    expect(appTaRegHtml).toContain('lang="ta"');
+    expect(appTaRegHtml).toContain('font-tamil');
+    expect(appTaRegHtml).toContain('data-testid="language-selector"');
+    expect(appTaRegHtml).toContain('data-testid="lang-select-en"');
+    expect(appTaRegHtml).toContain('data-testid="lang-select-hi"');
+    expect(appTaRegHtml).toContain('data-testid="lang-select-ta"');
+    expect(appTaRegHtml).toContain('தமிழ்');
+    expect(appTaRegHtml).toContain('பொது மருத்துவம் (General Medicine)');
+    expect(appTaRegHtml).toContain('குழந்தைகள் நலப் பிரிவு (Paediatrics)');
+    expect(appTaRegHtml).toContain('எலும்பு மற்றும் மூட்டு சிகிச்சை (Orthopaedics)');
+    expect(appTaRegHtml).toContain('கண் சிகிச்சைப் பிரிவு (Ophthalmology)');
+    expect(appTaRegHtml).toContain('டாக்டர் ஏ. கே. வர்மா');
+    expect(appTaRegHtml).toContain('டாக்டர் பி. குல்கர்னி');
+    expect(appTaRegHtml).toContain('தளம் 2 (முதல் தளம் / First Floor)');
+    expect(appTaRegHtml).toContain('தளம் 3 (இரண்டாம் தளம் / Second Floor)');
+
+    // 2. Digital OPD Slip in Tamil
+    const slipTaHtml = renderToStaticMarkup(
+      <SlipView
+        lang="ta"
+        t={TRANSLATIONS.ta}
+        slip={{ ...sampleSlip, preferredLang: 'ta' }}
+        onOpenMyTurn={() => {}}
+        onOpenDirections={() => {}}
+        onRegisterNew={() => {}}
+      />
+    );
+    expect(slipTaHtml).toContain('பொது மருத்துவம் (General Medicine)');
+    expect(slipTaHtml).toContain('டாக்டர் ஏ. கே. வர்மா');
+    expect(slipTaHtml).toContain('சீட்டை சத்தமாக வாசிக்கவும்');
+    expect(slipTaHtml).toContain('சீட்டை அச்சிடுக (Print)');
+    expect(slipTaHtml).toContain('லிஃப்ட் &amp; சாய்வுதளம் மட்டும் (படிக்கட்டுகள் இல்லை)');
+
+    // 3. MyTurnView in Tamil
+    const myTurnTaHtml = renderToStaticMarkup(
+      <MyTurnView
+        lang="ta"
+        t={TRANSLATIONS.ta}
+        lookupCode="OPD-GEN-001"
+        setLookupCode={() => {}}
+        trackedSlip={sampleSlip}
+        loading={false}
+        error={null}
+        lastVerifiedAt="10:30:00 AM"
+        connectionState="live"
+        savedLocalSlip={sampleSlip}
+        onLookupCode={() => {}}
+        onOpenDirections={() => {}}
+      />
+    );
+    expect(myTurnTaHtml).toContain('பொது மருத்துவம் (General Medicine)');
+    expect(myTurnTaHtml).toContain('தயாராக இருங்கள் — உங்கள் முறை நெருங்குகிறது!');
+
+    // 4. NavigationView in Tamil
+    const navTaHtml = renderToStaticMarkup(
+      <NavigationView
+        lang="ta"
+        t={TRANSLATIONS.ta}
+        routeQuery={{
+          fromNodeId: 'registration_desk',
+          toNodeId: 'room_305_eye',
+          avoidStairs: true
+        }}
+        setRouteQuery={() => {}}
+      />
+    );
+    expect(navTaHtml).toContain('மருத்துவமனை உள் வழிகாட்டி (3 தளங்கள்)');
+    expect(navTaHtml).toContain('படிக்கட்டுகளைத் தவிர்க்கவும் — லிஃப்ட் &amp; சாய்வுதளம் மட்டும்');
+    expect(navTaHtml).toContain('அறை 305 — கண் சிகிச்சைப் பிரிவு (OPD)');
+    expect(navTaHtml).toContain('ஓபிடி பதிவு மற்றும் உதவி மையம்');
+
+    // 5. StaffView & EmergencyModal in Tamil
+    const staffTaHtml = renderToStaticMarkup(
+      <StaffView
+        lang="ta"
+        t={TRANSLATIONS.ta}
+        departments={fourDepartments}
+        staffAuth={{ authenticated: true, loginAt: '2026-10-24T00:00:00.000Z' }}
+        setStaffAuth={() => {}}
+        socketRef={{ current: null }}
+      />
+    );
+    expect(staffTaHtml).toContain('ஓபிடி பணியாளர் வரிசை மற்றும் கட்டுப்பாட்டு மையம்');
+    expect(staffTaHtml).toContain('அடுத்த நோயாளியை அழைக்கவும்');
+    expect(staffTaHtml).toContain('கண் சிகிச்சைப் பிரிவு (Ophthalmology)');
+
+    const emergencyTaHtml = renderToStaticMarkup(
+      <EmergencyModal
+        dialogRef={{ current: null }}
+        lang="ta"
+        t={TRANSLATIONS.ta}
+        onClose={() => {}}
+        onNavigateToEmergency={() => {}}
+      />
+    );
+    expect(emergencyTaHtml).toContain('மருத்துவ அவசரநிலை மற்றும் உடனடி உதவி');
+    expect(emergencyTaHtml).toContain('108 ஆம்புலன்ஸ் அழைக்க');
+
+    // Verify no raw translation keys leak and all Tamil buttons have text
+    const combinedTaHtml = [
+      appTaRegHtml,
+      slipTaHtml,
+      myTurnTaHtml,
+      navTaHtml,
+      staffTaHtml,
+      emergencyTaHtml
+    ].join(' ');
+    expect(combinedTaHtml).not.toMatch(/\b(navigation|department|register|emergency)\.[a-zA-Z]+\b/);
+  });
 });
 
 describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => {
@@ -612,6 +792,7 @@ describe('Phase 1 — End-to-End HTTP + Socket.IO Realtime Verification', () => 
 
   beforeEach(async () => {
     const queueService = createQueueService({
+      forceInMemory: true,
       getHospitalDateIST: () => '2026-10-24'
     });
     const app = createApp({
